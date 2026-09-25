@@ -2,7 +2,7 @@ import { useFrame } from '@react-three/fiber'
 import { useRef } from 'react'
 import type { Group } from 'three'
 import { useInputStore } from '../input/inputStore'
-import { heightAt } from '../world/heightfield'
+import { surfaceHeightAt } from '../world/heightfield'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import { useFlightStore } from './flightStore'
 import { PlaneModel } from './PlaneModel'
@@ -21,7 +21,7 @@ export function Plane({ paused }: PlaneProps) {
     if (paused) return
     const input = useInputStore.getState().current
     const { position } = useFlightStore.getState().state
-    const groundHeight = heightAt(position.x, position.z, TERRAIN_CONFIG)
+    const groundHeight = surfaceHeightAt(position.x, position.z, TERRAIN_CONFIG)
     useFlightStore.getState().tick(input, delta, groundHeight)
 
     const group = groupRef.current

@@ -35,6 +35,7 @@ All values live in `src/styles/tokens.ts` (`color`) and `src/styles/tokens.css`
 | `sun` | `#f8b968` | Sun disc and warm key-light tint |
 | `grass-light` | `#b7a35e` | Grassland, lit face — sun-baked gold-olive |
 | `grass-shadow` | `#6d5a3a` | Grassland, shadow face — muted umber |
+| `sand` | `#cdb48a` | Beaches and riverbanks at the waterline, pale warm sand |
 | `rock` | `#a3907b` | Cliffs and mountains, warm taupe |
 | `snow` | `#f6ead9` | Snowcaps, warm cream catching the sunset glow |
 | `water-shallow` | `#7fa79c` | Water, shallow/lit — dusty muted teal |

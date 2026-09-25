@@ -7,6 +7,7 @@ const COLOR_ROWS: Array<{ label: string; token: string; value: string }> = [
   { label: 'sun', token: 'sun', value: color.sun },
   { label: 'grass-light', token: 'grassLight', value: color.grassLight },
   { label: 'grass-shadow', token: 'grassShadow', value: color.grassShadow },
+  { label: 'sand', token: 'sand', value: color.sand },
   { label: 'rock', token: 'rock', value: color.rock },
   { label: 'snow', token: 'snow', value: color.snow },
   { label: 'water-shallow', token: 'waterShallow', value: color.waterShallow },
