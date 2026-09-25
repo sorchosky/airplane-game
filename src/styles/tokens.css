@@ -1,12 +1,41 @@
+/* Google Fonts, self-hosted-equivalent via the Fonts API CDN. Both are
+   licensed under the SIL Open Font License 1.1 (free for commercial use,
+   no attribution required). See docs/art-direction.md for the rationale. */
+@import url('https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@600&family=Work+Sans:wght@400;500&display=swap');
+
 :root {
-  --color-sky: #7ec8e3;
-  --color-ground: #3f7d4a;
-  --color-accent: #ff8c42;
-  --color-text-primary: #1a2330;
-  --color-text-on-dark: #f5f7fa;
-  --color-surface-hud: rgba(11, 18, 32, 0.6);
-  --color-control-active: #3ddc84;
-  --color-control-inactive: rgba(245, 247, 250, 0.45);
+  /* Sky and atmosphere */
+  --color-sky-zenith: #5c5b74;
+  --color-sky-horizon: #e7a878;
+  --color-fog: #e3bd9a;
+  --color-sun: #f8b968;
+
+  /* Terrain */
+  --color-grass-light: #b7a35e;
+  --color-grass-shadow: #6d5a3a;
+  --color-rock: #a3907b;
+  --color-snow: #f6ead9;
+  --color-water-shallow: #7fa79c;
+  --color-water-deep: #39525a;
+  --color-foliage: #5f6b41;
+
+  /* Cel-shading linework */
+  --color-outline: #2a2219;
+
+  /* Plane livery */
+  --color-plane-body: #f1e7d4;
+  --color-plane-stripe: #c2572f;
+  --color-plane-metal: #a99b89;
+
+  /* Gesture-control state */
+  --color-control-active: #5cb8bd;
+  --color-control-inactive: #8a7c6c;
+
+  /* UI */
+  --color-surface-hud: rgba(36, 27, 21, 0.8);
+  --color-text-primary: #f3e8d8;
+  --color-text-muted: #cdbca6;
+  --color-accent: #5cb8bd;
 
   --space-xs: 4px;
   --space-sm: 8px;
@@ -16,10 +45,15 @@
   --space-xxl: 48px;
   --space-xxxl: 64px;
 
-  --type-tv-display: clamp(3rem, 6vw, 6rem);
-  --type-tv-title: clamp(2rem, 4vw, 3.5rem);
-  --type-tv-body: clamp(1.25rem, 2.2vw, 2rem);
-  --type-tv-caption: clamp(1rem, 1.6vw, 1.5rem);
+  --font-display: 'Josefin Sans', sans-serif;
+  --font-body: 'Work Sans', system-ui, sans-serif;
+  --weight-display: 600;
+  --weight-button: 500;
+  --tracking-display: 0.14em;
+  --type-tv-display: clamp(2.5rem, 4.5vw, 4rem);
+  --type-tv-title: clamp(1.75rem, 3vw, 2.5rem);
+  --type-tv-body: clamp(1.5rem, 2vw, 1.875rem);
+  --type-tv-caption: clamp(1.125rem, 1.5vw, 1.375rem);
 
   --size-camera-preview-width: 20vw;
 }
@@ -36,13 +70,8 @@ body,
 }
 
 body {
-  background: var(--color-sky);
+  background: var(--color-sky-zenith);
   color: var(--color-text-primary);
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
+  font-family: var(--font-body);
   overscroll-behavior: none;
 }

@@ -17,8 +17,8 @@ export function ErrorScreen() {
         width: '100%',
         padding: space.xl,
         textAlign: 'center',
-        color: color.textOnDark,
-        background: color.textPrimary,
+        color: color.textPrimary,
+        background: color.surfaceHud,
       }}
     >
       <p style={{ fontSize: type.tvBody, margin: 0, maxWidth: '40ch' }}>
@@ -28,13 +28,14 @@ export function ErrorScreen() {
         type="button"
         onClick={retry}
         style={{
+          fontWeight: type.weightButton,
           fontSize: type.tvTitle,
           minHeight: 64,
           minWidth: 200,
           padding: `${space.md} ${space.xl}`,
           borderRadius: space.md,
-          border: 'none',
-          background: color.accent,
+          border: `2px solid ${color.accent}`,
+          background: color.surfaceHud,
           color: color.textPrimary,
           cursor: 'pointer',
         }}

@@ -5,3 +5,8 @@
 export function isKeyboardInputMode(): boolean {
   return new URLSearchParams(window.location.search).get('input') === 'keyboard'
 }
+
+/** `?swatches` renders the design token review page instead of the game. */
+export function isSwatchesMode(): boolean {
+  return new URLSearchParams(window.location.search).has('swatches')
+}

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { Swatches } from '../debug/Swatches'
 import { InputSource } from '../input/InputSource'
 import {
   setupCameraLifecycle,
@@ -12,6 +13,7 @@ import { CalibrateScreen } from './screens/CalibrateScreen'
 import { ErrorScreen } from './screens/ErrorScreen'
 import { PausedOverlay } from './screens/PausedOverlay'
 import { TitleScreen } from './screens/TitleScreen'
+import { isSwatchesMode } from './urlFlags'
 import { setupWakeLockReacquire } from './wakeLock'
 
 export function App() {
@@ -34,6 +36,10 @@ export function App() {
       stopCamera()
     }
   }, [state, permissionDenied])
+
+  if (isSwatchesMode()) {
+    return <Swatches />
+  }
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>

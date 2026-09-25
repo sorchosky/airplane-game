@@ -22,23 +22,33 @@ export function PausedOverlay() {
         justifyContent: 'center',
         gap: space.lg,
         background: color.surfaceHud,
-        color: color.textOnDark,
+        color: color.textPrimary,
         textAlign: 'center',
       }}
     >
-      <p style={{ fontSize: type.tvTitle, margin: 0 }}>Paused</p>
+      <p
+        style={{
+          fontFamily: type.fontDisplay,
+          fontWeight: type.weightDisplay,
+          fontSize: type.tvTitle,
+          margin: 0,
+        }}
+      >
+        Paused
+      </p>
       {keyboard && (
         <button
           type="button"
           onClick={resume}
           style={{
+            fontWeight: type.weightButton,
             fontSize: type.tvBody,
             minHeight: 64,
             minWidth: 200,
             padding: `${space.md} ${space.xl}`,
             borderRadius: space.md,
-            border: 'none',
-            background: color.accent,
+            border: `2px solid ${color.accent}`,
+            background: color.surfaceHud,
             color: color.textPrimary,
             cursor: 'pointer',
           }}

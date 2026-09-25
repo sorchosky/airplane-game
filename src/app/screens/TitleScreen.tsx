@@ -37,25 +37,56 @@ export function TitleScreen() {
         width: '100%',
         textAlign: 'center',
         padding: space.xl,
-        color: color.textOnDark,
-        background: `linear-gradient(180deg, ${color.sky}, ${color.ground})`,
+        color: color.textPrimary,
+        background: `linear-gradient(180deg, ${color.skyZenith}, ${color.skyHorizon})`,
       }}
     >
-      <h1 style={{ fontSize: type.tvDisplay, margin: 0 }}>Skyborne</h1>
-      <p style={{ fontSize: type.tvBody, margin: 0, maxWidth: '40ch' }}>
+      {/* No panel behind the title/tagline or button, and no drop shadows, per owner
+          request — everything sits directly on the sky gradient. The title is large
+          enough (tv-display resolves well above 32px) to clear WCAG's 3:1 large-text
+          minimum without help, even mid-gradient, so it carries no shadow at all. The
+          tagline is regular-weight body text and needs the full 4.5:1, which the raw
+          gradient alone doesn't reliably clear — it keeps a minimal, zero-offset text
+          glow (not an offset "drop" shadow) as the smallest legibility assist that
+          still works. Known tradeoff either way: see docs/art-direction.md's contrast
+          note. */}
+      <h1
+        style={{
+          fontFamily: type.fontDisplay,
+          fontWeight: type.weightDisplay,
+          fontSize: type.tvDisplay,
+          textTransform: 'uppercase',
+          letterSpacing: type.trackingDisplay,
+          margin: 0,
+        }}
+      >
+        Skyborne
+      </h1>
+      <p
+        style={{
+          fontSize: type.tvBody,
+          textShadow: `0 0 4px ${color.outline}`,
+          margin: 0,
+          maxWidth: '40ch',
+        }}
+      >
         Prop up your phone, spread your arms, and fly.
       </p>
       <button
         type="button"
         onClick={handleStart}
         style={{
+          fontFamily: type.fontDisplay,
+          fontWeight: type.weightDisplay,
           fontSize: type.tvTitle,
+          textTransform: 'uppercase',
+          letterSpacing: type.trackingDisplay,
           minHeight: 64,
           minWidth: 240,
           padding: `${space.md} ${space.xl}`,
           borderRadius: space.md,
-          border: 'none',
-          background: color.accent,
+          border: `2px solid ${color.textPrimary}`,
+          background: 'transparent',
           color: color.textPrimary,
           cursor: 'pointer',
         }}
