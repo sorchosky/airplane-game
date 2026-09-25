@@ -31,6 +31,22 @@ export interface TerrainConfig {
   skirtDepthFactor: number
   /** Renderer device pixel ratio cap. Retina phones otherwise render 3x the pixels. */
   maxPixelRatio: number
+  /**
+   * 1/m, how quickly the near, warm haze layer (`fog` token) thickens with distance. Higher =
+   * hazier foreground. See `src/world/atmosphere.ts` for the full haze model.
+   */
+  hazeDensity: number
+  /** 0..1, the most the near warm layer ever covers. Keeps close terrain from going flat. */
+  hazeWarmMax: number
+  /** m, where the far layer starts blending terrain into the sky colour behind it */
+  hazeFadeStart: number
+  /**
+   * m, where the far layer reaches 100% sky colour. Must stay short of the nearest terrain edge
+   * (`viewDistance` minus half a chunk diagonal) so the edge is never visible.
+   */
+  hazeFadeEnd: number
+  /** 0..1, how far the horizon facing away from the sun shifts from `sky-horizon` to `sky-zenith` */
+  hazeCoolShift: number
 }
 
 export const TERRAIN_CONFIG: TerrainConfig = {
@@ -49,4 +65,9 @@ export const TERRAIN_CONFIG: TerrainConfig = {
   viewDistance: 10000,
   skirtDepthFactor: 2,
   maxPixelRatio: 1.5,
+  hazeDensity: 0.0003,
+  hazeWarmMax: 0.5,
+  hazeFadeStart: 1200,
+  hazeFadeEnd: 9000,
+  hazeCoolShift: 0.45,
 }
