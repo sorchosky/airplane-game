@@ -1,9 +1,5 @@
 import { expect, test } from '@playwright/test'
 
-// `?input=pose` avoids the touch drag-zone overlay that `?input=keyboard`
-// (the default) renders over the whole viewport, which today intercepts
-// clicks on the Start button — a pre-existing issue outside this ticket's
-// scope (see PR handoff notes).
 test('camera preview appears large, left and mirrored on the calibrate screen', async ({
   page,
 }) => {
