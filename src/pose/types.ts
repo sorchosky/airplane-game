@@ -13,11 +13,4 @@ export interface PoseLandmark {
 /** Index order matches the 33-point BlazePose topology MediaPipe Pose Landmarker emits. */
 export type PoseLandmarks = readonly PoseLandmark[]
 
-export const LANDMARK = {
-  LEFT_SHOULDER: 11,
-  RIGHT_SHOULDER: 12,
-  LEFT_ELBOW: 13,
-  RIGHT_ELBOW: 14,
-  LEFT_WRIST: 15,
-  RIGHT_WRIST: 16,
-} as const
+export { LANDMARK } from './landmarks'
