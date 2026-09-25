@@ -149,28 +149,36 @@ function updateGate(
   return { active, conditionSincePassedMs: null, conditionSinceFailedMs: sinceFailedMs }
 }
 
-export function interpretPose(
-  landmarks: PoseLandmarks | null,
-  calibration: Calibration = DEFAULT_CALIBRATION,
-  state: GestureState = DEFAULT_GESTURE_STATE,
-  tMs: number,
-  params: GestureParams = DEFAULT_GESTURE_PARAMS,
-): InterpretPoseResult {
-  const arms = getArmLandmarks(landmarks)
+/** Raw per-frame arm measurements, before filtering, calibration or gating. */
+export interface ArmMeasurement {
+  /** Whether the arms-outstretched gate condition holds on this frame (no timing applied). */
+  outstretched: boolean
+  /** Wrist-to-wrist line angle in degrees, positive when the player's right wrist is lower. */
+  rollDeg: number
+  /** Mean wrist height above the shoulders, divided by shoulder width. Positive = arms raised. */
+  pitchRatio: number
+  /** Live shoulder distance in normalized image units, or the fallback when it can't be measured. */
+  shoulderWidth: number
+  /** Mean visibility of both shoulders, elbows and wrists. */
+  meanVisibility: number
+}
 
-  if (!arms) {
-    const gate = updateGate(false, state, tMs, params)
-    return {
-      input: { roll: 0, pitch: 0, active: gate.active, confidence: 0, source: 'pose' },
-      state: { ...state, ...gate },
-    }
-  }
+/**
+ * Measures the arms on a single frame. Null when an arm landmark is missing. Shared by the
+ * gesture interpreter and the calibration flow (#17) so both agree on what "arms out" means.
+ */
+export function measureArms(
+  landmarks: PoseLandmarks | null,
+  fallbackShoulderWidth: number = DEFAULT_CALIBRATION.shoulderWidth,
+  params: GestureParams = DEFAULT_GESTURE_PARAMS,
+): ArmMeasurement | null {
+  const arms = getArmLandmarks(landmarks)
+  if (!arms) return null
 
   const { leftShoulder, rightShoulder, leftElbow, rightElbow, leftWrist, rightWrist } = arms
 
-  const shoulderWidth = distance(leftShoulder, rightShoulder) || calibration.shoulderWidth
-  const wristSpan = distance(leftWrist, rightWrist)
-  const wristSpanRatio = wristSpan / shoulderWidth
+  const shoulderWidth = distance(leftShoulder, rightShoulder) || fallbackShoulderWidth
+  const wristSpanRatio = distance(leftWrist, rightWrist) / shoulderWidth
 
   const leftElbowAngle = angleAtVertexDeg(leftShoulder, leftElbow, leftWrist)
   const rightElbowAngle = angleAtVertexDeg(rightShoulder, rightElbow, rightWrist)
@@ -185,27 +193,47 @@ export function interpretPose(
   ]
   const meanVisibility = visibilities.reduce((sum, v) => sum + v, 0) / visibilities.length
 
-  const conditionMet =
+  const outstretched =
     leftElbowAngle >= params.minElbowAngleDeg &&
     rightElbowAngle >= params.minElbowAngleDeg &&
     wristSpanRatio >= params.minWristSpanRatio &&
     meanVisibility >= params.minVisibility
 
-  const gate = updateGate(conditionMet, state, tMs, params)
-
-  const rollDegRaw =
+  const rollDeg =
     (Math.atan2(rightWrist.y - leftWrist.y, rightWrist.x - leftWrist.x) * 180) / Math.PI
-  const pitchRatioRaw =
+  const pitchRatio =
     ((leftShoulder.y + rightShoulder.y) / 2 - (leftWrist.y + rightWrist.y) / 2) / shoulderWidth
 
+  return { outstretched, rollDeg, pitchRatio, shoulderWidth, meanVisibility }
+}
+
+export function interpretPose(
+  landmarks: PoseLandmarks | null,
+  calibration: Calibration = DEFAULT_CALIBRATION,
+  state: GestureState = DEFAULT_GESTURE_STATE,
+  tMs: number,
+  params: GestureParams = DEFAULT_GESTURE_PARAMS,
+): InterpretPoseResult {
+  const arms = measureArms(landmarks, calibration.shoulderWidth, params)
+
+  if (!arms) {
+    const gate = updateGate(false, state, tMs, params)
+    return {
+      input: { roll: 0, pitch: 0, active: gate.active, confidence: 0, source: 'pose' },
+      state: { ...state, ...gate },
+    }
+  }
+
+  const gate = updateGate(arms.outstretched, state, tMs, params)
+
   const { value: rollDeg, state: rollFilter } = oneEuroFilter(
-    rollDegRaw,
+    arms.rollDeg,
     tMs,
     state.rollFilter,
     params.oneEuro,
   )
   const { value: pitchRatio, state: pitchFilter } = oneEuroFilter(
-    pitchRatioRaw,
+    arms.pitchRatio,
     tMs,
     state.pitchFilter,
     params.oneEuro,
@@ -229,7 +257,7 @@ export function interpretPose(
       roll: clampAxis(roll),
       pitch: clampAxis(pitch),
       active: gate.active,
-      confidence: clamp(meanVisibility, 0, 1),
+      confidence: clamp(arms.meanVisibility, 0, 1),
       source: 'pose',
     },
     state: { ...gate, rollFilter, pitchFilter },
