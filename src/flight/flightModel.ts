@@ -1,0 +1,200 @@
+import { Euler, Quaternion, Vector3 } from 'three'
+import { clamp, clampAxis } from '../input/clamp'
+import type { ControlInput } from '../input/types'
+
+export interface FlightState {
+  position: Vector3
+  orientation: Quaternion
+  bank: number // current bank (roll) angle, radians, positive = banking right
+  pitchAngle: number // current pitch angle, radians, positive = nose up
+  heading: number // yaw angle, radians, around world +Y
+  speed: number // current airspeed, m/s
+  // Angular velocities driving the bank/pitch springs below. Not part of the ticket's headline
+  // list of fields, but a real critically damped spring needs a derivative to integrate; the
+  // camera, HUD and audio can ignore these.
+  bankRate: number // rad/s
+  pitchRate: number // rad/s
+}
+
+export interface FlightParams {
+  cruiseSpeed: number // m/s, target airspeed in level, unpitched flight (~100 mph, per docs/decisions.md)
+  minSpeed: number // m/s, floor speed can't drop below even in a sustained climb
+  maxSpeed: number // m/s, ceiling speed can't exceed even in a sustained dive
+  speedPitchSensitivity: number // m/s of target-speed change per full radian of pitch (dive = faster, climb = slower)
+  speedResponseTime: number // seconds, time constant for speed easing toward its pitch-derived target
+  maxBankAngle: number // radians, target bank angle at full roll input (~50°)
+  maxPitchAngle: number // radians, target pitch angle at full pitch input (~25°)
+  bankSmoothTime: number // seconds, critically-damped spring time constant for bank chasing its target
+  pitchSmoothTime: number // seconds, critically-damped spring time constant for pitch chasing its target
+  turnGravity: number // m/s^2, "g" in the coordinated-turn formula yawRate = g * tan(bank) / speed
+  ceiling: number // m, hard altitude ceiling (~600 m)
+  ceilingSoftening: number // m, band below the ceiling over which climb rate eases to zero
+}
+
+const degToRad = (degrees: number): number => (degrees * Math.PI) / 180
+
+export const DEFAULT_FLIGHT_PARAMS: FlightParams = {
+  cruiseSpeed: 45,
+  minSpeed: 32,
+  maxSpeed: 60,
+  speedPitchSensitivity: 15,
+  speedResponseTime: 1.5,
+  maxBankAngle: degToRad(50),
+  maxPitchAngle: degToRad(25),
+  bankSmoothTime: 0.35,
+  pitchSmoothTime: 0.45,
+  turnGravity: 9.81,
+  ceiling: 600,
+  ceilingSoftening: 120,
+}
+
+/** 60 Hz simulation rate. `step` subdivides whatever `dt` it's given into chunks of this size. */
+export const FIXED_DT = 1 / 60
+
+export function createInitialFlightState(
+  params: FlightParams = DEFAULT_FLIGHT_PARAMS,
+): FlightState {
+  return {
+    position: new Vector3(0, 0, 0),
+    orientation: new Quaternion(),
+    bank: 0,
+    pitchAngle: 0,
+    heading: 0,
+    speed: params.cruiseSpeed,
+    bankRate: 0,
+    pitchRate: 0,
+  }
+}
+
+interface SpringResult {
+  value: number
+  velocity: number
+}
+
+/**
+ * Critically damped spring-damper (the closed-form approximation behind Unity's SmoothDamp /
+ * Game Programming Gems 4's "critically damped ease"). Unlike a raw semi-implicit Euler spring
+ * it never overshoots the target and stays stable at any smoothTime/dt combination, which matters
+ * here since `step` may be called with a large `dt` in tests.
+ */
+function smoothDamp(
+  current: number,
+  target: number,
+  velocity: number,
+  smoothTime: number,
+  dt: number,
+): SpringResult {
+  const omega = 2 / Math.max(0.0001, smoothTime)
+  const x = omega * dt
+  const exp = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x)
+  const change = current - target
+  const temp = (velocity + omega * change) * dt
+  let nextVelocity = (velocity - omega * temp) * exp
+  let nextValue = target + (change + temp) * exp
+
+  const approachingFromBelow = target - current > 0
+  if (approachingFromBelow === nextValue > target) {
+    nextValue = target
+    nextVelocity = 0
+  }
+
+  return { value: nextValue, velocity: nextVelocity }
+}
+
+/** One fixed-size integration step. `dt` should be <= FIXED_DT; `step` below enforces that. */
+function integrate(
+  state: FlightState,
+  input: ControlInput,
+  dt: number,
+  params: FlightParams,
+): FlightState {
+  const roll = clampAxis(input.roll)
+  const pitchInput = clampAxis(input.pitch)
+
+  // Autopilot: when input isn't active, targets go to level flight. Same integration path either
+  // way, no separate autopilot code.
+  const targetBank = input.active ? roll * params.maxBankAngle : 0
+  const targetPitch = input.active ? pitchInput * params.maxPitchAngle : 0
+
+  const bankSpring = smoothDamp(state.bank, targetBank, state.bankRate, params.bankSmoothTime, dt)
+  const pitchSpring = smoothDamp(
+    state.pitchAngle,
+    targetPitch,
+    state.pitchRate,
+    params.pitchSmoothTime,
+    dt,
+  )
+  const bank = bankSpring.value
+  const pitchAngle = pitchSpring.value
+
+  // Coordinated turn: bank produces a yaw rate, there's no direct yaw input. In this Y-up,
+  // forward -Z, right-handed frame, a positive (rightward) rotation about +Y actually swings the
+  // nose toward -X (left) -- see the forward-vector math below -- so turning right needs heading
+  // to *decrease*, hence the minus sign.
+  const yawRate = -(params.turnGravity * Math.tan(bank)) / state.speed
+  const heading = state.heading + yawRate * dt
+
+  // Speed: constant cruise, nudged by pitch (dive = faster, climb = slower), clamped, and eased
+  // toward its target so pitch changes feel like drag/gravity rather than a throttle switch.
+  const targetSpeed = clamp(
+    params.cruiseSpeed - params.speedPitchSensitivity * Math.sin(pitchAngle),
+    params.minSpeed,
+    params.maxSpeed,
+  )
+  const speedLerp = 1 - Math.exp(-dt / params.speedResponseTime)
+  const speed = state.speed + (targetSpeed - state.speed) * speedLerp
+
+  const horizontalSpeed = Math.cos(pitchAngle) * speed
+  // forward vector = Ry(heading) * (0, 0, -1) = (-sin(heading), 0, -cos(heading))
+  const forwardX = -Math.sin(heading) * horizontalSpeed
+  const forwardZ = -Math.cos(heading) * horizontalSpeed
+  const climbRate = Math.sin(pitchAngle) * speed
+
+  // Soft ceiling: ease climb rate to zero over the last `ceilingSoftening` metres below it. The
+  // hard clamp on position.y is just a safety net against overshoot from a large dt.
+  const roomToCeiling = params.ceiling - state.position.y
+  const climbSoftening = clamp(roomToCeiling / params.ceilingSoftening, 0, 1)
+  const effectiveClimbRate = climbRate > 0 ? climbRate * climbSoftening : climbRate
+
+  const position = state.position.clone()
+  position.x += forwardX * dt
+  position.z += forwardZ * dt
+  position.y = Math.min(position.y + effectiveClimbRate * dt, params.ceiling)
+
+  // Roll is applied about the plane's own forward axis (0, 0, -1), which is a rotation of -bank
+  // about world +Z; composed with pitch about local X and yaw about world Y via Three's 'YXZ'
+  // Euler order (Z applied first, then X, then Y -- i.e. roll, then pitch, then yaw).
+  const orientation = new Quaternion().setFromEuler(new Euler(pitchAngle, heading, -bank, 'YXZ'))
+
+  return {
+    position,
+    orientation,
+    bank,
+    pitchAngle,
+    heading,
+    speed,
+    bankRate: bankSpring.velocity,
+    pitchRate: pitchSpring.velocity,
+  }
+}
+
+/**
+ * Advances the flight model by `dt` seconds. Internally subdivides `dt` into fixed 60 Hz chunks
+ * (with a shorter final chunk for any remainder) so the simulation is numerically stable and
+ * gives the same result regardless of how the caller's frame rate happens to chop up real time.
+ */
+export function step(
+  state: FlightState,
+  input: ControlInput,
+  dt: number,
+  params: FlightParams,
+): FlightState {
+  let next = state
+  let remaining = dt
+  while (remaining > 1e-9) {
+    const h = Math.min(FIXED_DT, remaining)
+    next = integrate(next, input, h, params)
+    remaining -= h
+  }
+  return next
+}
