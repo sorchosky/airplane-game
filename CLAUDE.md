@@ -82,6 +82,8 @@ Flight code only reads `ControlInput`. It never imports from `pose/`. Pose code 
 
 ## Session protocol (one ticket per session)
 
+Start every session with a prompt from `docs/kickoff-prompt.md` — "run the next ticket" if you weren't given a specific issue number, or the specific-ticket prompt if you were.
+
 1. Read this file, then the issue you were given. Read other issues or PRs only if the ticket references them.
 2. Work on the branch the session assigns. If none, use `ticket/<issue#>-<short-slug>` from `main`.
 3. Stay in scope. Things you notice outside scope go in the PR's handoff notes, not in the diff.
