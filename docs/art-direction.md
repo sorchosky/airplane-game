@@ -142,6 +142,10 @@ saturated as the original red-orange.
   Buttons are a `surface-hud` panel with a 2px `accent` border and
   `text-primary` label (an outlined button, not a solid fill), so the accent
   stays a highlight rather than competing with the warm terrain colors.
+  **Exception:** `TitleScreen`'s Start button, per a specific owner request
+  for this round of testing, has no `surface-hud` fill and a `text-primary`
+  (not `accent`) border — a plain white-outlined button directly on the sky.
+  Not yet applied to other screens' buttons.
 - **Spacing:** 8pt grid (`space.*`), generous — BotW's UI has a lot of empty
   space around text, which also helps 10-foot legibility.
 
@@ -162,14 +166,17 @@ Enforced by `tokens.test.ts` so a future palette change can't silently drop
 below AA. Full contrast math and the alpha-compositing assumption are in that
 test file.
 
-**Text never sits directly on the raw sky gradient.** `text-primary` on the
-gradient is only AA-compliant near the top (`skyZenith`, 5.4:1) — it drops to
-1.7:1 at the bottom (`skyHorizon`), nowhere close to passing. `TitleScreen`'s
-title/tagline and the `?swatches` page content both learned this the hard
-way in review and now sit on a `surface-hud` plate instead (see the `Do /
-don't` list below); this doubles as a period-appropriate mid-century poster
-device — think a wordmark set on a solid ink block — rather than reading as
-just an accessibility patch.
+**Known gap: `TitleScreen` text isn't reliably AA-compliant.** `text-primary`
+directly on the gradient is only AA-compliant near the top (`skyZenith`,
+5.4:1) — it drops to 1.7:1 at the bottom (`skyHorizon`). An earlier revision
+routed the title/tagline/button through a `surface-hud` plate to fix this,
+but the owner asked for that panel removed for this round of visual testing
+(no background behind the type, a plain outlined button) — text now sits
+directly on the gradient again, with only a soft `text-shadow`/`box-shadow`
+(not a background) for a legibility assist. `?swatches` still uses the
+`surface-hud` sheet, since it wasn't part of that request. Revisit before
+this ships: either bring the plate back in a lighter form, or accept the gap
+and note why.
 
 ## Do / don't
 

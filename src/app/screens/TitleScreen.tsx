@@ -52,38 +52,35 @@ export function TitleScreen() {
         background: `linear-gradient(180deg, ${color.skyZenith}, ${color.skyHorizon})`,
       }}
     >
-      {/* Title and tagline sit on a surface-hud plate rather than directly on the sky
-          gradient: text-primary only clears WCAG AA near the top of the gradient
-          (skyZenith), not toward skyHorizon — see docs/art-direction.md's contrast
-          table. A solid plate under the wordmark also reads as a period-appropriate
-          mid-century poster device. */}
-      <div
+      {/* No panel behind the title/tagline or button, per owner request — text and the
+          button outline sit directly on the sky gradient. A soft text-shadow (not a
+          background) gives the type a legibility assist without reintroducing a solid
+          plate. Known tradeoff: text-primary alone doesn't clear WCAG AA everywhere on
+          this gradient (see docs/art-direction.md's contrast note) — flagged there as
+          a known gap to revisit once the art direction settles. */}
+      <h1
         style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: space.md,
-          background: color.surfaceHud,
-          borderRadius: space.md,
-          padding: `${space.lg} ${space.xl}`,
+          fontFamily: type.fontDisplay,
+          fontWeight: type.weightDisplay,
+          fontSize: type.tvDisplay,
+          textTransform: 'uppercase',
+          letterSpacing: type.trackingDisplay,
+          textShadow: `0 2px 12px ${color.outline}`,
+          margin: 0,
         }}
       >
-        <h1
-          style={{
-            fontFamily: type.fontDisplay,
-            fontWeight: type.weightDisplay,
-            fontSize: type.tvDisplay,
-            textTransform: 'uppercase',
-            letterSpacing: type.trackingDisplay,
-            margin: 0,
-          }}
-        >
-          Skyborne
-        </h1>
-        <p style={{ fontSize: type.tvBody, margin: 0, maxWidth: '40ch' }}>
-          Prop up your phone, spread your arms, and fly.
-        </p>
-      </div>
+        Skyborne
+      </h1>
+      <p
+        style={{
+          fontSize: type.tvBody,
+          textShadow: `0 1px 8px ${color.outline}`,
+          margin: 0,
+          maxWidth: '40ch',
+        }}
+      >
+        Prop up your phone, spread your arms, and fly.
+      </p>
       <button
         type="button"
         onClick={handleStart}
@@ -96,9 +93,11 @@ export function TitleScreen() {
           minWidth: 240,
           padding: `${space.md} ${space.xl}`,
           borderRadius: space.md,
-          border: `2px solid ${color.accent}`,
-          background: color.surfaceHud,
+          border: `2px solid ${color.textPrimary}`,
+          background: 'transparent',
+          boxShadow: `0 2px 10px ${color.outline}`,
           color: color.textPrimary,
+          textShadow: `0 1px 8px ${color.outline}`,
           cursor: requesting ? 'default' : 'pointer',
           opacity: requesting ? 0.7 : 1,
         }}
