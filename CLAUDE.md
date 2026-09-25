@@ -28,10 +28,11 @@ Created by ticket #6 (scaffold). Keep these names stable.
 |---|---|
 | `npm run dev` | Dev server |
 | `npm run build` | Production build |
-| `npm run typecheck` | `tsc --noEmit` |
+| `npm run preview` | Serve the production build locally |
+| `npm run typecheck` | `tsc -b --noEmit` |
 | `npm run lint` | ESLint + Prettier check |
 | `npm test` | Vitest, single run |
-| `npm run e2e` | Playwright |
+| `npm run e2e` | Playwright. In cloud sessions, set `PLAYWRIGHT_CHROMIUM_PATH` to the preinstalled binary if versions mismatch. |
 | `npm run check` | typecheck + lint + test. Must pass before every push. |
 
 Playwright: Chromium is preinstalled in cloud sessions. Never run `playwright install`. If versions mismatch, launch with `executablePath: '/opt/pw-browsers/chromium'`.
