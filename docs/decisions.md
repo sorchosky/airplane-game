@@ -17,3 +17,4 @@ Sessions must not re-litigate these. Propose changes in PR handoff notes instead
 - 2026-09-24 · hosting · Vercel with a preview deploy per PR · HTTPS for camera; test each PR on the phone
 - 2026-09-24 · workflow · One ticket = one session = one PR, started manually with `docs/kickoff-prompt.md` · owner controls usage on a Pro plan
 - 2026-09-24 · future · Split architecture (phone streams pose over WebRTC to a TV/laptop browser that renders) is out of scope for v1 · better quality and no mirroring lag, but much larger build
+- 2026-09-25 · stack · `@react-three/fiber` v9 and `@react-three/drei` v10, not v8/v9 · React 18 peer deps of R3F v8 conflict with the React 19 required by #6; v9 targets React 19

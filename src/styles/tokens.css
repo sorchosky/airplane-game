@@ -1,0 +1,44 @@
+:root {
+  --color-sky: #7ec8e3;
+  --color-ground: #3f7d4a;
+  --color-accent: #ff8c42;
+  --color-text-primary: #1a2330;
+  --color-text-on-dark: #f5f7fa;
+  --color-surface-hud: rgba(11, 18, 32, 0.6);
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-xxl: 48px;
+  --space-xxxl: 64px;
+
+  --type-tv-display: clamp(3rem, 6vw, 6rem);
+  --type-tv-title: clamp(2rem, 4vw, 3.5rem);
+  --type-tv-body: clamp(1.25rem, 2.2vw, 2rem);
+  --type-tv-caption: clamp(1rem, 1.6vw, 1.5rem);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-sky);
+  color: var(--color-text-primary);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  overscroll-behavior: none;
+}
