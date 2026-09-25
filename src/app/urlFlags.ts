@@ -10,3 +10,8 @@ export function isKeyboardInputMode(): boolean {
 export function isSwatchesMode(): boolean {
   return new URLSearchParams(window.location.search).has('swatches')
 }
+
+/** `?scene=materials` renders the toon material demo scene instead of the game. */
+export function isMaterialsSceneMode(): boolean {
+  return new URLSearchParams(window.location.search).get('scene') === 'materials'
+}
