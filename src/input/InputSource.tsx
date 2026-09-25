@@ -23,8 +23,10 @@ export function InputSource({ enableTouchControls }: InputSourceProps) {
   const source = useMemo(() => getInputSourceFromUrl(), [])
   const debug = useMemo(() => hasDebugFlag(), [])
 
-  useKeyboardSource()
-  usePoseSource()
+  // Only the selected source writes the input store; two writers would overwrite each other
+  // every frame.
+  useKeyboardSource(source === 'keyboard')
+  usePoseSource(source === 'pose')
   useReplaySource()
 
   return (

@@ -8,9 +8,11 @@ import { hasDebugFlag } from '../input/source'
 import { color } from '../styles/tokens'
 import { Terrain } from '../world/Terrain'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
+import { useGameStore } from './gameStore'
 
 export function FlightScene() {
   const debug = useMemo(() => hasDebugFlag(), [])
+  const paused = useGameStore((s) => s.state === 'paused')
 
   return (
     <>
@@ -22,7 +24,7 @@ export function FlightScene() {
         <directionalLight position={[5, 8, 3]} intensity={1.5} />
         <ambientLight intensity={0.4} />
         <ChaseCamera />
-        <Plane />
+        <Plane paused={paused} />
         <Terrain />
         <PerfProbe />
       </Canvas>
