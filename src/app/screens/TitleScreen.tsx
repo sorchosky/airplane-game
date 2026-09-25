@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { resumeAudioEngine } from '../../audio/audioEngine'
 import { color, space, type } from '../../styles/tokens'
 import { useGameStore } from '../gameStore'
 import { isKeyboardInputMode } from '../urlFlags'
@@ -11,6 +12,8 @@ export function TitleScreen() {
 
   const handleStart = useCallback(() => {
     void acquireWakeLock()
+    // AudioContext creation/resume must happen inside this click handler (autoplay policy).
+    void resumeAudioEngine()
 
     if (isKeyboardInputMode()) {
       skipToFlying()

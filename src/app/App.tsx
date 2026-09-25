@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useAudioEngine } from '../audio/useAudioEngine'
 import { Swatches } from '../debug/Swatches'
 import { InputSource } from '../input/InputSource'
 import {
@@ -25,6 +26,7 @@ import { setupWakeLockReacquire } from './wakeLock'
 /** Control-state machine plus its HUD, mounted for the life of one flight (flying ⇄ paused). */
 function FlightControl() {
   useControlStateDriver()
+  useAudioEngine()
   return <Hud />
 }
 
