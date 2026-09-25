@@ -6,6 +6,8 @@ import {
   DEFAULT_CONTROL_MACHINE_PARAMS,
   controlView,
   createControlMachineState,
+  forcePause,
+  startCountdown,
   stepControlMachine,
   togglePause,
   type ControlMachineParams,
@@ -25,8 +27,12 @@ interface ControlStore {
    * single field (`useControlStore((s) => s.view.prompt)`) without re-rendering every frame.
    */
   view: ControlView
-  /** Esc in keyboard mode, or the dev Resume button. */
+  /** Esc in keyboard mode. */
   togglePause: () => void
+  /** Resume picked in the pause menu: starts the 3-2-1 countdown. */
+  startCountdown: () => void
+  /** Pauses from outside the player's control (the phone turned to portrait). */
+  forcePause: () => void
 }
 
 export const useControlStore = create<ControlStore>((_set, get) => ({
@@ -35,6 +41,14 @@ export const useControlStore = create<ControlStore>((_set, get) => ({
   togglePause: () => {
     const nowMs = performance.now()
     apply(togglePause(get().machine, nowMs), nowMs)
+  },
+  startCountdown: () => {
+    const nowMs = performance.now()
+    apply(startCountdown(get().machine, nowMs), nowMs)
+  },
+  forcePause: () => {
+    const nowMs = performance.now()
+    apply(forcePause(get().machine, nowMs), nowMs)
   },
 }))
 

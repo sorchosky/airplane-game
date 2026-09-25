@@ -10,20 +10,21 @@ import { usePoseStore, type PoseModelStatus } from '../../pose/poseStore'
 import { color, space, type } from '../../styles/tokens'
 import { CalibrationFigure, RING_CIRCUMFERENCE } from '../../ui/CalibrationFigure'
 import { CameraPreview } from '../../ui/CameraPreview'
+import { copy } from '../../ui/copy'
 import { useGameStore } from '../gameStore'
 
 const MODEL_STATUS_COPY: Partial<Record<PoseModelStatus, string>> = {
-  loading: 'Getting motion tracking ready…',
-  error: "Motion tracking didn't load. Check your connection and reload the page.",
+  loading: copy.calibrate.modelLoading,
+  error: copy.calibrate.modelError,
 }
 
 const GUIDANCE_COPY: Record<CalibrationPhase, string> = {
-  noPerson: 'Step back until your head and hips are in view',
-  tooClose: 'Step back until your head and hips are in view',
-  tooFar: 'Come a little closer',
-  armsNotOut: 'Spread your arms like wings',
-  holding: 'Hold steady…',
-  done: 'Hold steady…',
+  noPerson: copy.calibrate.stepBack,
+  tooClose: copy.calibrate.stepBack,
+  tooFar: copy.calibrate.comeCloser,
+  armsNotOut: copy.calibrate.spreadArms,
+  holding: copy.calibrate.holdSteady,
+  done: copy.calibrate.holdSteady,
 }
 
 /**

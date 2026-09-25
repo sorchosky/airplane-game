@@ -33,6 +33,7 @@
 
   /* UI */
   --color-surface-hud: rgba(36, 27, 21, 0.8);
+  --color-surface-scrim: #241b15;
   --color-text-primary: #f3e8d8;
   --color-text-muted: #cdbca6;
   --color-accent: #5cb8bd;

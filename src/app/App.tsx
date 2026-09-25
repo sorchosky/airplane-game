@@ -11,7 +11,9 @@ import {
 import { startPoseService, stopPoseService } from '../pose/poseService'
 import { PoseDebug } from '../debug/PoseDebug'
 import { hasDebugFlag } from '../input/source'
+import { copy } from '../ui/copy'
 import { Hud } from '../ui/Hud'
+import { OrientationPrompt } from '../ui/OrientationPrompt'
 import { useControlStateDriver } from './controlStore'
 import { FlightScene } from './FlightScene'
 import { useGameStore } from './gameStore'
@@ -46,7 +48,7 @@ export function App() {
         () => startPoseService(getVideo()).catch(() => undefined),
         () => {
           const { errorMessage } = useCameraStore.getState()
-          permissionDenied(errorMessage ?? 'Could not start the camera. Try again.')
+          permissionDenied(errorMessage ?? copy.error.cameraFailed)
         },
       )
     } else if (state === 'title') {
@@ -74,6 +76,7 @@ export function App() {
       {inFlight && <FlightControl />}
       <InputSource enableTouchControls={state === 'flying'} />
       {showPoseDebug && <PoseDebug />}
+      <OrientationPrompt />
     </div>
   )
 }

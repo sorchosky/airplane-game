@@ -78,6 +78,16 @@ describe('gameStore transitions', () => {
     expect(useGameStore.getState().state).toBe('title')
   })
 
+  it('recalibrates from paused, returning to flying when calibration completes', () => {
+    const store = useGameStore.getState()
+    store.skipToFlying()
+    store.pause()
+    store.recalibrate()
+    expect(useGameStore.getState().state).toBe('calibrate')
+    store.calibrationComplete()
+    expect(useGameStore.getState().state).toBe('flying')
+  })
+
   it('ignores invalid transitions as no-ops', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const store = useGameStore.getState()

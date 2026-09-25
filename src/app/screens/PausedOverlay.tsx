@@ -1,26 +1,19 @@
-import { getInputSourceFromUrl } from '../../input/source'
-import { usePoseStore } from '../../pose/poseStore'
 import { color, space, type } from '../../styles/tokens'
+import { copy } from '../../ui/copy'
 import { useControlStore } from '../controlStore'
+import { PauseMenu } from './PauseMenu'
 
-// Hands-free pause (#18): arms out for 1 s starts a 3-2-1 countdown, then flying resumes. In
-// keyboard mode Esc (or the dev Resume button) does the same. #28 adds the full pause menu.
+/**
+ * Paused (#18, #28): the pause menu, or the 3-2-1 countdown once Resume is picked. In pose mode,
+ * dropping the arms during the countdown cancels it and brings the menu back.
+ */
 export function PausedOverlay() {
   const countdown = useControlStore((s) => s.view.countdown)
-  const togglePause = useControlStore((s) => s.togglePause)
-  const personInFrame = usePoseStore((s) => s.frame !== null)
-  const keyboard = getInputSourceFromUrl() === 'keyboard'
-
-  const hint = keyboard
-    ? 'Press Esc to continue'
-    : personInFrame
-      ? 'spread your arms to continue'
-      : 'step into view to continue'
 
   return (
     <div
       role="dialog"
-      aria-label="Paused"
+      aria-label={copy.pause.title}
       style={{
         position: 'absolute',
         inset: 0,
@@ -29,6 +22,7 @@ export function PausedOverlay() {
         alignItems: 'center',
         justifyContent: 'center',
         gap: space.lg,
+        padding: space.xl,
         background: color.surfaceHud,
         color: color.textPrimary,
         textAlign: 'center',
@@ -48,35 +42,7 @@ export function PausedOverlay() {
           {countdown}
         </p>
       ) : (
-        <p style={{ fontSize: type.tvTitle, margin: 0 }}>
-          <span style={{ fontFamily: type.fontDisplay, fontWeight: type.weightDisplay }}>
-            Paused
-          </span>
-          {keyboard ? null : ` · ${hint}`}
-        </p>
-      )}
-      {keyboard && countdown === null && (
-        <>
-          <p style={{ fontSize: type.tvBody, margin: 0, color: color.textMuted }}>{hint}</p>
-          <button
-            type="button"
-            onClick={togglePause}
-            style={{
-              fontWeight: type.weightButton,
-              fontSize: type.tvBody,
-              minHeight: 64,
-              minWidth: 200,
-              padding: `${space.md} ${space.xl}`,
-              borderRadius: space.md,
-              border: `2px solid ${color.accent}`,
-              background: color.surfaceHud,
-              color: color.textPrimary,
-              cursor: 'pointer',
-            }}
-          >
-            Resume
-          </button>
-        </>
+        <PauseMenu />
       )}
     </div>
   )

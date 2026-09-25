@@ -3,6 +3,7 @@
 // a single shared element avoids decoding the same stream twice.
 
 import { create } from 'zustand'
+import { copy } from '../ui/copy'
 
 export type CameraStatus = 'idle' | 'starting' | 'live' | 'denied' | 'error'
 
@@ -16,9 +17,8 @@ export const useCameraStore = create<CameraStore>(() => ({
   errorMessage: null,
 }))
 
-const DENIED_MESSAGE =
-  'We need your camera to see you fly. Check your browser settings and try again.'
-const GENERIC_ERROR_MESSAGE = 'Could not start the camera. Try again.'
+const DENIED_MESSAGE = copy.error.cameraDenied
+const GENERIC_ERROR_MESSAGE = copy.error.cameraFailed
 
 let video: HTMLVideoElement | null = null
 let stream: MediaStream | null = null

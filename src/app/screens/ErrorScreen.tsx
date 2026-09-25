@@ -1,4 +1,5 @@
 import { color, space, type } from '../../styles/tokens'
+import { copy } from '../../ui/copy'
 import { useGameStore } from '../gameStore'
 
 export function ErrorScreen() {
@@ -22,7 +23,7 @@ export function ErrorScreen() {
       }}
     >
       <p style={{ fontSize: type.tvBody, margin: 0, maxWidth: '40ch' }}>
-        {errorMessage ?? 'Something went wrong. Please try again.'}
+        {errorMessage ?? copy.error.generic}
       </p>
       <button
         type="button"
@@ -40,7 +41,7 @@ export function ErrorScreen() {
           cursor: 'pointer',
         }}
       >
-        Retry
+        {copy.error.retry}
       </button>
     </div>
   )

@@ -20,7 +20,7 @@ test('keyboard: prompt while inactive, Esc pauses, Esc resumes through the count
   await page.keyboard.press('Escape')
   const paused = page.getByRole('dialog', { name: 'Paused' })
   await expect(paused).toBeVisible()
-  await expect(paused).toContainText('Press Esc to continue')
+  await expect(paused).toContainText('Esc to resume')
   await page.screenshot({ path: 'test-results/18-paused.png' })
 
   await page.keyboard.press('Escape')

@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import type { ControlPrompt } from '../app/controlStateMachine'
 import { color, space, type } from '../styles/tokens'
+import { copy } from './copy'
 
 const COPY: Record<Exclude<ControlPrompt, null>, string> = {
-  'spread-arms': 'Spread your arms to fly',
-  'step-into-view': 'Step into view',
+  'spread-arms': copy.hud.spreadArms,
+  'step-into-view': copy.hud.stepIntoView,
 }
 
 const FADE_MS = 200

@@ -47,6 +47,7 @@ All values live in `src/styles/tokens.ts` (`color`) and `src/styles/tokens.css`
 | `control-active` | `#5cb8bd` | Gesture control engaged (arms-out gate) |
 | `control-inactive` | `#8a7c6c` | Gesture control disengaged / autopilot |
 | `surface-hud` | `rgba(36, 27, 21, 0.8)` | Translucent warm-dark HUD panel background |
+| `surface-scrim` | `#241b15` | Opaque `surface-hud` for full-screen blockers (orientation prompt) |
 | `text-primary` | `#f3e8d8` | Primary UI text (on `surface-hud` or the sky) |
 | `text-muted` | `#cdbca6` | Secondary/de-emphasized UI text |
 | `accent` | `#5cb8bd` | Muted teal-cyan: buttons, focus, active state |
