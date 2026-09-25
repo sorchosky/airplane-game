@@ -1,3 +1,4 @@
+import { CameraPreview } from '../../ui/CameraPreview'
 import { color, space, type } from '../../styles/tokens'
 
 // Placeholder. #17 replaces this with the real hands-free calibration flow
@@ -6,6 +7,7 @@ export function CalibrateScreen() {
   return (
     <div
       style={{
+        position: 'relative',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -17,6 +19,7 @@ export function CalibrateScreen() {
         textAlign: 'center',
       }}
     >
+      <CameraPreview />
       <p style={{ fontSize: type.tvBody, margin: 0, maxWidth: '40ch' }}>
         Step back so your whole upper body is visible.
       </p>

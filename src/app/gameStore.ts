@@ -24,7 +24,7 @@ export interface GameStore {
 const TRANSITIONS: Record<GameState, Partial<Record<keyof GameStore, GameState>>> = {
   title: { startPermission: 'permission', skipToFlying: 'flying' },
   permission: { permissionGranted: 'calibrate', permissionDenied: 'error' },
-  calibrate: { calibrationComplete: 'flying', quitToTitle: 'title' },
+  calibrate: { calibrationComplete: 'flying', quitToTitle: 'title', permissionDenied: 'error' },
   flying: { pause: 'paused', quitToTitle: 'title' },
   paused: { resume: 'flying', quitToTitle: 'title' },
   error: { retry: 'title' },
