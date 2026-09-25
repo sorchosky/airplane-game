@@ -172,15 +172,28 @@ test file.
 
 **Known gap: `TitleScreen` text isn't reliably AA-compliant.** `text-primary`
 directly on the gradient is only AA-compliant near the top (`skyZenith`,
-5.4:1) — it drops to 1.7:1 at the bottom (`skyHorizon`). An earlier revision
+5.4:1) — it drops well below both the 4.5:1 (normal text) and 3:1
+(large text/UI) minimums by the middle of the gradient. An earlier revision
 routed the title/tagline/button through a `surface-hud` plate to fix this,
 but the owner asked for that panel removed for this round of visual testing
-(no background behind the type, a plain outlined button) — text now sits
-directly on the gradient again, with only a soft `text-shadow`/`box-shadow`
-(not a background) for a legibility assist. `?swatches` still uses the
-`surface-hud` sheet, since it wasn't part of that request. Revisit before
-this ships: either bring the plate back in a lighter form, or accept the gap
-and note why.
+(no background behind the type, no drop shadows, a plain outlined button) —
+text now sits directly on the gradient. Where it lands, per element:
+
+- **Title (`h1`):** no shadow at all. At `tv-display`'s resolved size (well
+  above the 32px "large text" threshold) it clears the relaxed 3:1 minimum
+  near the middle of the gradient on its own; only degrades near the very
+  bottom.
+- **Tagline (`p`):** regular-weight body text, held to the full 4.5:1, which
+  the raw gradient doesn't reliably clear. Keeps a minimal, zero-offset text
+  glow (`0 0 4px outline`, not an offset "drop" shadow) as the smallest
+  legibility assist that still helps.
+- **Start button:** no shadow on the label or the border. Both `text-primary`
+  and its use as the border color are the least protected of the three —
+  contrast is marginal to failing in the lower half of the gradient.
+
+`?swatches` still uses the `surface-hud` sheet, since none of this applies
+there. Revisit before this ships: bring back a plate (even a lighter one),
+or accept the gap and note why.
 
 ## Do / don't
 

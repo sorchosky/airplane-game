@@ -52,12 +52,15 @@ export function TitleScreen() {
         background: `linear-gradient(180deg, ${color.skyZenith}, ${color.skyHorizon})`,
       }}
     >
-      {/* No panel behind the title/tagline or button, per owner request — text and the
-          button outline sit directly on the sky gradient. A soft text-shadow (not a
-          background) gives the type a legibility assist without reintroducing a solid
-          plate. Known tradeoff: text-primary alone doesn't clear WCAG AA everywhere on
-          this gradient (see docs/art-direction.md's contrast note) — flagged there as
-          a known gap to revisit once the art direction settles. */}
+      {/* No panel behind the title/tagline or button, and no drop shadows, per owner
+          request — everything sits directly on the sky gradient. The title is large
+          enough (tv-display resolves well above 32px) to clear WCAG's 3:1 large-text
+          minimum without help, even mid-gradient, so it carries no shadow at all. The
+          tagline is regular-weight body text and needs the full 4.5:1, which the raw
+          gradient alone doesn't reliably clear — it keeps a minimal, zero-offset text
+          glow (not an offset "drop" shadow) as the smallest legibility assist that
+          still works. Known tradeoff either way: see docs/art-direction.md's contrast
+          note. */}
       <h1
         style={{
           fontFamily: type.fontDisplay,
@@ -65,7 +68,6 @@ export function TitleScreen() {
           fontSize: type.tvDisplay,
           textTransform: 'uppercase',
           letterSpacing: type.trackingDisplay,
-          textShadow: `0 2px 12px ${color.outline}`,
           margin: 0,
         }}
       >
@@ -74,7 +76,7 @@ export function TitleScreen() {
       <p
         style={{
           fontSize: type.tvBody,
-          textShadow: `0 1px 8px ${color.outline}`,
+          textShadow: `0 0 4px ${color.outline}`,
           margin: 0,
           maxWidth: '40ch',
         }}
