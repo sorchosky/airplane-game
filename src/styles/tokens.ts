@@ -105,4 +105,8 @@ export const lighting = {
 // HUD element sizing, relative to viewport so it scales with the TV.
 export const size = {
   cameraPreviewWidth: '20vw',
+  // Larger preview while calibrating, so the player can line themselves up from ~2 m.
+  cameraPreviewWidthLarge: '44vw',
+  // Calibration silhouette and progress ring.
+  calibrationFigure: 'clamp(160px, 18vw, 240px)',
 } as const

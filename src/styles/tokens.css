@@ -56,6 +56,8 @@
   --type-tv-caption: clamp(1.125rem, 1.5vw, 1.375rem);
 
   --size-camera-preview-width: 20vw;
+  --size-camera-preview-width-large: 44vw;
+  --size-calibration-figure: clamp(160px, 18vw, 240px);
 }
 
 * {

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { DEFAULT_CALIBRATION } from '../pose/calibration'
+import { useCalibrationStore } from '../pose/calibrationStore'
 import { DEFAULT_GESTURE_STATE, interpretPose, type GestureState } from '../pose/gesture'
 import { usePoseStore } from '../pose/poseStore'
 import type { PoseLandmarks } from '../pose/types'
@@ -26,7 +27,8 @@ export function usePoseSource(enabled = true): void {
     let frame = 0
 
     const interpret = (landmarks: PoseLandmarks | null, tMs: number) => {
-      const { input, state } = interpretPose(landmarks, DEFAULT_CALIBRATION, gestureState, tMs)
+      const calibration = useCalibrationStore.getState().calibration ?? DEFAULT_CALIBRATION
+      const { input, state } = interpretPose(landmarks, calibration, gestureState, tMs)
       gestureState = state
       useInputStore.getState().setInput(input)
     }

@@ -6,7 +6,7 @@ test('title screen shows Start and tapping it reaches calibrate', async ({ page 
   await expect(start).toBeVisible()
 
   await start.click()
-  await expect(page.getByText('Step back so your whole upper body is visible.')).toBeVisible()
+  await expect(page.getByTestId('calibration-guidance')).toBeVisible()
 })
 
 test('?input=keyboard skips straight to the flight scene', async ({ page }) => {
