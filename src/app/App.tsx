@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { InputSource } from '../input/InputSource'
 import { FlightScene } from './FlightScene'
 import { useGameStore } from './gameStore'
 import { CalibrateScreen } from './screens/CalibrateScreen'
@@ -20,6 +21,7 @@ export function App() {
       {state === 'error' && <ErrorScreen />}
       {(state === 'flying' || state === 'paused') && <FlightScene />}
       {state === 'paused' && <PausedOverlay />}
+      <InputSource />
     </div>
   )
 }
