@@ -5,6 +5,7 @@ import { PerfProbe } from '../debug/PerfProbe'
 import { ChaseCamera } from '../flight/ChaseCamera'
 import { Plane } from '../flight/Plane'
 import { hasDebugFlag } from '../input/source'
+import { PostFX } from '../render/PostFX'
 import { Atmosphere } from '../world/Atmosphere'
 import { Terrain } from '../world/Terrain'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
@@ -25,6 +26,7 @@ export function FlightScene() {
         <Plane paused={paused} />
         <Terrain />
         <PerfProbe />
+        <PostFX />
       </Canvas>
       <FpsCounter initiallyVisible={debug} />
     </>

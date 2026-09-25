@@ -33,8 +33,9 @@ void main() {
   vec3 dir = normalize(vDirection);
   vec3 sky = atmosphereSky(dir);
   float disc = smoothstep(SUN_DISC_EDGE_COS, SUN_DISC_COS, dot(dir, ATMO_SUN_DIR));
-  // Written as-is: same sRGB colour space as the haze, which Three applies after tone mapping.
-  gl_FragColor = vec4(mix(sky, ATMO_SUN_DISC, disc), 1.0);
+  // Display sRGB, like the haze, which Three applies after tone mapping. Written as-is to the
+  // canvas, converted for the linear post-processing buffer.
+  gl_FragColor = vec4(atmosphereFromDisplay(mix(sky, ATMO_SUN_DISC, disc)), 1.0);
 }
 `
 
