@@ -1,0 +1,59 @@
+name: Agent ticket
+description: A self-contained unit of work sized for one Claude Code session and one PR.
+labels: ["agent-ready"]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Why this exists and how it fits. Assume the reader has only CLAUDE.md and this issue.
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: One or two sentences on the outcome.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Checkboxes. Each one must be verifiable.
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: Nearby work that belongs to other tickets.
+  - type: textarea
+    id: depends
+    attributes:
+      label: Depends on
+      description: Issue numbers that must be merged first, or "none".
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Likely files
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: How the agent (and the owner) confirm it works.
+    validations:
+      required: true
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      options:
+        - S (under ~200 lines)
+        - M (~200-500 lines)
+    validations:
+      required: true

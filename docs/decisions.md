@@ -1,0 +1,19 @@
+# Decisions log
+
+One line per decision. Newest at the bottom. Format: `YYYY-MM-DD · area · decision · why`.
+Sessions must not re-litigate these. Propose changes in PR handoff notes instead.
+
+- 2026-09-24 · stack · Vite + React + TS + React Three Fiber + drei + Zustand · owner is fluent in React; R3F keeps 3D and UI in one tree
+- 2026-09-24 · stack · WebGL2 renderer, not WebGPU · safest support on iOS Safari; revisit after M4
+- 2026-09-24 · pose · MediaPipe Pose Landmarker (lite) via `@mediapipe/tasks-vision`, on-device · free, GPU accelerated, 33 landmarks, no video leaves the device
+- 2026-09-24 · pose · One Euro filter for landmark smoothing · low lag matters because TV mirroring already adds ~100–200 ms
+- 2026-09-24 · controls · Roll = angle of the wrist-to-wrist line; pitch = both arms raised (climb) or lowered (dive) relative to shoulders · reliable from a single 2D camera; torso lean needs noisy depth
+- 2026-09-24 · controls · "Outstretched arms" gate: elbows nearly straight, wrist span > ~1.5× shoulder width, high landmark visibility; 300 ms to engage, 500 ms grace to disengage · avoids flicker
+- 2026-09-24 · controls · Arms down or player out of frame → autopilot eases to level flight and shows a prompt · forgiving, keeps flow
+- 2026-09-24 · controls · Arms down for 5 s → pause; arms out → resume · player is ~2 m from the phone, so no touch after Start
+- 2026-09-24 · platform · Primary setup: phone propped in landscape, front camera, screen mirrored to a TV · owner's play setup; drives 10-foot UI and wake-lock requirements
+- 2026-09-24 · flight · Arcade model: constant airspeed, bank causes turn, auto-level, soft terrain floor, no crash death in v1 · adventurous free flight, not a sim
+- 2026-09-24 · art · Plane is procedural low-poly in code (Cessna-style high wing), swappable for glTF later · agent-buildable, no asset pipeline
+- 2026-09-24 · hosting · Vercel with a preview deploy per PR · HTTPS for camera; test each PR on the phone
+- 2026-09-24 · workflow · One ticket = one session = one PR, started manually with `docs/kickoff-prompt.md` · owner controls usage on a Pro plan
+- 2026-09-24 · future · Split architecture (phone streams pose over WebRTC to a TV/laptop browser that renders) is out of scope for v1 · better quality and no mirroring lag, but much larger build
