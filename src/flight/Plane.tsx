@@ -12,10 +12,17 @@ import { useFlightStore } from './flightStore'
  * Cessna-style model in #23; this ticket only needs something that visibly banks, pitches and
  * moves so the flight model can be exercised with `?input=keyboard`.
  */
-export function Plane() {
+interface PlaneProps {
+  /** Freezes the simulation while the game is paused. */
+  paused: boolean
+}
+
+export function Plane({ paused }: PlaneProps) {
   const groupRef = useRef<Group>(null)
 
   useFrame((_frameState, delta) => {
+    // Paused freezes the sim: the flight step isn't called, so nothing accumulates.
+    if (paused) return
     const input = useInputStore.getState().current
     const { position } = useFlightStore.getState().state
     const groundHeight = heightAt(position.x, position.z, TERRAIN_CONFIG)

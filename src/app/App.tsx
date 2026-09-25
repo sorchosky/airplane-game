@@ -11,6 +11,8 @@ import {
 import { startPoseService, stopPoseService } from '../pose/poseService'
 import { PoseDebug } from '../debug/PoseDebug'
 import { hasDebugFlag } from '../input/source'
+import { Hud } from '../ui/Hud'
+import { useControlStateDriver } from './controlStore'
 import { FlightScene } from './FlightScene'
 import { useGameStore } from './gameStore'
 import { CalibrateScreen } from './screens/CalibrateScreen'
@@ -19,6 +21,12 @@ import { PausedOverlay } from './screens/PausedOverlay'
 import { TitleScreen } from './screens/TitleScreen'
 import { isSwatchesMode } from './urlFlags'
 import { setupWakeLockReacquire } from './wakeLock'
+
+/** Control-state machine plus its HUD, mounted for the life of one flight (flying ⇄ paused). */
+function FlightControl() {
+  useControlStateDriver()
+  return <Hud />
+}
 
 export function App() {
   const state = useGameStore((s) => s.state)
@@ -47,6 +55,7 @@ export function App() {
     }
   }, [state, permissionDenied])
 
+  const inFlight = state === 'flying' || state === 'paused'
   const showPoseDebug =
     hasDebugFlag() && (state === 'calibrate' || state === 'flying' || state === 'paused')
 
@@ -60,8 +69,9 @@ export function App() {
       {state === 'permission' && <TitleScreen />}
       {state === 'calibrate' && <CalibrateScreen />}
       {state === 'error' && <ErrorScreen />}
-      {(state === 'flying' || state === 'paused') && <FlightScene />}
+      {inFlight && <FlightScene />}
       {state === 'paused' && <PausedOverlay />}
+      {inFlight && <FlightControl />}
       <InputSource enableTouchControls={state === 'flying'} />
       {showPoseDebug && <PoseDebug />}
     </div>

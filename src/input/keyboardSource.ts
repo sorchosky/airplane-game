@@ -37,8 +37,9 @@ export function targetPitch(pressed: Set<string>): number {
  * store itself, so the two never race. Mount once, near the app root, while `?input=keyboard`
  * (the default in dev).
  */
-export function useKeyboardSource(): void {
+export function useKeyboardSource(enabled = true): void {
   useEffect(() => {
+    if (!enabled) return
     const pressed = new Set<string>()
     let active = false
     let frame = 0
@@ -89,5 +90,5 @@ export function useKeyboardSource(): void {
       window.removeEventListener('keyup', onKeyUp)
       cancelAnimationFrame(frame)
     }
-  }, [])
+  }, [enabled])
 }
