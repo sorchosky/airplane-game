@@ -86,18 +86,18 @@ export function TitleScreen() {
         onClick={handleStart}
         disabled={requesting}
         style={{
-          fontFamily: type.fontBody,
-          fontWeight: type.weightButton,
+          fontFamily: type.fontDisplay,
+          fontWeight: type.weightDisplay,
           fontSize: type.tvTitle,
+          textTransform: 'uppercase',
+          letterSpacing: type.trackingDisplay,
           minHeight: 64,
           minWidth: 240,
           padding: `${space.md} ${space.xl}`,
           borderRadius: space.md,
           border: `2px solid ${color.textPrimary}`,
           background: 'transparent',
-          boxShadow: `0 2px 10px ${color.outline}`,
           color: color.textPrimary,
-          textShadow: `0 1px 8px ${color.outline}`,
           cursor: requesting ? 'default' : 'pointer',
           opacity: requesting ? 0.7 : 1,
         }}

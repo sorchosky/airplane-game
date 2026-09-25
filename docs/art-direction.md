@@ -142,10 +142,14 @@ saturated as the original red-orange.
   Buttons are a `surface-hud` panel with a 2px `accent` border and
   `text-primary` label (an outlined button, not a solid fill), so the accent
   stays a highlight rather than competing with the warm terrain colors.
-  **Exception:** `TitleScreen`'s Start button, per a specific owner request
-  for this round of testing, has no `surface-hud` fill and a `text-primary`
-  (not `accent`) border — a plain white-outlined button directly on the sky.
-  Not yet applied to other screens' buttons.
+  **Exception:** `TitleScreen`'s Start button, per specific owner requests
+  for this round of testing, has no `surface-hud` fill, no drop shadow, and a
+  `text-primary` (not `accent`) border — a plain white-outlined button
+  directly on the sky. Its label also breaks from the usual buttons-are-
+  `fontBody` rule: it's set in `fontDisplay`, uppercase, with
+  `trackingDisplay` — the same airy treatment as the main title, just at
+  `tv-title` size instead of `tv-display`. Not yet applied to other screens'
+  buttons.
 - **Spacing:** 8pt grid (`space.*`), generous — BotW's UI has a lot of empty
   space around text, which also helps 10-foot legibility.
 
