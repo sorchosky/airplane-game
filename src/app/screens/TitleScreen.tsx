@@ -52,7 +52,15 @@ export function TitleScreen() {
         background: `linear-gradient(180deg, ${color.skyZenith}, ${color.skyHorizon})`,
       }}
     >
-      <h1 style={{ fontFamily: type.fontDisplay, fontSize: type.tvDisplay, margin: 0 }}>
+      <h1
+        style={{
+          fontFamily: type.fontDisplay,
+          fontSize: type.tvDisplay,
+          textTransform: 'uppercase',
+          letterSpacing: type.trackingDisplay,
+          margin: 0,
+        }}
+      >
         Skyborne
       </h1>
       <p style={{ fontSize: type.tvBody, margin: 0, maxWidth: '40ch' }}>
@@ -63,7 +71,6 @@ export function TitleScreen() {
         onClick={handleStart}
         disabled={requesting}
         style={{
-          fontFamily: type.fontDisplay,
           fontSize: type.tvTitle,
           minHeight: 64,
           minWidth: 240,

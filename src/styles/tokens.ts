@@ -8,40 +8,42 @@
 
 // Colors are plain hex/rgba strings, which `new THREE.Color(...)` and
 // `<color args={[...]} />` accept directly — no wrapper needed to be
-// "Three.js Color-ready".
+// "Three.js Color-ready". Palette target: a warm, low-contrast sunset —
+// muted and painterly, not saturated/cartoony.
 export const color = {
   // Sky and atmosphere
-  skyZenith: '#3d76ad',
-  skyHorizon: '#cfe8ee',
-  fog: '#b7d6da',
-  sun: '#ffd873',
+  skyZenith: '#5c5b74',
+  skyHorizon: '#e7a878',
+  fog: '#e3bd9a',
+  sun: '#f8b968',
 
   // Terrain
-  grassLight: '#a8c34d',
-  grassShadow: '#4f6b2c',
-  rock: '#8d8577',
-  snow: '#f4f8fb',
-  waterShallow: '#6fd1c8',
-  waterDeep: '#1f5c73',
-  foliage: '#3f6e3b',
+  grassLight: '#b7a35e',
+  grassShadow: '#6d5a3a',
+  rock: '#a3907b',
+  snow: '#f6ead9',
+  waterShallow: '#7fa79c',
+  waterDeep: '#39525a',
+  foliage: '#5f6b41',
 
   // Cel-shading linework
-  outline: '#20241f',
+  outline: '#2a2219',
 
-  // Plane livery (cream body, warm red-orange stripe, muted metal)
-  planeBody: '#f2e9d8',
-  planeStripe: '#d9552c',
-  planeMetal: '#9aa0a6',
+  // Plane livery (cream body, warm terracotta stripe, muted metal)
+  planeBody: '#f1e7d4',
+  planeStripe: '#c2572f',
+  planeMetal: '#a99b89',
 
-  // Gesture-control state
-  controlActive: '#3fd6e6',
-  controlInactive: '#5b6570',
+  // Gesture-control state (muted teal-cyan, not neon, so it reads as a
+  // deliberate system color against the warm palette rather than clashing)
+  controlActive: '#5cb8bd',
+  controlInactive: '#8a7c6c',
 
   // UI
-  surfaceHud: 'rgba(13, 20, 33, 0.78)',
-  textPrimary: '#f5f3ec',
-  textMuted: '#b9c2ca',
-  accent: '#3fd6e6',
+  surfaceHud: 'rgba(36, 27, 21, 0.8)',
+  textPrimary: '#f3e8d8',
+  textMuted: '#cdbca6',
+  accent: '#5cb8bd',
 } as const
 
 // 8pt spacing scale.
@@ -58,13 +60,21 @@ export const space = {
 // TV type scale, sized to stay legible from a couch (~10 ft / 3 m from a
 // 55" TV). `tvBody` is the minimum size used for any body text (CLAUDE.md:
 // "Minimum body text is the tv-body token").
+//
+// `fontDisplay` is reserved for the logo and section headers (mirroring
+// BotW's own UI, which is Helvetica-like everywhere except those); every
+// other UI element — buttons, body copy, captions — uses `fontBody`. Sizes
+// lean smaller/tighter than a typical "hero game title" ramp, in keeping
+// with a mid-century poster's restraint; the main title makes up the
+// difference with `trackingDisplay` and uppercase rather than sheer size.
 export const type = {
-  fontDisplay: '"Cinzel", serif',
-  fontBody: '"Inter", system-ui, sans-serif',
-  tvDisplay: 'clamp(3rem, 6vw, 6rem)',
-  tvTitle: 'clamp(2rem, 4vw, 3.5rem)',
-  tvBody: 'clamp(1.5rem, 2.4vw, 2rem)',
-  tvCaption: 'clamp(1.125rem, 1.8vw, 1.5rem)',
+  fontDisplay: '"Josefin Sans", sans-serif',
+  fontBody: '"Work Sans", system-ui, sans-serif',
+  trackingDisplay: '0.14em',
+  tvDisplay: 'clamp(2.5rem, 4.5vw, 4rem)',
+  tvTitle: 'clamp(1.75rem, 3vw, 2.5rem)',
+  tvBody: 'clamp(1.5rem, 2vw, 1.875rem)',
+  tvCaption: 'clamp(1.125rem, 1.5vw, 1.375rem)',
 } as const
 
 // Toon shading ramp: N-dot-L thresholds that split lighting into flat bands
@@ -74,15 +84,15 @@ export const type = {
 // instead of aliasing into jaggies.
 export const toonRamp = {
   steps: 3,
-  thresholds: [0.25, 0.6] as const,
-  edgeSoftness: 0.04,
+  thresholds: [0.3, 0.65] as const,
+  edgeSoftness: 0.05,
 } as const
 
 // Lighting constants shared by every material/scene ticket in M3.
 export const lighting = {
-  // World-space direction the sun shines FROM, roughly matching a low
-  // afternoon sun over the player's left shoulder. #22 owns normalizing and
-  // animating this.
-  sunDirection: [0.35, 0.82, 0.45] as const,
-  rimStrength: 0.35,
+  // World-space direction the sun shines FROM: low on the horizon for a
+  // golden-hour/sunset mood (small Y, large horizontal component), rather
+  // than a high overhead noon sun. #22 owns normalizing and animating this.
+  sunDirection: [0.85, 0.28, 0.35] as const,
+  rimStrength: 0.4,
 } as const

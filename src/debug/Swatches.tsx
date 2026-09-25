@@ -24,9 +24,25 @@ const COLOR_ROWS: Array<{ label: string; token: string; value: string }> = [
   { label: 'accent', token: 'accent', value: color.accent },
 ]
 
-const TYPE_ROWS: Array<{ label: string; token: string; size: string; font: string }> = [
-  { label: 'tv-display', token: 'tvDisplay', size: type.tvDisplay, font: type.fontDisplay },
-  { label: 'tv-title', token: 'tvTitle', size: type.tvTitle, font: type.fontDisplay },
+// `tv-display` is the only size that gets the uppercase/wide-tracking main-title
+// treatment — it's reserved for the logo. `tv-title` uses the display font only for
+// section headers (see `Section` below); most `tv-title` usage in the app is buttons,
+// which use the body font, so that's what's demonstrated here.
+const TYPE_ROWS: Array<{
+  label: string
+  token: string
+  size: string
+  font: string
+  mainTitle?: boolean
+}> = [
+  {
+    label: 'tv-display',
+    token: 'tvDisplay',
+    size: type.tvDisplay,
+    font: type.fontDisplay,
+    mainTitle: true,
+  },
+  { label: 'tv-title', token: 'tvTitle', size: type.tvTitle, font: type.fontBody },
   { label: 'tv-body', token: 'tvBody', size: type.tvBody, font: type.fontBody },
   { label: 'tv-caption', token: 'tvCaption', size: type.tvCaption, font: type.fontBody },
 ]
@@ -88,6 +104,8 @@ export function Swatches() {
         style={{
           fontFamily: type.fontDisplay,
           fontSize: type.tvDisplay,
+          textTransform: 'uppercase',
+          letterSpacing: type.trackingDisplay,
           margin: `0 0 ${space.xl} 0`,
         }}
       >
@@ -112,7 +130,15 @@ export function Swatches() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: space.md }}>
           {TYPE_ROWS.map((row) => (
             <div key={row.token}>
-              <div style={{ fontFamily: row.font, fontSize: row.size, lineHeight: 1.1 }}>
+              <div
+                style={{
+                  fontFamily: row.font,
+                  fontSize: row.size,
+                  lineHeight: 1.1,
+                  textTransform: row.mainTitle ? 'uppercase' : 'none',
+                  letterSpacing: row.mainTitle ? type.trackingDisplay : 'normal',
+                }}
+              >
                 Fly like the wind
               </div>
               <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', opacity: 0.75 }}>

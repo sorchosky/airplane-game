@@ -1,41 +1,41 @@
 /* Google Fonts, self-hosted-equivalent via the Fonts API CDN. Both are
    licensed under the SIL Open Font License 1.1 (free for commercial use,
    no attribution required). See docs/art-direction.md for the rationale. */
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@500;600&family=Work+Sans:wght@400;500;600&display=swap');
 
 :root {
   /* Sky and atmosphere */
-  --color-sky-zenith: #3d76ad;
-  --color-sky-horizon: #cfe8ee;
-  --color-fog: #b7d6da;
-  --color-sun: #ffd873;
+  --color-sky-zenith: #5c5b74;
+  --color-sky-horizon: #e7a878;
+  --color-fog: #e3bd9a;
+  --color-sun: #f8b968;
 
   /* Terrain */
-  --color-grass-light: #a8c34d;
-  --color-grass-shadow: #4f6b2c;
-  --color-rock: #8d8577;
-  --color-snow: #f4f8fb;
-  --color-water-shallow: #6fd1c8;
-  --color-water-deep: #1f5c73;
-  --color-foliage: #3f6e3b;
+  --color-grass-light: #b7a35e;
+  --color-grass-shadow: #6d5a3a;
+  --color-rock: #a3907b;
+  --color-snow: #f6ead9;
+  --color-water-shallow: #7fa79c;
+  --color-water-deep: #39525a;
+  --color-foliage: #5f6b41;
 
   /* Cel-shading linework */
-  --color-outline: #20241f;
+  --color-outline: #2a2219;
 
   /* Plane livery */
-  --color-plane-body: #f2e9d8;
-  --color-plane-stripe: #d9552c;
-  --color-plane-metal: #9aa0a6;
+  --color-plane-body: #f1e7d4;
+  --color-plane-stripe: #c2572f;
+  --color-plane-metal: #a99b89;
 
   /* Gesture-control state */
-  --color-control-active: #3fd6e6;
-  --color-control-inactive: #5b6570;
+  --color-control-active: #5cb8bd;
+  --color-control-inactive: #8a7c6c;
 
   /* UI */
-  --color-surface-hud: rgba(13, 20, 33, 0.78);
-  --color-text-primary: #f5f3ec;
-  --color-text-muted: #b9c2ca;
-  --color-accent: #3fd6e6;
+  --color-surface-hud: rgba(36, 27, 21, 0.8);
+  --color-text-primary: #f3e8d8;
+  --color-text-muted: #cdbca6;
+  --color-accent: #5cb8bd;
 
   --space-xs: 4px;
   --space-sm: 8px;
@@ -45,12 +45,13 @@
   --space-xxl: 48px;
   --space-xxxl: 64px;
 
-  --font-display: 'Cinzel', serif;
-  --font-body: 'Inter', system-ui, sans-serif;
-  --type-tv-display: clamp(3rem, 6vw, 6rem);
-  --type-tv-title: clamp(2rem, 4vw, 3.5rem);
-  --type-tv-body: clamp(1.5rem, 2.4vw, 2rem);
-  --type-tv-caption: clamp(1.125rem, 1.8vw, 1.5rem);
+  --font-display: 'Josefin Sans', sans-serif;
+  --font-body: 'Work Sans', system-ui, sans-serif;
+  --tracking-display: 0.14em;
+  --type-tv-display: clamp(2.5rem, 4.5vw, 4rem);
+  --type-tv-title: clamp(1.75rem, 3vw, 2.5rem);
+  --type-tv-body: clamp(1.5rem, 2vw, 1.875rem);
+  --type-tv-caption: clamp(1.125rem, 1.5vw, 1.375rem);
 }
 
 * {
