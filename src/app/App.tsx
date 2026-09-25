@@ -43,7 +43,7 @@ export function App() {
       {state === 'error' && <ErrorScreen />}
       {(state === 'flying' || state === 'paused') && <FlightScene />}
       {state === 'paused' && <PausedOverlay />}
-      <InputSource />
+      <InputSource enableTouchControls={state === 'flying'} />
     </div>
   )
 }
