@@ -42,6 +42,8 @@ export const color = {
 
   // UI
   surfaceHud: 'rgba(36, 27, 21, 0.8)',
+  // Opaque `surfaceHud`, for full-screen blockers that must hide everything behind them.
+  surfaceScrim: '#241b15',
   textPrimary: '#f3e8d8',
   textMuted: '#cdbca6',
   accent: '#5cb8bd',

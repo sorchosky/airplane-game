@@ -3,6 +3,8 @@ import {
   DEFAULT_CONTROL_MACHINE_PARAMS,
   controlView,
   createControlMachineState,
+  forcePause,
+  startCountdown,
   stepControlMachine,
   togglePause,
   type ControlCommand,
@@ -44,7 +46,7 @@ describe('stepControlMachine', () => {
     expect(stepControlMachine(state, { active: true, nowMs: 5000 }).state).toBe(state)
   })
 
-  it('walks idle → prompt → pause → arming → countdown → resume', () => {
+  it('walks idle → prompt → pause → countdown → resume', () => {
     // Idle: arms drop at t=0.
     let state: ControlMachineState = { phase: 'inactive', sinceMs: 0 }
     expect(controlView(state, 0, true).prompt).toBeNull()
@@ -61,10 +63,10 @@ describe('stepControlMachine', () => {
     expect(state.phase).toBe('paused')
     expect(controlView(state, 5008, true)).toEqual({ prompt: null, paused: true, countdown: null })
 
-    // Arms out: 1 s hold, then countdown.
-    result = run(state, true, 6000, 6992)
-    expect(result.state.phase).toBe('arming')
-    result = run(result.state, true, 7008, 7008)
+    // Arms out alone doesn't resume: the pause menu owns the hold and starts the countdown.
+    result = run(state, true, 6000, 9000)
+    expect(result.state.phase).toBe('paused')
+    result = { state: startCountdown(result.state, 9000).state, commands: [] }
     expect(result.state.phase).toBe('countdown')
     const countdownStart = result.state.sinceMs
     expect(controlView(result.state, countdownStart, true).countdown).toBe(3)
@@ -89,15 +91,6 @@ describe('stepControlMachine', () => {
     result = run(result.state, false, 4932, 9000)
     expect(result.commands).toEqual([])
     expect(result.state.phase).toBe('inactive')
-  })
-
-  it('restarts the resume hold if the arms drop while arming', () => {
-    let result = run({ phase: 'paused', sinceMs: 0 }, true, 0, 800)
-    expect(result.state.phase).toBe('arming')
-    result = run(result.state, false, 816, 816)
-    expect(result.state.phase).toBe('paused')
-    result = run(result.state, true, 832, 1500)
-    expect(result.state.phase).toBe('arming')
   })
 
   it('cancels the countdown back to paused if the arms drop', () => {
@@ -142,6 +135,33 @@ describe('togglePause', () => {
     const counting = togglePause({ phase: 'paused', sinceMs: 0 }, 100)
     expect(counting).toEqual({ state: { phase: 'countdown', sinceMs: 100 }, command: null })
     expect(togglePause(counting.state, 200).state.phase).toBe('paused')
+  })
+})
+
+describe('startCountdown', () => {
+  it('starts the countdown only from paused', () => {
+    expect(startCountdown({ phase: 'paused', sinceMs: 0 }, 100)).toEqual({
+      state: { phase: 'countdown', sinceMs: 100 },
+      command: null,
+    })
+    const active: ControlMachineState = { phase: 'active', sinceMs: 0 }
+    expect(startCountdown(active, 100).state).toBe(active)
+  })
+})
+
+describe('forcePause', () => {
+  it('pauses from flying and cancels a countdown, but leaves paused alone', () => {
+    expect(forcePause({ phase: 'active', sinceMs: 0 }, 100)).toEqual({
+      state: { phase: 'paused', sinceMs: 100 },
+      command: 'pause',
+    })
+    expect(forcePause({ phase: 'inactive', sinceMs: 0 }, 100).command).toBe('pause')
+    expect(forcePause({ phase: 'countdown', sinceMs: 0 }, 100)).toEqual({
+      state: { phase: 'paused', sinceMs: 100 },
+      command: null,
+    })
+    const paused: ControlMachineState = { phase: 'paused', sinceMs: 0 }
+    expect(forcePause(paused, 100).state).toBe(paused)
   })
 })
 

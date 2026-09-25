@@ -14,6 +14,11 @@ interface CalibrationStore {
   calibration: Calibration | null
   /** Applies a calibration and persists it for the next session. */
   setCalibration: (calibration: Calibration) => void
+  /**
+   * Forgets the calibration in memory so the next calibrate screen runs the full hold (Recalibrate
+   * in the pause menu). The saved copy is left alone until the new one replaces it.
+   */
+  clearCalibration: () => void
 }
 
 /** Read with `getState()` by `poseSource`; written once when the calibrate screen completes. */
@@ -23,4 +28,5 @@ export const useCalibrationStore = create<CalibrationStore>((set) => ({
     saveCalibration(storage(), calibration)
     set({ calibration })
   },
+  clearCalibration: () => set({ calibration: null }),
 }))

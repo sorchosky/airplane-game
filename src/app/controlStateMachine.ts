@@ -6,15 +6,15 @@
  * - `active`    the player is steering.
  * - `inactive`  arms down or out of frame; autopilot flies. A prompt shows after `promptDelayMs`,
  *               and after `pauseAfterMs` the game pauses (when `gesturePause` is on).
- * - `paused`    the sim is frozen, waiting for arms out.
- * - `arming`    paused, arms out, held for `resumeHoldMs` before the countdown starts.
+ * - `paused`    the sim is frozen and the pause menu (#28) is up. The menu owns the arms-out hold
+ *               and calls `startCountdown` when the player picks Resume.
  * - `countdown` 3-2-1, still paused. Arms down cancels it back to `paused`.
  *
  * Keyboard mode turns `gesturePause` off: Esc (`togglePause`) is the only way in and out of pause,
  * but resuming still goes through the countdown.
  */
 
-export type ControlPhase = 'active' | 'inactive' | 'paused' | 'arming' | 'countdown'
+export type ControlPhase = 'active' | 'inactive' | 'paused' | 'countdown'
 
 export interface ControlMachineState {
   phase: ControlPhase
@@ -33,8 +33,6 @@ export interface ControlMachineParams {
   promptDelayMs: number
   /** Inactive this long before the game pauses. */
   pauseAfterMs: number
-  /** Arms out this long while paused before the countdown starts. */
-  resumeHoldMs: number
   /** Countdown length; one tick per second. */
   countdownMs: number
   /** Whether arms down/out drive pause and resume. Off in keyboard mode. */
@@ -44,7 +42,6 @@ export interface ControlMachineParams {
 export const DEFAULT_CONTROL_MACHINE_PARAMS: ControlMachineParams = {
   promptDelayMs: 300,
   pauseAfterMs: 5000,
-  resumeHoldMs: 1000,
   countdownMs: 3000,
   gesturePause: true,
 }
@@ -90,11 +87,7 @@ export function stepControlMachine(
       return unchanged
 
     case 'paused':
-      return params.gesturePause && active ? enter('arming', nowMs) : unchanged
-
-    case 'arming':
-      if (!active) return enter('paused', nowMs)
-      return elapsed >= params.resumeHoldMs ? enter('countdown', nowMs) : unchanged
+      return unchanged
 
     case 'countdown':
       if (params.gesturePause && !active) return enter('paused', nowMs)
@@ -115,10 +108,30 @@ export function togglePause(state: ControlMachineState, nowMs: number): ControlS
     case 'inactive':
       return enter('paused', nowMs, 'pause')
     case 'paused':
-    case 'arming':
       return enter('countdown', nowMs)
     case 'countdown':
       return enter('paused', nowMs)
+  }
+}
+
+/** Resume picked from the pause menu: paused starts the countdown, anything else is unchanged. */
+export function startCountdown(state: ControlMachineState, nowMs: number): ControlStepResult {
+  return state.phase === 'paused' ? enter('countdown', nowMs) : { state, command: null }
+}
+
+/**
+ * Pause from outside the player's control (the phone turned to portrait). Flying pauses, a running
+ * countdown drops back to paused, and paused stays paused.
+ */
+export function forcePause(state: ControlMachineState, nowMs: number): ControlStepResult {
+  switch (state.phase) {
+    case 'active':
+    case 'inactive':
+      return enter('paused', nowMs, 'pause')
+    case 'countdown':
+      return enter('paused', nowMs)
+    case 'paused':
+      return { state, command: null }
   }
 }
 
@@ -146,7 +159,7 @@ export function controlView(
 
   return {
     prompt: showPrompt ? (personInFrame ? 'spread-arms' : 'step-into-view') : null,
-    paused: state.phase === 'paused' || state.phase === 'arming' || state.phase === 'countdown',
+    paused: state.phase === 'paused' || state.phase === 'countdown',
     countdown:
       state.phase === 'countdown'
         ? Math.max(1, countdownSeconds - Math.floor(elapsed / 1000))
