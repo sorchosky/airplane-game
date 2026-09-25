@@ -19,8 +19,9 @@ const POSE_STALE_MS = 250
  * sample times rather than the same sample repeated at the render rate. Mount once, near the app
  * root, while `?input=pose`.
  */
-export function usePoseSource(): void {
+export function usePoseSource(enabled = true): void {
   useEffect(() => {
+    if (!enabled) return
     let gestureState: GestureState = DEFAULT_GESTURE_STATE
     let lastDetectedAtMs = -1
     let frame = 0
@@ -51,5 +52,5 @@ export function usePoseSource(): void {
     return () => {
       cancelAnimationFrame(frame)
     }
-  }, [])
+  }, [enabled])
 }
