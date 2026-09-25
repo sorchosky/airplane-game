@@ -27,6 +27,7 @@
   --color-plane-body: #f1e7d4;
   --color-plane-stripe: #c2572f;
   --color-plane-metal: #a99b89;
+  --color-plane-glass: #3a4248;
 
   /* Gesture-control state */
   --color-control-active: #5cb8bd;

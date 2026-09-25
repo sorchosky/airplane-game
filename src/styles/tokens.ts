@@ -34,6 +34,8 @@ export const color = {
   planeBody: '#f1e7d4',
   planeStripe: '#c2572f',
   planeMetal: '#a99b89',
+  // Cabin window band and tires: a cool, dark slate tint.
+  planeGlass: '#3a4248',
 
   // Gesture-control state (muted teal-cyan, not neon, so it reads as a
   // deliberate system color against the warm palette rather than clashing).

@@ -17,6 +17,7 @@ const COLOR_ROWS: Array<{ label: string; token: string; value: string }> = [
   { label: 'plane-body', token: 'planeBody', value: color.planeBody },
   { label: 'plane-stripe', token: 'planeStripe', value: color.planeStripe },
   { label: 'plane-metal', token: 'planeMetal', value: color.planeMetal },
+  { label: 'plane-glass', token: 'planeGlass', value: color.planeGlass },
   { label: 'control-active', token: 'controlActive', value: color.controlActive },
   { label: 'control-inactive', token: 'controlInactive', value: color.controlInactive },
   { label: 'surface-hud', token: 'surfaceHud', value: color.surfaceHud },

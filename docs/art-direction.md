@@ -45,6 +45,7 @@ All values live in `src/styles/tokens.ts` (`color`) and `src/styles/tokens.css`
 | `plane-body` | `#f1e7d4` | Plane fuselage, warm cream |
 | `plane-stripe` | `#c2572f` | Plane accent stripe, muted terracotta |
 | `plane-metal` | `#a99b89` | Plane prop/struts, warm taupe-metal |
+| `plane-glass` | `#3a4248` | Plane cabin window band and tires, dark cool slate |
 | `control-active` | `#5cb8bd` | Gesture control engaged (arms-out gate) |
 | `control-inactive` | `#8a7c6c` | Gesture control disengaged / autopilot |
 | `surface-hud` | `rgba(36, 27, 21, 0.8)` | Translucent warm-dark HUD panel background |
