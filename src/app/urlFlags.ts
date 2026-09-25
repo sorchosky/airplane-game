@@ -1,9 +1,13 @@
-// Small URL-flag reader shared across dev/testing entry points. #9 adds the
-// full `?input=` source selection; this ticket only needs to know whether
-// keyboard mode is requested, to skip the camera permission probe.
+// Small URL-flag reader shared across dev/testing entry points.
 
+import { getInputSourceFromUrl } from '../input/source'
+
+/**
+ * Whether Start skips the camera and calibration. Derived from the same `?input=` reader the input
+ * store uses, so the screen flow and the source steering the plane can never disagree.
+ */
 export function isKeyboardInputMode(): boolean {
-  return new URLSearchParams(window.location.search).get('input') === 'keyboard'
+  return getInputSourceFromUrl() === 'keyboard'
 }
 
 /** `?swatches` renders the design token review page instead of the game. */
