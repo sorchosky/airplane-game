@@ -5,6 +5,8 @@
   --color-text-primary: #1a2330;
   --color-text-on-dark: #f5f7fa;
   --color-surface-hud: rgba(11, 18, 32, 0.6);
+  --color-control-active: #3ddc84;
+  --color-control-inactive: rgba(245, 247, 250, 0.45);
 
   --space-xs: 4px;
   --space-sm: 8px;
@@ -18,6 +20,8 @@
   --type-tv-title: clamp(2rem, 4vw, 3.5rem);
   --type-tv-body: clamp(1.25rem, 2.2vw, 2rem);
   --type-tv-caption: clamp(1rem, 1.6vw, 1.5rem);
+
+  --size-camera-preview-width: 20vw;
 }
 
 * {
