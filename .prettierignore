@@ -7,3 +7,6 @@ test-results
 *.md
 docs
 .github
+
+# Copied from node_modules on postinstall
+public/mediapipe/wasm

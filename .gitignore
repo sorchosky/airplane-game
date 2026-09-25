@@ -17,3 +17,6 @@ test-results
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+# MediaPipe WASM runtime, copied from node_modules on postinstall
+public/mediapipe/wasm

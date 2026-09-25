@@ -7,6 +7,13 @@ Fly a cel-shaded bush plane through a Breath of the Wild inspired world using yo
 - **Settled decisions:** [`docs/decisions.md`](docs/decisions.md)
 - **Starting a ticket session:** [`docs/kickoff-prompt.md`](docs/kickoff-prompt.md)
 
+## Pose model files
+
+Pose detection runs MediaPipe Pose Landmarker from our own origin, never a CDN. Everything lives under `public/mediapipe/`:
+
+- `pose_landmarker_lite.task` is committed to the repo. To update it, download the latest from `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task` and replace the file.
+- `wasm/` is copied from `node_modules/@mediapipe/tasks-vision/wasm` by `scripts/copy-mediapipe-wasm.mjs`, which runs automatically on `npm install` / `npm ci` (`postinstall`). It's gitignored. If it's ever missing, run `npm run postinstall`.
+
 ## CI and previews
 
 Every PR runs `npm run check` (typecheck, lint, unit tests) and `npm run build` in GitHub Actions (`.github/workflows/ci.yml`). Once the repo is connected in Vercel (see #7), every PR also gets a preview deployment, posted as a comment on the PR by the Vercel GitHub bot.
