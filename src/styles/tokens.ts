@@ -20,6 +20,7 @@ export const color = {
   // Terrain
   grassLight: '#b7a35e',
   grassShadow: '#6d5a3a',
+  sand: '#cdb48a',
   rock: '#a3907b',
   snow: '#f6ead9',
   waterShallow: '#7fa79c',

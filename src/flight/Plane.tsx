@@ -4,7 +4,7 @@ import type { Group } from 'three'
 import { useInputStore } from '../input/inputStore'
 import { ToonMesh } from '../render/ToonMesh'
 import { color } from '../styles/tokens'
-import { heightAt } from '../world/heightfield'
+import { surfaceHeightAt } from '../world/heightfield'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import { useFlightStore } from './flightStore'
 
@@ -26,7 +26,7 @@ export function Plane({ paused }: PlaneProps) {
     if (paused) return
     const input = useInputStore.getState().current
     const { position } = useFlightStore.getState().state
-    const groundHeight = heightAt(position.x, position.z, TERRAIN_CONFIG)
+    const groundHeight = surfaceHeightAt(position.x, position.z, TERRAIN_CONFIG)
     useFlightStore.getState().tick(input, delta, groundHeight)
 
     const group = groupRef.current
