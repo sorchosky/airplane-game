@@ -5,6 +5,7 @@ import { PerfProbe } from '../debug/PerfProbe'
 import { ChaseCamera } from '../flight/ChaseCamera'
 import { Plane } from '../flight/Plane'
 import { hasDebugFlag } from '../input/source'
+import { PostFX } from '../render/PostFX'
 import { Atmosphere } from '../world/Atmosphere'
 import { Terrain } from '../world/Terrain'
 import { Water } from '../world/Water'
@@ -27,6 +28,7 @@ export function FlightScene() {
         <Terrain />
         <Water />
         <PerfProbe />
+        <PostFX />
       </Canvas>
       <FpsCounter initiallyVisible={debug} />
     </>
