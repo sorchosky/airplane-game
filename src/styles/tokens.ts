@@ -70,6 +70,10 @@ export const space = {
 export const type = {
   fontDisplay: '"Josefin Sans", sans-serif',
   fontBody: '"Work Sans", system-ui, sans-serif',
+  // Explicit weights so the browser never has to synthesize a bold from an
+  // unloaded weight (tokens.css only loads the weights below).
+  weightDisplay: 600,
+  weightButton: 500,
   trackingDisplay: '0.14em',
   tvDisplay: 'clamp(2.5rem, 4.5vw, 4rem)',
   tvTitle: 'clamp(1.75rem, 3vw, 2.5rem)',

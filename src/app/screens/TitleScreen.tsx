@@ -52,25 +52,45 @@ export function TitleScreen() {
         background: `linear-gradient(180deg, ${color.skyZenith}, ${color.skyHorizon})`,
       }}
     >
-      <h1
+      {/* Title and tagline sit on a surface-hud plate rather than directly on the sky
+          gradient: text-primary only clears WCAG AA near the top of the gradient
+          (skyZenith), not toward skyHorizon — see docs/art-direction.md's contrast
+          table. A solid plate under the wordmark also reads as a period-appropriate
+          mid-century poster device. */}
+      <div
         style={{
-          fontFamily: type.fontDisplay,
-          fontSize: type.tvDisplay,
-          textTransform: 'uppercase',
-          letterSpacing: type.trackingDisplay,
-          margin: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: space.md,
+          background: color.surfaceHud,
+          borderRadius: space.md,
+          padding: `${space.lg} ${space.xl}`,
         }}
       >
-        Skyborne
-      </h1>
-      <p style={{ fontSize: type.tvBody, margin: 0, maxWidth: '40ch' }}>
-        Prop up your phone, spread your arms, and fly.
-      </p>
+        <h1
+          style={{
+            fontFamily: type.fontDisplay,
+            fontWeight: type.weightDisplay,
+            fontSize: type.tvDisplay,
+            textTransform: 'uppercase',
+            letterSpacing: type.trackingDisplay,
+            margin: 0,
+          }}
+        >
+          Skyborne
+        </h1>
+        <p style={{ fontSize: type.tvBody, margin: 0, maxWidth: '40ch' }}>
+          Prop up your phone, spread your arms, and fly.
+        </p>
+      </div>
       <button
         type="button"
         onClick={handleStart}
         disabled={requesting}
         style={{
+          fontFamily: type.fontBody,
+          fontWeight: type.weightButton,
           fontSize: type.tvTitle,
           minHeight: 64,
           minWidth: 240,

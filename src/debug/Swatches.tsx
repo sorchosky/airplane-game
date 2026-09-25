@@ -57,7 +57,7 @@ function Swatch({ label, token, value }: { label: string; token: string; value: 
     >
       <div style={{ height: 64, background: value }} />
       <div style={{ padding: space.sm, background: color.surfaceHud, color: color.textPrimary }}>
-        <div style={{ fontFamily: type.fontBody, fontWeight: 600 }}>{label}</div>
+        <div style={{ fontFamily: type.fontBody, fontWeight: type.weightButton }}>{label}</div>
         <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', opacity: 0.85 }}>
           color.{token}
         </div>
@@ -73,6 +73,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <h2
         style={{
           fontFamily: type.fontDisplay,
+          fontWeight: type.weightDisplay,
           fontSize: type.tvTitle,
           margin: `0 0 ${space.md} 0`,
           color: color.textPrimary,
@@ -88,6 +89,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 /**
  * `?swatches` dev route: renders every design token for owner review before
  * #20 merges. Not part of the game's own screen flow (see App.tsx).
+ *
+ * Content sits on a surface-hud sheet over the sky gradient rather than
+ * directly on it: text-primary only clears WCAG AA near the top of the
+ * gradient (skyZenith), not toward skyHorizon (see the contrast table in
+ * docs/art-direction.md) — the same reason TitleScreen puts its title on a
+ * plate instead of the open sky.
  */
 export function Swatches() {
   return (
@@ -96,89 +103,104 @@ export function Swatches() {
         minHeight: '100%',
         padding: space.xl,
         background: `linear-gradient(180deg, ${color.skyZenith}, ${color.skyHorizon})`,
-        color: color.textPrimary,
-        fontFamily: type.fontBody,
       }}
     >
-      <h1
+      <div
         style={{
-          fontFamily: type.fontDisplay,
-          fontSize: type.tvDisplay,
-          textTransform: 'uppercase',
-          letterSpacing: type.trackingDisplay,
-          margin: `0 0 ${space.xl} 0`,
+          maxWidth: 1200,
+          margin: '0 auto',
+          padding: space.xl,
+          borderRadius: space.md,
+          background: color.surfaceHud,
+          color: color.textPrimary,
+          fontFamily: type.fontBody,
         }}
       >
-        Design tokens
-      </h1>
-
-      <Section title="Colors">
-        <div
+        <h1
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-            gap: space.md,
+            fontFamily: type.fontDisplay,
+            fontWeight: type.weightDisplay,
+            fontSize: type.tvDisplay,
+            textTransform: 'uppercase',
+            letterSpacing: type.trackingDisplay,
+            margin: `0 0 ${space.xl} 0`,
           }}
         >
-          {COLOR_ROWS.map((row) => (
-            <Swatch key={row.token} {...row} />
-          ))}
-        </div>
-      </Section>
+          Design tokens
+        </h1>
 
-      <Section title="Type scale">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: space.md }}>
-          {TYPE_ROWS.map((row) => (
-            <div key={row.token}>
-              <div
-                style={{
-                  fontFamily: row.font,
-                  fontSize: row.size,
-                  lineHeight: 1.1,
-                  textTransform: row.mainTitle ? 'uppercase' : 'none',
-                  letterSpacing: row.mainTitle ? type.trackingDisplay : 'normal',
-                }}
-              >
-                Fly like the wind
-              </div>
-              <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', opacity: 0.75 }}>
-                type.{row.token} · {row.size} · {row.font}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      <Section title="Toon ramp">
-        <p style={{ fontSize: type.tvCaption, maxWidth: '60ch' }}>
-          {toonRamp.steps} bands, thresholds at{' '}
-          {toonRamp.thresholds.map((t) => t.toFixed(2)).join(' and ')} (N·L), edge softness{' '}
-          {toonRamp.edgeSoftness}.
-        </p>
-        <div style={{ display: 'flex', height: 48, borderRadius: space.xs, overflow: 'hidden' }}>
-          <div style={{ flex: toonRamp.thresholds[0], background: color.grassShadow }} />
+        <Section title="Colors">
           <div
             style={{
-              flex: toonRamp.thresholds[1] - toonRamp.thresholds[0],
-              background: color.foliage,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+              gap: space.md,
             }}
-          />
-          <div style={{ flex: 1 - toonRamp.thresholds[1], background: color.grassLight }} />
-        </div>
-      </Section>
+          >
+            {COLOR_ROWS.map((row) => (
+              <Swatch key={row.token} {...row} />
+            ))}
+          </div>
+        </Section>
 
-      <Section title="Lighting">
-        <p style={{ fontSize: type.tvCaption }}>
-          Sun direction [{lighting.sunDirection.join(', ')}] · rim strength {lighting.rimStrength}
-        </p>
-      </Section>
+        <Section title="Type scale">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: space.md }}>
+            {TYPE_ROWS.map((row) => (
+              <div key={row.token}>
+                <div
+                  style={{
+                    fontFamily: row.font,
+                    fontSize: row.size,
+                    lineHeight: 1.1,
+                    textTransform: row.mainTitle ? 'uppercase' : 'none',
+                    letterSpacing: row.mainTitle ? type.trackingDisplay : 'normal',
+                  }}
+                >
+                  Fly like the wind
+                </div>
+                <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', opacity: 0.75 }}>
+                  type.{row.token} · {row.size} · {row.font}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
 
-      <Section title="Gesture control state">
-        <div style={{ display: 'flex', gap: space.md }}>
-          <Swatch label="control-active" token="controlActive" value={color.controlActive} />
-          <Swatch label="control-inactive" token="controlInactive" value={color.controlInactive} />
-        </div>
-      </Section>
+        <Section title="Toon ramp">
+          <p style={{ fontSize: type.tvCaption, maxWidth: '60ch' }}>
+            {toonRamp.steps} bands, thresholds at{' '}
+            {toonRamp.thresholds.map((t) => t.toFixed(2)).join(' and ')} (N·L), edge softness{' '}
+            {toonRamp.edgeSoftness}.
+          </p>
+          <div style={{ display: 'flex', height: 48, borderRadius: space.xs, overflow: 'hidden' }}>
+            <div style={{ flex: toonRamp.thresholds[0], background: color.grassShadow }} />
+            <div
+              style={{
+                flex: toonRamp.thresholds[1] - toonRamp.thresholds[0],
+                background: color.foliage,
+              }}
+            />
+            <div style={{ flex: 1 - toonRamp.thresholds[1], background: color.grassLight }} />
+          </div>
+        </Section>
+
+        <Section title="Lighting">
+          <p style={{ fontSize: type.tvCaption }}>
+            Sun direction [{lighting.sunDirection.join(', ')}] · rim strength {lighting.rimStrength}
+          </p>
+        </Section>
+
+        <Section title="Gesture control state">
+          <div style={{ display: 'flex', gap: space.md }}>
+            <Swatch label="control-active" token="controlActive" value={color.controlActive} />
+            <Swatch
+              label="control-inactive"
+              token="controlInactive"
+              value={color.controlInactive}
+            />
+          </div>
+        </Section>
+      </div>
     </div>
   )
 }

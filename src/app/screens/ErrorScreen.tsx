@@ -28,6 +28,7 @@ export function ErrorScreen() {
         type="button"
         onClick={retry}
         style={{
+          fontWeight: type.weightButton,
           fontSize: type.tvTitle,
           minHeight: 64,
           minWidth: 200,

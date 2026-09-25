@@ -26,12 +26,22 @@ export function PausedOverlay() {
         textAlign: 'center',
       }}
     >
-      <p style={{ fontFamily: type.fontDisplay, fontSize: type.tvTitle, margin: 0 }}>Paused</p>
+      <p
+        style={{
+          fontFamily: type.fontDisplay,
+          fontWeight: type.weightDisplay,
+          fontSize: type.tvTitle,
+          margin: 0,
+        }}
+      >
+        Paused
+      </p>
       {keyboard && (
         <button
           type="button"
           onClick={resume}
           style={{
+            fontWeight: type.weightButton,
             fontSize: type.tvBody,
             minHeight: 64,
             minWidth: 200,

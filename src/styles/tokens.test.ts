@@ -118,6 +118,10 @@ describe('design tokens', () => {
 
   it('mirrors every color, space and type value into tokens.css as a custom property', () => {
     const css = readFileSync('src/styles/tokens.css', 'utf-8')
+    // Prettier normalizes quote style differently for JS (tokens.ts) vs. CSS (tokens.css) string
+    // literals, so font-family values are compared with quote characters stripped.
+    const stripQuotes = (s: string) => s.replaceAll(/['"]/g, '')
+    const normalizedCss = stripQuotes(css)
 
     for (const value of Object.values(color)) {
       expect(css.includes(value), `tokens.css is missing color value ${value}`).toBe(true)
@@ -125,8 +129,32 @@ describe('design tokens', () => {
     for (const value of Object.values(space)) {
       expect(css.includes(value), `tokens.css is missing space value ${value}`).toBe(true)
     }
-    for (const key of ['tvDisplay', 'tvTitle', 'tvBody', 'tvCaption'] as const) {
-      expect(css.includes(type[key]), `tokens.css is missing type value ${type[key]}`).toBe(true)
+    for (const key of [
+      'fontDisplay',
+      'fontBody',
+      'trackingDisplay',
+      'tvDisplay',
+      'tvTitle',
+      'tvBody',
+      'tvCaption',
+    ] as const) {
+      expect(
+        normalizedCss.includes(stripQuotes(type[key])),
+        `tokens.css is missing type value ${type[key]}`,
+      ).toBe(true)
     }
+    expect(css.includes(`--weight-display: ${type.weightDisplay};`)).toBe(true)
+    expect(css.includes(`--weight-button: ${type.weightButton};`)).toBe(true)
+  })
+
+  it('loads exactly the Google Fonts weights the tokens use (no unused/missing weights)', () => {
+    const css = readFileSync('src/styles/tokens.css', 'utf-8')
+    const importUrl = css.match(/@import url\('([^']+)'\)/)?.[1]
+    expect(importUrl, 'tokens.css should @import a Google Fonts URL').toBeDefined()
+
+    // fontDisplay is only ever used at weightDisplay (headings/logo); fontBody is used at its
+    // default weight (400, unset in any component) and at weightButton (buttons/labels).
+    expect(importUrl).toContain(`Josefin+Sans:wght@${type.weightDisplay}`)
+    expect(importUrl).toContain(`Work+Sans:wght@400;${type.weightButton}`)
   })
 })

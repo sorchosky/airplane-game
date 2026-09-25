@@ -124,6 +124,19 @@ saturated as the original red-orange.
 - **Surfaces:** HUD chrome sits on `surface-hud`, a translucent warm-dark
   panel, never a solid color — it should feel like it's floating over the
   world, not blocking it.
+- **Font pairing:** `Josefin Sans` + `Work Sans` is a well-established real
+  pairing (its geometric, slightly art-deco letterforms contrast cleanly with
+  a neutral grotesque body face without clashing), not an arbitrary choice —
+  the same reasoning that makes it a common recommendation in font-pairing
+  guides applies here.
+- **Font weights are loaded exactly, not "whatever's default":** `Josefin
+  Sans` is only ever used at `type.weightDisplay` (600); `Work Sans` at its
+  browser default (400, for body copy) and `type.weightButton` (500, for
+  buttons and labels). `tokens.css`'s Google Fonts import requests exactly
+  those three weights — no more, no less — and `tokens.test.ts` asserts the
+  import URL matches, so a component can't silently request an unloaded
+  weight (which would force the browser into synthetic-bold territory) or
+  the font file bloat of loading a weight nothing uses.
 - **Accent:** `accent` (muted teal-cyan) is reserved for interactive
   elements — button borders, focus states, the active-control indicator.
   Buttons are a `surface-hud` panel with a 2px `accent` border and
@@ -148,6 +161,15 @@ case; any other backdrop only improves the ratio):
 Enforced by `tokens.test.ts` so a future palette change can't silently drop
 below AA. Full contrast math and the alpha-compositing assumption are in that
 test file.
+
+**Text never sits directly on the raw sky gradient.** `text-primary` on the
+gradient is only AA-compliant near the top (`skyZenith`, 5.4:1) — it drops to
+1.7:1 at the bottom (`skyHorizon`), nowhere close to passing. `TitleScreen`'s
+title/tagline and the `?swatches` page content both learned this the hard
+way in review and now sit on a `surface-hud` plate instead (see the `Do /
+don't` list below); this doubles as a period-appropriate mid-century poster
+device — think a wordmark set on a solid ink block — rather than reading as
+just an accessibility patch.
 
 ## Do / don't
 

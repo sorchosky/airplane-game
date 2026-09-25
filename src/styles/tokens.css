@@ -1,7 +1,7 @@
 /* Google Fonts, self-hosted-equivalent via the Fonts API CDN. Both are
    licensed under the SIL Open Font License 1.1 (free for commercial use,
    no attribution required). See docs/art-direction.md for the rationale. */
-@import url('https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@500;600&family=Work+Sans:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@600&family=Work+Sans:wght@400;500&display=swap');
 
 :root {
   /* Sky and atmosphere */
@@ -47,6 +47,8 @@
 
   --font-display: 'Josefin Sans', sans-serif;
   --font-body: 'Work Sans', system-ui, sans-serif;
+  --weight-display: 600;
+  --weight-button: 500;
   --tracking-display: 0.14em;
   --type-tv-display: clamp(2.5rem, 4.5vw, 4rem);
   --type-tv-title: clamp(1.75rem, 3vw, 2.5rem);
