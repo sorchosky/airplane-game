@@ -12,8 +12,8 @@ export function CalibrateScreen() {
         height: '100%',
         width: '100%',
         padding: space.xl,
-        color: color.textOnDark,
-        background: color.textPrimary,
+        color: color.textPrimary,
+        background: color.surfaceHud,
         textAlign: 'center',
       }}
     >

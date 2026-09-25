@@ -1,10 +1,41 @@
+/* Google Fonts, self-hosted-equivalent via the Fonts API CDN. Both are
+   licensed under the SIL Open Font License 1.1 (free for commercial use,
+   no attribution required). See docs/art-direction.md for the rationale. */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Inter:wght@400;500;600&display=swap');
+
 :root {
-  --color-sky: #7ec8e3;
-  --color-ground: #3f7d4a;
-  --color-accent: #ff8c42;
-  --color-text-primary: #1a2330;
-  --color-text-on-dark: #f5f7fa;
-  --color-surface-hud: rgba(11, 18, 32, 0.6);
+  /* Sky and atmosphere */
+  --color-sky-zenith: #3d76ad;
+  --color-sky-horizon: #cfe8ee;
+  --color-fog: #b7d6da;
+  --color-sun: #ffd873;
+
+  /* Terrain */
+  --color-grass-light: #a8c34d;
+  --color-grass-shadow: #4f6b2c;
+  --color-rock: #8d8577;
+  --color-snow: #f4f8fb;
+  --color-water-shallow: #6fd1c8;
+  --color-water-deep: #1f5c73;
+  --color-foliage: #3f6e3b;
+
+  /* Cel-shading linework */
+  --color-outline: #20241f;
+
+  /* Plane livery */
+  --color-plane-body: #f2e9d8;
+  --color-plane-stripe: #d9552c;
+  --color-plane-metal: #9aa0a6;
+
+  /* Gesture-control state */
+  --color-control-active: #3fd6e6;
+  --color-control-inactive: #5b6570;
+
+  /* UI */
+  --color-surface-hud: rgba(13, 20, 33, 0.78);
+  --color-text-primary: #f5f3ec;
+  --color-text-muted: #b9c2ca;
+  --color-accent: #3fd6e6;
 
   --space-xs: 4px;
   --space-sm: 8px;
@@ -14,10 +45,12 @@
   --space-xxl: 48px;
   --space-xxxl: 64px;
 
+  --font-display: 'Cinzel', serif;
+  --font-body: 'Inter', system-ui, sans-serif;
   --type-tv-display: clamp(3rem, 6vw, 6rem);
   --type-tv-title: clamp(2rem, 4vw, 3.5rem);
-  --type-tv-body: clamp(1.25rem, 2.2vw, 2rem);
-  --type-tv-caption: clamp(1rem, 1.6vw, 1.5rem);
+  --type-tv-body: clamp(1.5rem, 2.4vw, 2rem);
+  --type-tv-caption: clamp(1.125rem, 1.8vw, 1.5rem);
 }
 
 * {
@@ -32,13 +65,8 @@ body,
 }
 
 body {
-  background: var(--color-sky);
+  background: var(--color-sky-zenith);
   color: var(--color-text-primary);
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
+  font-family: var(--font-body);
   overscroll-behavior: none;
 }

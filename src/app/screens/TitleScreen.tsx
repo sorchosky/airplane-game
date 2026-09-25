@@ -48,11 +48,13 @@ export function TitleScreen() {
         width: '100%',
         textAlign: 'center',
         padding: space.xl,
-        color: color.textOnDark,
-        background: `linear-gradient(180deg, ${color.sky}, ${color.ground})`,
+        color: color.textPrimary,
+        background: `linear-gradient(180deg, ${color.skyZenith}, ${color.skyHorizon})`,
       }}
     >
-      <h1 style={{ fontSize: type.tvDisplay, margin: 0 }}>Skyborne</h1>
+      <h1 style={{ fontFamily: type.fontDisplay, fontSize: type.tvDisplay, margin: 0 }}>
+        Skyborne
+      </h1>
       <p style={{ fontSize: type.tvBody, margin: 0, maxWidth: '40ch' }}>
         Prop up your phone, spread your arms, and fly.
       </p>
@@ -61,13 +63,14 @@ export function TitleScreen() {
         onClick={handleStart}
         disabled={requesting}
         style={{
+          fontFamily: type.fontDisplay,
           fontSize: type.tvTitle,
           minHeight: 64,
           minWidth: 240,
           padding: `${space.md} ${space.xl}`,
           borderRadius: space.md,
-          border: 'none',
-          background: color.accent,
+          border: `2px solid ${color.accent}`,
+          background: color.surfaceHud,
           color: color.textPrimary,
           cursor: requesting ? 'default' : 'pointer',
           opacity: requesting ? 0.7 : 1,

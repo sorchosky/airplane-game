@@ -85,7 +85,7 @@ export function TouchControls() {
           margin: space.md,
           padding: `${space.sm} ${space.md}`,
           background: color.surfaceHud,
-          color: color.textOnDark,
+          color: color.textPrimary,
           border: 'none',
           borderRadius: space.xs,
           pointerEvents: 'auto',

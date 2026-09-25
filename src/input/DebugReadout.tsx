@@ -35,7 +35,7 @@ export function DebugReadout() {
         left: space.md,
         padding: space.sm,
         background: color.surfaceHud,
-        color: color.textOnDark,
+        color: color.textPrimary,
         fontSize: type.tvCaption,
         fontFamily: 'monospace',
         borderRadius: space.xs,
