@@ -1,5 +1,8 @@
+import { Vector3 } from 'three'
 import { create } from 'zustand'
 import type { ControlInput } from '../input/types'
+import { findSpawnPoint } from '../world/heightfield'
+import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import {
   DEFAULT_FLIGHT_PARAMS,
   createInitialFlightState,
@@ -8,11 +11,28 @@ import {
   type FlightState,
 } from './flightModel'
 
+/** m above the valley floor the plane starts at */
+const SPAWN_ALTITUDE = 120
+
+let spawn: Vector3 | null = null
+
+/** Over a valley near the origin. Searched once (a few ms) and cached; the seed never changes. */
+function spawnPosition(): Vector3 {
+  if (!spawn) {
+    const point = findSpawnPoint(TERRAIN_CONFIG)
+    spawn = new Vector3(point.x, point.groundHeight + SPAWN_ALTITUDE, point.z)
+  }
+  return spawn
+}
+
 interface FlightStore {
   state: FlightState
   params: FlightParams
-  /** Advances the simulation. Called once per frame from `Plane`'s `useFrame`. */
-  tick: (input: ControlInput, dt: number) => void
+  /**
+   * Advances the simulation. Called once per frame from `Plane`'s `useFrame`. `groundHeight` is
+   * the terrain height under the plane, for the soft floor.
+   */
+  tick: (input: ControlInput, dt: number, groundHeight: number) => void
   reset: () => void
 }
 
@@ -20,11 +40,11 @@ interface FlightStore {
 // `useFrame` (camera, HUD, audio), not via the `useFlightStore()` hook, which would re-render on
 // every tick.
 export const useFlightStore = create<FlightStore>((set, get) => ({
-  state: createInitialFlightState(DEFAULT_FLIGHT_PARAMS),
+  state: createInitialFlightState(DEFAULT_FLIGHT_PARAMS, spawnPosition()),
   params: DEFAULT_FLIGHT_PARAMS,
-  tick: (input, dt) => {
+  tick: (input, dt, groundHeight) => {
     const { state, params } = get()
-    set({ state: step(state, input, dt, params) })
+    set({ state: step(state, input, dt, params, groundHeight) })
   },
-  reset: () => set({ state: createInitialFlightState(get().params) }),
+  reset: () => set({ state: createInitialFlightState(get().params, spawnPosition()) }),
 }))
