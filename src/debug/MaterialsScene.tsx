@@ -1,7 +1,7 @@
 import { OrbitControls } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { useMemo } from 'react'
-import { PlaceholderPlaneModel } from '../flight/Plane'
+import { PlaneModel } from '../flight/PlaneModel'
 import { ToonMesh } from '../render/ToonMesh'
 import { color, lighting } from '../styles/tokens'
 import { FpsCounter } from './FpsCounter'
@@ -10,7 +10,7 @@ import { PerfProbe } from './PerfProbe'
 const SUN_DISTANCE = 20
 
 /**
- * `?scene=materials`: a sphere, a box, a torus knot and the placeholder plane under the game's
+ * `?scene=materials`: a sphere, a box, a torus knot and the plane under the game's
  * low sunset sun from the lighting tokens, for reviewing the toon ramp and outlines. Add `&rim` to
  * turn on the rim light. Drag to orbit. The perf readout (top right, `F` toggles) shows draw calls.
  */
@@ -38,8 +38,8 @@ export function MaterialsScene() {
         <ToonMesh color={color.waterShallow} rim={rim} position={[1.5, 1, 0]}>
           <torusKnotGeometry args={[0.7, 0.25, 160, 24]} />
         </ToonMesh>
-        <group position={[4.5, 1, 0]} rotation={[0.2, -0.7, -0.25]}>
-          <PlaceholderPlaneModel />
+        <group position={[0, 2.5, -7]} rotation={[0.2, -0.7, -0.25]}>
+          <PlaneModel />
         </group>
 
         <ToonMesh color={color.grassShadow} outline={false} rotation={[-Math.PI / 2, 0, 0]}>

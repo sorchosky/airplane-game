@@ -35,6 +35,7 @@ All values live in `src/styles/tokens.ts` (`color`) and `src/styles/tokens.css`
 | `sun` | `#f8b968` | Sun disc and warm key-light tint |
 | `grass-light` | `#b7a35e` | Grassland, lit face — sun-baked gold-olive |
 | `grass-shadow` | `#6d5a3a` | Grassland, shadow face — muted umber |
+| `sand` | `#cdb48a` | Beaches and riverbanks at the waterline, pale warm sand |
 | `rock` | `#a3907b` | Cliffs and mountains, warm taupe |
 | `snow` | `#f6ead9` | Snowcaps, warm cream catching the sunset glow |
 | `water-shallow` | `#7fa79c` | Water, shallow/lit — dusty muted teal |
@@ -44,6 +45,7 @@ All values live in `src/styles/tokens.ts` (`color`) and `src/styles/tokens.css`
 | `plane-body` | `#f1e7d4` | Plane fuselage, warm cream |
 | `plane-stripe` | `#c2572f` | Plane accent stripe, muted terracotta |
 | `plane-metal` | `#a99b89` | Plane prop/struts, warm taupe-metal |
+| `plane-glass` | `#3a4248` | Plane cabin window band and tires, dark cool slate |
 | `control-active` | `#5cb8bd` | Gesture control engaged (arms-out gate) |
 | `control-inactive` | `#8a7c6c` | Gesture control disengaged / autopilot |
 | `surface-hud` | `rgba(36, 27, 21, 0.8)` | Translucent warm-dark HUD panel background |

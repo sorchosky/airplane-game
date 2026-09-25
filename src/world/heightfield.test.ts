@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { findSpawnPoint, heightAt, normalAt } from './heightfield'
+import {
+  carveLakes,
+  carveRivers,
+  findSpawnPoint,
+  heightAt,
+  normalAt,
+  surfaceHeightAt,
+} from './heightfield'
 import { TERRAIN_CONFIG } from './terrainConfig'
 
 const config = TERRAIN_CONFIG
@@ -35,7 +42,8 @@ describe('heightAt', () => {
     }
     const min = Math.min(...heights)
     const max = Math.max(...heights)
-    expect(min).toBeGreaterThanOrEqual(0)
+    // Lake beds sit below the water, but never absurdly deep.
+    expect(min).toBeGreaterThan(config.waterLevel - 40)
     // Stays under the flight model's 600 m ceiling so every ridge can be flown over.
     expect(max).toBeLessThan(600)
     expect(max).toBeGreaterThan(300)
@@ -49,6 +57,54 @@ describe('heightAt', () => {
       const x = i * 911
       const z = -i * 577
       expect(Math.abs(heightAt(x + 1, z, config) - heightAt(x, z, config))).toBeLessThan(5)
+    }
+  })
+})
+
+describe('lakes and rivers', () => {
+  it('sinks some valleys near spawn below the water, but leaves most ground dry', () => {
+    const spawn = findSpawnPoint(config)
+    let under = 0
+    let total = 0
+    for (let x = -3000; x <= 3000; x += 100) {
+      for (let z = -3000; z <= 3000; z += 100) {
+        total++
+        if (heightAt(spawn.x + x, spawn.z + z, config) < config.waterLevel) under++
+      }
+    }
+    expect(under / total).toBeGreaterThan(0.03)
+    expect(under / total).toBeLessThan(0.3)
+  })
+
+  it('carveLakes leaves high ground alone and scoops low ground below the water', () => {
+    expect(carveLakes(80, 80, config)).toBe(80)
+    const lowest = config.lakeBasinHeight - config.lakeBasinBand
+    expect(carveLakes(lowest, lowest, config)).toBeCloseTo(lowest - config.lakeDepth, 6)
+    expect(carveLakes(config.waterLevel, config.waterLevel, config)).toBeLessThan(config.waterLevel)
+  })
+
+  it('carveLakes never turns a slope around (no rim around lakes)', () => {
+    let previous = -Infinity
+    for (let h = 0; h <= config.lakeBasinHeight + 10; h += 0.25) {
+      const carved = carveLakes(h, h, config)
+      expect(carved).toBeGreaterThan(previous)
+      previous = carved
+    }
+  })
+
+  it('carveRivers digs a channel below the water in the lowlands only', () => {
+    expect(carveRivers(60, 0, config)).toBeCloseTo(config.waterLevel - config.riverDepth, 6)
+    expect(carveRivers(60, config.riverValleyWidth, config)).toBe(60)
+    expect(carveRivers(config.riverMaxHeight + 1, 0, config)).toBe(config.riverMaxHeight + 1)
+  })
+
+  it('surfaceHeightAt is never below the water', () => {
+    for (let i = 0; i < 200; i++) {
+      const x = i * 173
+      const z = -i * 251
+      expect(surfaceHeightAt(x, z, config)).toBe(
+        Math.max(heightAt(x, z, config), config.waterLevel),
+      )
     }
   })
 })

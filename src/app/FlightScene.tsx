@@ -8,6 +8,7 @@ import { hasDebugFlag } from '../input/source'
 import { PostFX } from '../render/PostFX'
 import { Atmosphere } from '../world/Atmosphere'
 import { Terrain } from '../world/Terrain'
+import { Water } from '../world/Water'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import { useGameStore } from './gameStore'
 
@@ -25,6 +26,7 @@ export function FlightScene() {
         <ChaseCamera />
         <Plane paused={paused} />
         <Terrain />
+        <Water />
         <PerfProbe />
         <PostFX />
       </Canvas>

@@ -14,6 +14,8 @@ import type { TerrainConfig } from './terrainConfig'
 //   creases. Those creases read as mountain ridgelines.
 // - Domain warping: before sampling, the (x, z) position is itself pushed around by another
 //   noise. It bends every feature so nothing lines up on a grid or visibly repeats.
+// - Carving: after the land is shaped, lakes and rivers are dug into it. Anything that ends up
+//   below `waterLevel` is under the water plane (`Water.tsx`).
 
 interface NoiseSet {
   warpX: NoiseFunction2D
@@ -24,6 +26,7 @@ interface NoiseSet {
   peaks: NoiseFunction2D
   plateaus: NoiseFunction2D
   detail: NoiseFunction2D
+  rivers: NoiseFunction2D
 }
 
 /** FNV-1a string hash, used to turn a seed string into a 32-bit PRNG seed. */
@@ -62,6 +65,7 @@ function noiseFor(seed: string): NoiseSet {
     peaks: make('peaks'),
     plateaus: make('plateaus'),
     detail: make('detail'),
+    rivers: make('rivers'),
   }
   noiseCache.set(seed, set)
   return set
@@ -121,7 +125,8 @@ export function heightAt(x: number, z: number, config: TerrainConfig): number {
   const wz = z + WARP_STRENGTH * fbm(n.warpZ, x / WARP_SCALE, z / WARP_SCALE, 3)
 
   // Rolling hills everywhere: 0..hillHeight.
-  let height = (fbm(n.hills, wx / HILL_SCALE, wz / HILL_SCALE, 5) * 0.5 + 0.5) * config.hillHeight
+  const hills = fbm(n.hills, wx / HILL_SCALE, wz / HILL_SCALE, 5)
+  let height = (hills * 0.5 + 0.5) * config.hillHeight
 
   // Mountain ranges: a very low-frequency mask decides where ranges exist at all, so most of the
   // world stays hills and ranges come as distinct bands. Ridged noise shapes the range itself.
@@ -156,7 +161,55 @@ export function heightAt(x: number, z: number, config: TerrainConfig): number {
     height += (Math.max(height, plateauTop) - height) * plateauMask * (1 - rangeMask)
   }
 
-  return height
+  // Lakes are sized by the broad shape of the land (the hills without their small bumps), so they
+  // fill whole valleys instead of every little dip.
+  const broadHills = fbm(n.hills, wx / HILL_SCALE, wz / HILL_SCALE, 2)
+  height = carveLakes(height, height + (broadHills - hills) * 0.5 * config.hillHeight, config)
+  return carveRivers(
+    height,
+    fbm(n.rivers, wx / config.riverScale, wz / config.riverScale, 3),
+    config,
+  )
+}
+
+/**
+ * Lakes: where the broad shape of the land (`broadHeight`) is below `lakeBasinHeight`, the ground
+ * is scooped deeper the lower it is, so the lowest valleys sink under `waterLevel` with gently
+ * shelving shores. The scoop is a smoothstep, so the ground stays smooth where it starts.
+ */
+export function carveLakes(height: number, broadHeight: number, config: TerrainConfig): number {
+  const deficit = config.lakeBasinHeight - broadHeight
+  if (deficit <= 0) return height
+  return height - config.lakeDepth * smoothstep(0, config.lakeBasinBand, deficit)
+}
+
+/**
+ * Rivers follow the zero crossings of a smooth noise (`riverNoise`, -1..1), which wander across
+ * the map as long, unbroken, branching lines. Near a crossing the hills are pulled down into a
+ * valley, and right at it a channel is dug below `waterLevel`. Rivers fade out as the ground they
+ * would cut through rises, so they stay in the lowlands.
+ */
+export function carveRivers(height: number, riverNoise: number, config: TerrainConfig): number {
+  const distance = Math.abs(riverNoise)
+  if (distance >= config.riverValleyWidth) return height
+  const fade = 1 - smoothstep(config.riverMaxHeight * 0.6, config.riverMaxHeight, height)
+  if (fade <= 0) return height
+
+  // Valley: pull the ground down to just above the water, steepest near the channel.
+  const valley = 1 - smoothstep(0, config.riverValleyWidth, distance)
+  const bank = config.waterLevel + config.bands.sandHeight
+  let carved = height + (Math.min(height, bank) - height) * valley * valley
+
+  // Channel: the river bed itself, below the water.
+  const channel = 1 - smoothstep(config.riverWidth * 0.4, config.riverWidth, distance)
+  carved += (Math.min(carved, config.waterLevel - config.riverDepth) - carved) * channel
+
+  return height + (carved - height) * fade
+}
+
+/** Height of whatever the plane would hit at (x, z): the ground, or the water over a lake. */
+export function surfaceHeightAt(x: number, z: number, config: TerrainConfig): number {
+  return Math.max(heightAt(x, z, config), config.waterLevel)
 }
 
 /**
