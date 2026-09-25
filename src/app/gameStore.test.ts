@@ -37,6 +37,17 @@ describe('gameStore transitions', () => {
     expect(useGameStore.getState().errorMessage).toBe('no camera')
   })
 
+  it('goes to error with a message when the camera fails during calibration', () => {
+    const store = useGameStore.getState()
+    store.startPermission()
+    store.permissionGranted()
+    expect(useGameStore.getState().state).toBe('calibrate')
+
+    store.permissionDenied('camera busy')
+    expect(useGameStore.getState().state).toBe('error')
+    expect(useGameStore.getState().errorMessage).toBe('camera busy')
+  })
+
   it('returns to title from error via retry', () => {
     const store = useGameStore.getState()
     store.startPermission()

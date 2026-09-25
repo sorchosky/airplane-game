@@ -35,7 +35,8 @@ export const color = {
   planeMetal: '#a99b89',
 
   // Gesture-control state (muted teal-cyan, not neon, so it reads as a
-  // deliberate system color against the warm palette rather than clashing)
+  // deliberate system color against the warm palette rather than clashing).
+  // Whether the player's gesture is currently steering the plane.
   controlActive: '#5cb8bd',
   controlInactive: '#8a7c6c',
 
@@ -99,4 +100,9 @@ export const lighting = {
   // than a high overhead noon sun. #22 owns normalizing and animating this.
   sunDirection: [0.85, 0.28, 0.35] as const,
   rimStrength: 0.4,
+} as const
+
+// HUD element sizing, relative to viewport so it scales with the TV.
+export const size = {
+  cameraPreviewWidth: '20vw',
 } as const

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { color, space, type } from '../../styles/tokens'
 import { useGameStore } from '../gameStore'
 import { isKeyboardInputMode } from '../urlFlags'
@@ -7,9 +7,7 @@ import { acquireWakeLock } from '../wakeLock'
 export function TitleScreen() {
   const startPermission = useGameStore((s) => s.startPermission)
   const permissionGranted = useGameStore((s) => s.permissionGranted)
-  const permissionDenied = useGameStore((s) => s.permissionDenied)
   const skipToFlying = useGameStore((s) => s.skipToFlying)
-  const [requesting, setRequesting] = useState(false)
 
   const handleStart = useCallback(() => {
     void acquireWakeLock()
@@ -19,22 +17,13 @@ export function TitleScreen() {
       return
     }
 
-    setRequesting(true)
+    // The real camera permission prompt happens once we're on the calibrate
+    // screen (the camera service starts on entering `calibrate`); this just
+    // advances past the transient `permission` state. A denial there routes
+    // back to `error` via the same `permissionDenied` action.
     startPermission()
-
-    void navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: 'user' } })
-      .then((stream) => {
-        for (const track of stream.getTracks()) track.stop()
-        permissionGranted()
-      })
-      .catch(() => {
-        permissionDenied(
-          'We need your camera to see you fly. Check your browser settings and try again.',
-        )
-      })
-      .finally(() => setRequesting(false))
-  }, [permissionDenied, permissionGranted, skipToFlying, startPermission])
+    permissionGranted()
+  }, [permissionGranted, skipToFlying, startPermission])
 
   return (
     <div
@@ -86,7 +75,6 @@ export function TitleScreen() {
       <button
         type="button"
         onClick={handleStart}
-        disabled={requesting}
         style={{
           fontFamily: type.fontDisplay,
           fontWeight: type.weightDisplay,
@@ -100,11 +88,10 @@ export function TitleScreen() {
           border: `2px solid ${color.textPrimary}`,
           background: 'transparent',
           color: color.textPrimary,
-          cursor: requesting ? 'default' : 'pointer',
-          opacity: requesting ? 0.7 : 1,
+          cursor: 'pointer',
         }}
       >
-        {requesting ? 'Starting…' : 'Start'}
+        Start
       </button>
     </div>
   )

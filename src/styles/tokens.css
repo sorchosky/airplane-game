@@ -54,6 +54,8 @@
   --type-tv-title: clamp(1.75rem, 3vw, 2.5rem);
   --type-tv-body: clamp(1.5rem, 2vw, 1.875rem);
   --type-tv-caption: clamp(1.125rem, 1.5vw, 1.375rem);
+
+  --size-camera-preview-width: 20vw;
 }
 
 * {
