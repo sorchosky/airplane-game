@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { MaterialsScene } from '../debug/MaterialsScene'
 import { Swatches } from '../debug/Swatches'
 import { InputSource } from '../input/InputSource'
 import {
@@ -19,7 +20,7 @@ import { CalibrateScreen } from './screens/CalibrateScreen'
 import { ErrorScreen } from './screens/ErrorScreen'
 import { PausedOverlay } from './screens/PausedOverlay'
 import { TitleScreen } from './screens/TitleScreen'
-import { isSwatchesMode } from './urlFlags'
+import { isMaterialsSceneMode, isSwatchesMode } from './urlFlags'
 import { setupWakeLockReacquire } from './wakeLock'
 
 /** Control-state machine plus its HUD, mounted for the life of one flight (flying ⇄ paused). */
@@ -61,6 +62,10 @@ export function App() {
 
   if (isSwatchesMode()) {
     return <Swatches />
+  }
+
+  if (isMaterialsSceneMode()) {
+    return <MaterialsScene />
   }
 
   return (
