@@ -2,22 +2,17 @@ import { useFrame } from '@react-three/fiber'
 import { useRef } from 'react'
 import type { Group } from 'three'
 import { useInputStore } from '../input/inputStore'
-import { ToonMesh } from '../render/ToonMesh'
-import { color } from '../styles/tokens'
 import { heightAt } from '../world/heightfield'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import { useFlightStore } from './flightStore'
+import { PlaneModel } from './PlaneModel'
 
-/**
- * Placeholder box-and-wings mesh driven by the flight model. Swapped for the procedural
- * Cessna-style model in #23; this ticket only needs something that visibly banks, pitches and
- * moves so the flight model can be exercised with `?input=keyboard`.
- */
 interface PlaneProps {
   /** Freezes the simulation while the game is paused. */
   paused: boolean
 }
 
+/** Steps the flight model each frame and places the plane model at the result. */
 export function Plane({ paused }: PlaneProps) {
   const groupRef = useRef<Group>(null)
 
@@ -38,24 +33,7 @@ export function Plane({ paused }: PlaneProps) {
 
   return (
     <group ref={groupRef}>
-      <PlaceholderPlaneModel />
+      <PlaneModel paused={paused} />
     </group>
-  )
-}
-
-/** The placeholder's meshes, toon-shaded and outlined. Also shown in `?scene=materials`. */
-export function PlaceholderPlaneModel() {
-  return (
-    <>
-      <ToonMesh color={color.planeBody} castShadow>
-        <boxGeometry args={[1, 0.6, 2.4]} />
-      </ToonMesh>
-      <ToonMesh color={color.planeBody} position={[0, 0.1, 0]} castShadow>
-        <boxGeometry args={[4, 0.08, 0.6]} />
-      </ToonMesh>
-      <ToonMesh color={color.planeStripe} position={[0, 0.35, 1.05]} castShadow>
-        <boxGeometry args={[0.08, 0.7, 0.5]} />
-      </ToonMesh>
-    </>
   )
 }
