@@ -2,6 +2,7 @@ import { useFrame } from '@react-three/fiber'
 import { useRef } from 'react'
 import type { Group } from 'three'
 import { useInputStore } from '../input/inputStore'
+import { ToonMesh } from '../render/ToonMesh'
 import { color } from '../styles/tokens'
 import { heightAt } from '../world/heightfield'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
@@ -37,18 +38,24 @@ export function Plane({ paused }: PlaneProps) {
 
   return (
     <group ref={groupRef}>
-      <mesh castShadow>
-        <boxGeometry args={[1, 0.6, 2.4]} />
-        <meshStandardMaterial color={color.accent} />
-      </mesh>
-      <mesh position={[0, 0.1, 0]} castShadow>
-        <boxGeometry args={[4, 0.08, 0.6]} />
-        <meshStandardMaterial color={color.accent} />
-      </mesh>
-      <mesh position={[0, 0.35, 1.05]} castShadow>
-        <boxGeometry args={[0.08, 0.7, 0.5]} />
-        <meshStandardMaterial color={color.accent} />
-      </mesh>
+      <PlaceholderPlaneModel />
     </group>
+  )
+}
+
+/** The placeholder's meshes, toon-shaded and outlined. Also shown in `?scene=materials`. */
+export function PlaceholderPlaneModel() {
+  return (
+    <>
+      <ToonMesh color={color.planeBody} castShadow>
+        <boxGeometry args={[1, 0.6, 2.4]} />
+      </ToonMesh>
+      <ToonMesh color={color.planeBody} position={[0, 0.1, 0]} castShadow>
+        <boxGeometry args={[4, 0.08, 0.6]} />
+      </ToonMesh>
+      <ToonMesh color={color.planeStripe} position={[0, 0.35, 1.05]} castShadow>
+        <boxGeometry args={[0.08, 0.7, 0.5]} />
+      </ToonMesh>
+    </>
   )
 }
