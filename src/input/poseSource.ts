@@ -1,7 +1,37 @@
+import { useEffect } from 'react'
+import { DEFAULT_CALIBRATION } from '../pose/calibration'
+import { DEFAULT_GESTURE_STATE, interpretPose, type GestureState } from '../pose/gesture'
+import { usePoseStore } from '../pose/poseStore'
+import { useInputStore } from './inputStore'
+
 /**
- * Typed stub. The real pose source lands in #16 (gesture interpreter) and #13/#14 (camera and
- * MediaPipe pose service), which write `ControlInput` with `source: 'pose'`.
+ * Reads the latest pose landmarks from `poseStore` (written by the pose service, #14) every
+ * frame, runs them through `interpretPose`, and writes the resulting `ControlInput` into the
+ * input store. Mount once, near the app root, while `?input=pose`.
  */
 export function usePoseSource(): void {
-  // Not implemented yet. Selecting `?input=pose` currently leaves the input at NEUTRAL_INPUT.
+  useEffect(() => {
+    let gestureState: GestureState = DEFAULT_GESTURE_STATE
+    let frame = 0
+
+    const tick = () => {
+      const { frame: poseFrame } = usePoseStore.getState()
+      const { input, state } = interpretPose(
+        poseFrame.landmarks,
+        DEFAULT_CALIBRATION,
+        gestureState,
+        poseFrame.timestampMs,
+      )
+      gestureState = state
+      useInputStore.getState().setInput(input)
+
+      frame = requestAnimationFrame(tick)
+    }
+
+    frame = requestAnimationFrame(tick)
+
+    return () => {
+      cancelAnimationFrame(frame)
+    }
+  }, [])
 }
