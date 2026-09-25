@@ -1,11 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { getVideo } from '../pose/cameraService'
 import { color, size, space } from '../styles/tokens'
+import { PoseOverlay, type ControlPreviewState } from './PoseOverlay'
 
-export type ControlPreviewState = 'inactive' | 'active'
+export type { ControlPreviewState }
 
 interface CameraPreviewProps {
-  /** Border color role. Wired to the real gesture-active signal in #18. */
+  /** Border and orientation-line color role. Wired to the real gesture-active signal in #18. */
   controlState?: ControlPreviewState
 }
 
@@ -31,7 +32,8 @@ export function CameraPreview({ controlState = 'inactive' }: CameraPreviewProps)
     video.style.opacity = '1'
     video.style.pointerEvents = 'none'
     video.style.transform = 'scaleX(-1)'
-    container.appendChild(video)
+    // Before the overlay canvas, so the orientation line paints on top of the video.
+    container.prepend(video)
 
     return () => {
       video.style.position = 'fixed'
@@ -60,16 +62,7 @@ export function CameraPreview({ controlState = 'inactive' }: CameraPreviewProps)
         background: color.textPrimary,
       }}
     >
-      {/* #15 draws the arm-orientation line here, over the mirrored video. */}
-      <canvas
-        style={{
-          position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
-          pointerEvents: 'none',
-        }}
-      />
+      <PoseOverlay controlState={controlState} />
     </div>
   )
 }
