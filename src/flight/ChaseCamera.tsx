@@ -11,6 +11,7 @@ import {
   desiredCameraPosition,
   reducedMotionChaseCameraParams,
 } from './cameraMath'
+import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import { useFlightStore } from './flightStore'
 
 function prefersReducedMotion(): boolean {
@@ -88,8 +89,10 @@ export function ChaseCamera() {
       ref={cameraRef}
       makeDefault
       fov={params.fovBase}
-      near={0.1}
-      far={4000}
+      // Far plane just past the terrain's view distance. Near is 1 m rather than 0.1 m to keep
+      // depth precision reasonable across that 10 km range; the plane is never closer than ~12 m.
+      near={1}
+      far={TERRAIN_CONFIG.viewDistance * 1.2}
       position={[0, CHASE_CAMERA_PARAMS.offsetUp, CHASE_CAMERA_PARAMS.offsetBack]}
     />
   )

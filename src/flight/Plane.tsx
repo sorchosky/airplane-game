@@ -3,6 +3,8 @@ import { useRef } from 'react'
 import type { Group } from 'three'
 import { useInputStore } from '../input/inputStore'
 import { color } from '../styles/tokens'
+import { heightAt } from '../world/heightfield'
+import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import { useFlightStore } from './flightStore'
 
 /**
@@ -15,7 +17,9 @@ export function Plane() {
 
   useFrame((_frameState, delta) => {
     const input = useInputStore.getState().current
-    useFlightStore.getState().tick(input, delta)
+    const { position } = useFlightStore.getState().state
+    const groundHeight = heightAt(position.x, position.z, TERRAIN_CONFIG)
+    useFlightStore.getState().tick(input, delta, groundHeight)
 
     const group = groupRef.current
     if (!group) return

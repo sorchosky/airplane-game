@@ -1,3 +1,4 @@
+import { Vector3 } from 'three'
 import { describe, expect, it } from 'vitest'
 import type { ControlInput } from '../input/types'
 import {
@@ -134,5 +135,66 @@ describe('step', () => {
 
     expect(state.position.equals(positionBefore)).toBe(true)
     expect(state.orientation.equals(orientationBefore)).toBe(true)
+  })
+})
+
+describe('soft floor', () => {
+  const ground = 100
+
+  function startAt(y: number): FlightState {
+    const state = createInitialFlightState(params)
+    state.position.y = y
+    return state
+  }
+
+  it('does nothing well above the ground', () => {
+    const withFloor = step(startAt(500), input(), 1, params, ground)
+    const without = step(startAt(500), input(), 1, params)
+    expect(withFloor.position.y).toBeCloseTo(without.position.y, 6)
+    expect(withFloor.pitchAngle).toBeCloseTo(without.pitchAngle, 6)
+  })
+
+  it('never lets the plane go below the ground, even in a sustained full dive', () => {
+    let state = startAt(ground + 60)
+    for (let i = 0; i < 600; i++) {
+      state = step(state, input({ pitch: -1 }), FIXED_DT, params, ground)
+      expect(state.position.y).toBeGreaterThanOrEqual(ground + params.floorMinAltitude - 1e-9)
+    }
+  })
+
+  it('pulls the nose up by itself when diving into the ground', () => {
+    let state = startAt(ground + 60)
+    for (let i = 0; i < 600; i++) {
+      state = step(state, input({ pitch: -1 }), FIXED_DT, params, ground)
+    }
+    // Pilot is still holding full dive, but the floor bias wins: nose up, climbing back out.
+    expect(state.pitchAngle).toBeGreaterThan(0)
+  })
+
+  it('ramps the pitch-up bias with depth into the clearance band', () => {
+    const shallow = step(
+      startAt(ground + params.floorClearance * 0.75),
+      input(),
+      0.2,
+      params,
+      ground,
+    )
+    const deep = step(startAt(ground + params.floorClearance * 0.25), input(), 0.2, params, ground)
+    expect(shallow.pitchAngle).toBeGreaterThan(0)
+    expect(deep.pitchAngle).toBeGreaterThan(shallow.pitchAngle)
+  })
+
+  it('lifts the plane with rising ground, and the ground wins over the ceiling', () => {
+    const buried = step(startAt(ground - 50), input(), FIXED_DT, params, ground)
+    expect(buried.position.y).toBeGreaterThanOrEqual(ground + params.floorMinAltitude)
+
+    const highGround = params.ceiling + 50
+    const overPeak = step(startAt(params.ceiling), input(), FIXED_DT, params, highGround)
+    expect(overPeak.position.y).toBeGreaterThanOrEqual(highGround + params.floorMinAltitude)
+  })
+
+  it('starts at the given spawn position', () => {
+    const state = createInitialFlightState(params, new Vector3(10, 200, -30))
+    expect(state.position.toArray()).toEqual([10, 200, -30])
   })
 })

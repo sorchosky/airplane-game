@@ -29,6 +29,9 @@ export interface FlightParams {
   turnGravity: number // m/s^2, "g" in the coordinated-turn formula yawRate = g * tan(bank) / speed
   ceiling: number // m, hard altitude ceiling (~600 m)
   ceilingSoftening: number // m, band below the ceiling over which climb rate eases to zero
+  floorClearance: number // m, height above ground where the soft floor starts pitching the nose up
+  floorPitchBias: number // radians, pitch-up added to the target at full floor depth (at the ground)
+  floorMinAltitude: number // m, hard minimum height above ground; the plane never goes lower
 }
 
 const degToRad = (degrees: number): number => (degrees * Math.PI) / 180
@@ -46,6 +49,11 @@ export const DEFAULT_FLIGHT_PARAMS: FlightParams = {
   turnGravity: 9.81,
   ceiling: 600,
   ceilingSoftening: 120,
+  floorClearance: 20,
+  // Twice the max pitch, so even a full dive becomes a full climb by the time the plane reaches
+  // the ground: diving into a hill pulls up by itself.
+  floorPitchBias: degToRad(50),
+  floorMinAltitude: 2,
 }
 
 /** 60 Hz simulation rate. `step` subdivides whatever `dt` it's given into chunks of this size. */
@@ -53,9 +61,10 @@ export const FIXED_DT = 1 / 60
 
 export function createInitialFlightState(
   params: FlightParams = DEFAULT_FLIGHT_PARAMS,
+  position: Vector3 = new Vector3(0, 0, 0),
 ): FlightState {
   return {
-    position: new Vector3(0, 0, 0),
+    position: position.clone(),
     orientation: new Quaternion(),
     bank: 0,
     pitchAngle: 0,
@@ -107,6 +116,7 @@ function integrate(
   input: ControlInput,
   dt: number,
   params: FlightParams,
+  groundHeight: number,
 ): FlightState {
   const roll = clampAxis(input.roll)
   const pitchInput = clampAxis(input.pitch)
@@ -114,7 +124,20 @@ function integrate(
   // Autopilot: when input isn't active, targets go to level flight. Same integration path either
   // way, no separate autopilot code.
   const targetBank = input.active ? roll * params.maxBankAngle : 0
-  const targetPitch = input.active ? pitchInput * params.maxPitchAngle : 0
+  const pilotPitch = input.active ? pitchInput * params.maxPitchAngle : 0
+
+  // Soft floor: inside `floorClearance` of the ground, bias the pitch target upward, ramping from
+  // nothing at the top of the band to `floorPitchBias` at the ground. Goes through the same pitch
+  // spring as the pilot's input, so the pull-up eases in rather than snapping.
+  const floorDepth = clamp(
+    (groundHeight + params.floorClearance - state.position.y) / params.floorClearance,
+    0,
+    1,
+  )
+  const targetPitch = Math.min(
+    pilotPitch + floorDepth * params.floorPitchBias,
+    params.maxPitchAngle,
+  )
 
   const bankSpring = smoothDamp(state.bank, targetBank, state.bankRate, params.bankSmoothTime, dt)
   const pitchSpring = smoothDamp(
@@ -160,6 +183,9 @@ function integrate(
   position.x += forwardX * dt
   position.z += forwardZ * dt
   position.y = Math.min(position.y + effectiveClimbRate * dt, params.ceiling)
+  // The ground wins over the ceiling: never below `floorMinAltitude`, even on a slope rising
+  // faster than the pull-up.
+  position.y = Math.max(position.y, groundHeight + params.floorMinAltitude)
 
   // Roll is applied about the plane's own forward axis (0, 0, -1), which is a rotation of -bank
   // about world +Z; composed with pitch about local X and yaw about world Y via Three's 'YXZ'
@@ -179,7 +205,8 @@ function integrate(
 }
 
 /**
- * Advances the flight model by `dt` seconds. Internally subdivides `dt` into fixed 60 Hz chunks
+ * Advances the flight model by `dt` seconds. `groundHeight` is the terrain height (m) under the
+ * plane, sampled once per call by the caller; omit it for open sky with no floor. Internally subdivides `dt` into fixed 60 Hz chunks
  * (with a shorter final chunk for any remainder) so the simulation is numerically stable and
  * gives the same result regardless of how the caller's frame rate happens to chop up real time.
  */
@@ -188,12 +215,13 @@ export function step(
   input: ControlInput,
   dt: number,
   params: FlightParams,
+  groundHeight = Number.NEGATIVE_INFINITY,
 ): FlightState {
   let next = state
   let remaining = dt
   while (remaining > 1e-9) {
     const h = Math.min(FIXED_DT, remaining)
-    next = integrate(next, input, h, params)
+    next = integrate(next, input, h, params, groundHeight)
     remaining -= h
   }
   return next
