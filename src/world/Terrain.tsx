@@ -76,8 +76,9 @@ export function Terrain() {
     if (quality.appliedViewDistance !== streamer.viewDistance) {
       useQualityStore.setState({ appliedViewDistance: streamer.viewDistance })
     }
-    if (usePerfStore.getState().terrainTiles !== streamer.tileCount) {
-      usePerfStore.setState({ terrainTiles: streamer.tileCount })
+    const perf = usePerfStore.getState()
+    if (perf.terrainTiles !== streamer.tileCount || perf.terrainReady !== streamer.ready) {
+      usePerfStore.setState({ terrainTiles: streamer.tileCount, terrainReady: streamer.ready })
     }
   })
 

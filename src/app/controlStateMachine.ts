@@ -135,7 +135,19 @@ export function forcePause(state: ControlMachineState, nowMs: number): ControlSt
   }
 }
 
-export type ControlPrompt = 'spread-arms' | 'step-into-view' | null
+export type ControlPrompt = 'spread-arms' | 'step-into-view' | 'camera-lost' | null
+
+/**
+ * Why the player isn't steering, which picks the inactive prompt: arms down (`in-frame`), nobody
+ * detected (`out-of-frame`), or no camera to detect with (`camera-lost`, #61).
+ */
+export type Presence = 'in-frame' | 'out-of-frame' | 'camera-lost'
+
+const PROMPT_FOR: Record<Presence, Exclude<ControlPrompt, null>> = {
+  'in-frame': 'spread-arms',
+  'out-of-frame': 'step-into-view',
+  'camera-lost': 'camera-lost',
+}
 
 export interface ControlView {
   /** HUD prompt shown over the flight scene. Null while steering, paused, or inside the delay. */
@@ -146,11 +158,11 @@ export interface ControlView {
   countdown: number | null
 }
 
-/** Derives what the HUD shows. `personInFrame` picks between the two inactive prompts. */
+/** Derives what the HUD shows. `presence` picks the inactive prompt. */
 export function controlView(
   state: ControlMachineState,
   nowMs: number,
-  personInFrame: boolean,
+  presence: Presence,
   params: ControlMachineParams = DEFAULT_CONTROL_MACHINE_PARAMS,
 ): ControlView {
   const elapsed = nowMs - state.sinceMs
@@ -158,7 +170,7 @@ export function controlView(
   const countdownSeconds = Math.ceil(params.countdownMs / 1000)
 
   return {
-    prompt: showPrompt ? (personInFrame ? 'spread-arms' : 'step-into-view') : null,
+    prompt: showPrompt ? PROMPT_FOR[presence] : null,
     paused: state.phase === 'paused' || state.phase === 'countdown',
     countdown:
       state.phase === 'countdown'

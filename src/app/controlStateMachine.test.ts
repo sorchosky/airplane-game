@@ -49,19 +49,23 @@ describe('stepControlMachine', () => {
   it('walks idle → prompt → pause → countdown → resume', () => {
     // Idle: arms drop at t=0.
     let state: ControlMachineState = { phase: 'inactive', sinceMs: 0 }
-    expect(controlView(state, 0, true).prompt).toBeNull()
+    expect(controlView(state, 0, 'in-frame').prompt).toBeNull()
 
     // Prompt after 300 ms.
     let result = run(state, false, 0, 320)
     expect(result.commands).toEqual([])
-    expect(controlView(result.state, 320, true).prompt).toBe('spread-arms')
+    expect(controlView(result.state, 320, 'in-frame').prompt).toBe('spread-arms')
 
     // Pause at 5 s.
     result = run(result.state, false, 336, 5008)
     expect(result.commands).toEqual(['pause'])
     state = result.state
     expect(state.phase).toBe('paused')
-    expect(controlView(state, 5008, true)).toEqual({ prompt: null, paused: true, countdown: null })
+    expect(controlView(state, 5008, 'in-frame')).toEqual({
+      prompt: null,
+      paused: true,
+      countdown: null,
+    })
 
     // Arms out alone doesn't resume: the pause menu owns the hold and starts the countdown.
     result = run(state, true, 6000, 9000)
@@ -69,15 +73,15 @@ describe('stepControlMachine', () => {
     result = { state: startCountdown(result.state, 9000).state, commands: [] }
     expect(result.state.phase).toBe('countdown')
     const countdownStart = result.state.sinceMs
-    expect(controlView(result.state, countdownStart, true).countdown).toBe(3)
-    expect(controlView(result.state, countdownStart + 1000, true).countdown).toBe(2)
-    expect(controlView(result.state, countdownStart + 2999, true).countdown).toBe(1)
+    expect(controlView(result.state, countdownStart, 'in-frame').countdown).toBe(3)
+    expect(controlView(result.state, countdownStart + 1000, 'in-frame').countdown).toBe(2)
+    expect(controlView(result.state, countdownStart + 2999, 'in-frame').countdown).toBe(1)
 
     // Resume after 3 s.
     result = run(result.state, true, countdownStart + 16, countdownStart + 3008)
     expect(result.commands).toEqual(['resume'])
     expect(result.state.phase).toBe('active')
-    expect(controlView(result.state, countdownStart + 3008, true)).toEqual({
+    expect(controlView(result.state, countdownStart + 3008, 'in-frame')).toEqual({
       prompt: null,
       paused: false,
       countdown: null,
@@ -106,7 +110,7 @@ describe('stepControlMachine', () => {
     it('still shows the prompt but never auto-pauses', () => {
       const result = run({ phase: 'inactive', sinceMs: 0 }, false, 0, 20_000, params)
       expect(result.commands).toEqual([])
-      expect(controlView(result.state, 20_000, true, params).prompt).toBe('spread-arms')
+      expect(controlView(result.state, 20_000, 'in-frame', params).prompt).toBe('spread-arms')
     })
 
     it('ignores arms out while paused', () => {
@@ -167,10 +171,18 @@ describe('forcePause', () => {
 
 describe('controlView', () => {
   it('asks the player to step into view when nobody is detected', () => {
-    expect(controlView({ phase: 'inactive', sinceMs: 0 }, 400, false).prompt).toBe('step-into-view')
+    expect(controlView({ phase: 'inactive', sinceMs: 0 }, 400, 'out-of-frame').prompt).toBe(
+      'step-into-view',
+    )
   })
 
   it('shows no prompt while steering', () => {
-    expect(controlView({ phase: 'active', sinceMs: 0 }, 10_000, false).prompt).toBeNull()
+    expect(controlView({ phase: 'active', sinceMs: 0 }, 10_000, 'out-of-frame').prompt).toBeNull()
+  })
+
+  it('says the camera is lost rather than asking the player to step in', () => {
+    expect(controlView({ phase: 'inactive', sinceMs: 0 }, 400, 'camera-lost').prompt).toBe(
+      'camera-lost',
+    )
   })
 })

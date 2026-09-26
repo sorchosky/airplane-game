@@ -12,10 +12,12 @@ import {
 } from '../pose/cameraService'
 import { startPoseService, stopPoseService } from '../pose/poseService'
 import { PoseDebug } from '../debug/PoseDebug'
+import { activeShot } from '../debug/shots'
 import { hasDebugFlag } from '../input/source'
 import { copy } from '../ui/copy'
 import { Hud } from '../ui/Hud'
 import { OrientationPrompt } from '../ui/OrientationPrompt'
+import { setupCameraRecovery } from './cameraRecovery'
 import { useControlStateDriver } from './controlStore'
 import { FlightScene } from './FlightScene'
 import { useGameStore } from './gameStore'
@@ -27,10 +29,10 @@ import { isMaterialsSceneMode, isReplayInputMode, isSwatchesMode } from './urlFl
 import { setupWakeLockReacquire } from './wakeLock'
 
 /** Control-state machine plus its HUD, mounted for the life of one flight (flying ⇄ paused). */
-function FlightControl() {
+function FlightControl({ hud }: { hud: boolean }) {
   useControlStateDriver()
   useAudioEngine()
-  return <Hud />
+  return hud ? <Hud /> : null
 }
 
 export function App() {
@@ -39,6 +41,7 @@ export function App() {
 
   useEffect(() => setupWakeLockReacquire(), [])
   useEffect(() => setupCameraLifecycle(), [])
+  useEffect(() => setupCameraRecovery(), [])
 
   // The camera and pose detection stay live from calibrate through flying
   // and paused (pose control needs them throughout) and only stop once the
@@ -63,6 +66,8 @@ export function App() {
   }, [state, permissionDenied])
 
   const inFlight = state === 'flying' || state === 'paused'
+  // `?shot=` captures the world alone: no prompt, no preview, no touch fallback over it.
+  const shot = activeShot() !== null
   const showPoseDebug =
     hasDebugFlag() && (state === 'calibrate' || state === 'flying' || state === 'paused')
 
@@ -82,8 +87,8 @@ export function App() {
       {state === 'error' && <ErrorScreen />}
       {inFlight && <FlightScene />}
       {state === 'paused' && <PausedOverlay />}
-      {inFlight && <FlightControl />}
-      <InputSource enableTouchControls={state === 'flying'} />
+      {inFlight && <FlightControl hud={!shot} />}
+      <InputSource enableTouchControls={state === 'flying' && !shot} />
       {showPoseDebug && <PoseDebug />}
       <OrientationPrompt />
     </div>
