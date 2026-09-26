@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
 
+/** Mirrors `STORAGE_KEY` in `src/world/gameClock.ts`. */
+const CLOCK_STORAGE_KEY = 'skyborne.clock.minutes'
+
 const toMinutes = (label: string | null): number => {
   const [h, m] = (label ?? '').split(':').map(Number)
   return (h ?? 0) * 60 + (m ?? 0)
@@ -21,9 +24,16 @@ test('clock: runs while flying, freezes on pause, resumes after a reload', async
   await page.waitForTimeout(1500)
   await expect(clock).toHaveText(paused ?? '')
 
+  // The save is what carries the time across the reload. Check it on the title, where the clock
+  // is frozen: once flying again it moves on every ~0.4 s, too fast to compare exactly on CI.
   await page.reload()
+  const saved = await page.evaluate((key) => Number(localStorage.getItem(key)), CLOCK_STORAGE_KEY)
+  expect(Math.floor(saved / 30) * 30).toBe(toMinutes(paused))
+
   await page.getByRole('button', { name: 'Start' }).click()
-  await expect(clock).toHaveText(paused ?? '')
+  await expect(clock).toBeVisible()
+  const resumed = toMinutes(await clock.textContent())
+  expect(resumed).toBeGreaterThanOrEqual(toMinutes(paused))
   expect(toMinutes(paused)).not.toBe(7 * 60)
 })
 
