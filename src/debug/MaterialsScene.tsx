@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { PlaneModel } from '../flight/PlaneModel'
 import { ToonMesh } from '../render/ToonMesh'
 import { color, lighting } from '../styles/tokens'
-import { FpsCounter } from './FpsCounter'
+import { PerfHud } from './PerfHud'
 import { PerfProbe } from './PerfProbe'
 
 const SUN_DISTANCE = 20
@@ -47,7 +47,7 @@ export function MaterialsScene() {
         </ToonMesh>
         <PerfProbe />
       </Canvas>
-      <FpsCounter initiallyVisible />
+      <PerfHud initiallyVisible />
     </div>
   )
 }

@@ -4,6 +4,7 @@
 // player taps Start, via a dynamic import that also keeps MediaPipe's JS out of the main bundle.
 
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
+import { latencyProbe } from '../debug/latencyProbe'
 import {
   createDetectionStats,
   pace,
@@ -95,8 +96,10 @@ function detect(): void {
     lastVideoTime = el.currentTime
 
     const result = landmarker.detectForVideo(el, timestampMs)
-    const inferenceMs = performance.now() - now
+    const endMs = performance.now()
+    const inferenceMs = endMs - now
     stats = recordDetection(stats, now, inferenceMs)
+    latencyProbe.markDetect(now, endMs)
 
     usePoseStore.setState({
       frame: toPoseFrame(result, timestampMs),
@@ -118,17 +121,27 @@ function scheduleNext(): void {
   const el = video
   if (!running || !el) return
 
-  const onFrame = () => {
-    detect()
-    scheduleNext()
-  }
-
-  // Prefer one callback per decoded camera frame; fall back to rAF where unsupported.
+  // Prefer one callback per decoded camera frame; fall back to rAF where unsupported. The
+  // frame metadata carries the camera's own capture time where the browser reports it (Chrome
+  // does for local streams); otherwise the latency probe stamps the callback time and says so.
   if (typeof el.requestVideoFrameCallback === 'function') {
-    const id = el.requestVideoFrameCallback(onFrame)
+    const id = el.requestVideoFrameCallback((_now, metadata) => {
+      const captureMs = metadata.captureTime
+      latencyProbe.markCameraFrame(
+        captureMs ?? Number.NaN,
+        performance.now(),
+        captureMs !== undefined,
+      )
+      detect()
+      scheduleNext()
+    })
     cancelScheduled = () => el.cancelVideoFrameCallback(id)
   } else {
-    const id = requestAnimationFrame(onFrame)
+    const id = requestAnimationFrame(() => {
+      latencyProbe.markCameraFrame(Number.NaN, performance.now(), false)
+      detect()
+      scheduleNext()
+    })
     cancelScheduled = () => cancelAnimationFrame(id)
   }
 }
