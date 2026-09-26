@@ -170,7 +170,7 @@ export const lightingPresets = {
     sunIntensity: 2.4,
     hemisphereIntensity: 0.9,
   },
-  /** Low warm sun, peach horizon, violet zenith: the golden path's finale, and `?tod=golden`. */
+  /** Low warm sun, peach horizon, violet zenith: `?tod=golden`, and the approach to dusk in #92. */
   goldenHour: {
     skyZenith: '#566a9c',
     skyHorizon: '#f3c08f',

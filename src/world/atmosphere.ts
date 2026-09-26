@@ -1,3 +1,4 @@
+import type { LightingPreset } from '../styles/tokens'
 import { activeLighting } from './lightingPreset'
 import type { TerrainConfig } from './terrainConfig'
 
@@ -177,4 +178,54 @@ export function cloudLayout(config: CloudConfig): CloudPuff[] {
 export function wrapAround(value: number, center: number, size: number): number {
   const shifted = value - center + size / 2
   return center + (shifted - Math.floor(shifted / size) * size) - size / 2
+}
+
+/** An sRGB hex colour as linear RGB, the space three lights in. */
+export function hexToLinear(hex: string): [number, number, number] {
+  const channel = (offset: number) => {
+    const c = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  }
+  return [channel(1), channel(3), channel(5)]
+}
+
+/**
+ * Sunlit cloud faces land on this multiple of the preset's `cloudLight` (linear, before tone
+ * mapping). ACES maps 1.3 to about 0.8: near-white on screen, and under the bloom threshold, so
+ * clouds never bloom.
+ */
+export const CLOUD_LIT_GAIN = 1.3
+
+export interface CloudShading {
+  /** Linear Lambert colour, 0..1 per channel. */
+  albedo: Vec3
+  /** Linear emissive colour, at intensity 1. */
+  emissive: Vec3
+}
+
+/**
+ * Lambert colour and emissive (#64) that put a cloud's shadowed side on the preset's
+ * `cloudShadow` and its sunlit side on `cloudLight` × `CLOUD_LIT_GAIN`, whatever the preset's sun
+ * and sky fill. three's Lambert gives `albedo / π × (sun × N·L + hemisphere) + emissive`; for a
+ * side-facing puff (hemisphere halfway between sky and ground), N·L = 0 and N·L = 1 are two
+ * equations for the two unknowns. Tops pick up a little more sky blue, undersides a little ground.
+ */
+export function cloudShading(preset: LightingPreset): CloudShading {
+  const lit = hexToLinear(preset.cloudLight)
+  const shadow = hexToLinear(preset.cloudShadow)
+  const sun = hexToLinear(preset.sun)
+  const sky = hexToLinear(preset.ambientSky)
+  const ground = hexToLinear(preset.ambientGround)
+  const albedo: [number, number, number] = [0, 0, 0]
+  const emissive: [number, number, number] = [0, 0, 0]
+  for (let i = 0; i < 3; i++) {
+    const sunLight = (sun[i] ?? 0) * preset.sunIntensity
+    const skyFill =
+      (0.5 * ((sky[i] ?? 0) + (ground[i] ?? 0)) * preset.hemisphereIntensity) / Math.PI
+    const target = (lit[i] ?? 0) * CLOUD_LIT_GAIN - (shadow[i] ?? 0)
+    const a = sunLight > 0 ? Math.min(1, Math.max(0, (target * Math.PI) / sunLight)) : 1
+    albedo[i] = a
+    emissive[i] = Math.max(0, (shadow[i] ?? 0) - a * skyFill)
+  }
+  return { albedo, emissive }
 }
