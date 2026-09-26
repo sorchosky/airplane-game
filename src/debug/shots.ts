@@ -157,6 +157,10 @@ export function shotFlightState(shot: ShotBookmark, cruiseSpeed: number): Flight
     // At rest the heading's lagged bank has caught up with the wings (#68).
     yawBank: shot.bank,
     floorContact: 0,
+    boosting: false,
+    boostTime: 0,
+    boostCooldown: 0,
+    boostSpent: false,
   }
 }
 
