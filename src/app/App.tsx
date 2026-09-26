@@ -24,7 +24,7 @@ import { CalibrateScreen } from './screens/CalibrateScreen'
 import { ErrorScreen } from './screens/ErrorScreen'
 import { PausedOverlay } from './screens/PausedOverlay'
 import { TitleScreen } from './screens/TitleScreen'
-import { isMaterialsSceneMode, isSwatchesMode } from './urlFlags'
+import { isMaterialsSceneMode, isReplayInputMode, isSwatchesMode } from './urlFlags'
 import { setupWakeLockReacquire } from './wakeLock'
 
 /** Control-state machine plus its HUD, mounted for the life of one flight (flying ⇄ paused). */
@@ -46,7 +46,9 @@ export function App() {
   // player is back at the title screen. The pose model downloads here, after
   // Start, never on page load. A model load failure is shown on the
   // calibrate screen (poseStore.modelStatus), not routed to the error state.
+  // A replay feeds poseStore itself, so neither runs under `?input=replay`.
   useEffect(() => {
+    if (isReplayInputMode()) return
     if (state === 'calibrate') {
       startCamera().then(
         () => startPoseService(getVideo()).catch(() => undefined),

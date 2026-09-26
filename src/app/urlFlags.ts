@@ -10,6 +10,14 @@ export function isKeyboardInputMode(): boolean {
   return getInputSourceFromUrl() === 'keyboard'
 }
 
+/**
+ * `?input=replay`: a recorded pose fixture stands in for the camera and MediaPipe, so the app
+ * must not open the camera or load the model.
+ */
+export function isReplayInputMode(): boolean {
+  return getInputSourceFromUrl() === 'replay'
+}
+
 /** `?swatches` renders the design token review page instead of the game. */
 export function isSwatchesMode(): boolean {
   return new URLSearchParams(window.location.search).has('swatches')
