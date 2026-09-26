@@ -324,3 +324,82 @@ describe('bank and pitch rate caps', () => {
     expect(capped.bank).toBeCloseTo(free.bank, 10)
   })
 })
+
+// Each boost constant in FLIGHT_FEEL, pinned by what it does (#93).
+describe('boost', () => {
+  const boost = (overrides: Partial<ControlInput> = {}) => input({ boost: true, ...overrides })
+
+  it('never fires without a request, and a request under autopilot is ignored', () => {
+    let state = stepMany(createInitialFlightState(params), input(), FIXED_DT, 60)
+    expect(state.boosting).toBe(false)
+    state = stepMany(state, boost({ active: false }), FIXED_DT, 60)
+    expect(state.boosting).toBe(false)
+    expect(state.speed).toBeCloseTo(params.cruiseSpeed, 5)
+  })
+
+  it('boostAcceleration: a readable surge from cruise in level flight', () => {
+    const state = stepMany(createInitialFlightState(params), boost(), FIXED_DT, 60)
+    expect(state.boosting).toBe(true)
+    // One second in: close to the full push, less the drag it has already built.
+    expect(state.speed - params.cruiseSpeed).toBeGreaterThan(FLIGHT_FEEL.boostAcceleration * 0.75)
+    expect(state.speed - params.cruiseSpeed).toBeLessThan(FLIGHT_FEEL.boostAcceleration)
+  })
+
+  it('boostAcceleration: a boost into a full climb bleeds speed exactly as an unboosted climb', () => {
+    const start = stepMany(createInitialFlightState(params), input({ pitch: 1 }), FIXED_DT, 60)
+    const plain = stepMany(start, input({ pitch: 1 }), FIXED_DT, 60)
+    const boosted = stepMany(start, boost({ pitch: 1 }), FIXED_DT, 60)
+    expect(boosted.boosting).toBe(true)
+    expect(boosted.speed).toBeLessThan(start.speed)
+    expect(boosted.speed).toBeCloseTo(plain.speed, 1)
+  })
+
+  it('boostAcceleration: a half climb gets part of the push, still less than level', () => {
+    const level = stepMany(createInitialFlightState(params), boost(), FIXED_DT, 60)
+    const climbing = stepMany(createInitialFlightState(params), boost({ pitch: 0.5 }), FIXED_DT, 60)
+    const plain = stepMany(createInitialFlightState(params), input({ pitch: 0.5 }), FIXED_DT, 60)
+    expect(climbing.speed).toBeGreaterThan(plain.speed)
+    expect(climbing.speed).toBeLessThan(level.speed)
+  })
+
+  it('never pushes past maxSpeed, even boosting in a full dive', () => {
+    const state = stepMany(createInitialFlightState(params), boost({ pitch: -1 }), FIXED_DT, 180)
+    expect(state.speed).toBeLessThanOrEqual(FLIGHT_FEEL.maxSpeed)
+  })
+
+  it('boostDuration: a held request ends the burst after one duration', () => {
+    const frames = Math.round(FLIGHT_FEEL.boostDuration / FIXED_DT)
+    let state = stepMany(createInitialFlightState(params), boost(), FIXED_DT, frames - 2)
+    expect(state.boosting).toBe(true)
+    state = stepMany(state, boost(), FIXED_DT, 4)
+    expect(state.boosting).toBe(false)
+    expect(state.boostCooldown).toBeGreaterThan(FLIGHT_FEEL.boostCooldown - 0.1)
+  })
+
+  it('boostDuration: holding the request past the cooldown does not start another burst', () => {
+    const frames = Math.round(
+      (FLIGHT_FEEL.boostDuration + FLIGHT_FEEL.boostCooldown + 1) / FIXED_DT,
+    )
+    const state = stepMany(createInitialFlightState(params), boost(), FIXED_DT, frames)
+    expect(state.boosting).toBe(false)
+    expect(state.boostSpent).toBe(true)
+  })
+
+  it('releasing the request ends the burst early', () => {
+    let state = stepMany(createInitialFlightState(params), boost(), FIXED_DT, 30)
+    state = step(state, input(), FIXED_DT, params)
+    expect(state.boosting).toBe(false)
+  })
+
+  it('boostCooldown: a new request only fires once the cooldown is over', () => {
+    let state = stepMany(createInitialFlightState(params), boost(), FIXED_DT, 30)
+    state = stepMany(state, input(), FIXED_DT, 1)
+    const cooldownFrames = Math.round(FLIGHT_FEEL.boostCooldown / FIXED_DT)
+    state = stepMany(state, input(), FIXED_DT, cooldownFrames - 10)
+    state = step(state, boost(), FIXED_DT, params)
+    expect(state.boosting).toBe(false)
+    state = stepMany(state, input(), FIXED_DT, 20)
+    state = step(state, boost(), FIXED_DT, params)
+    expect(state.boosting).toBe(true)
+  })
+})
