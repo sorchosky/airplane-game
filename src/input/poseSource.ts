@@ -6,6 +6,7 @@ import { DEFAULT_GESTURE_STATE, interpretPose, type GestureState } from '../pose
 import { usePoseStore } from '../pose/poseStore'
 import type { PoseLandmarks } from '../pose/types'
 import { useInputStore } from './inputStore'
+import type { ControlInput } from './types'
 
 /**
  * If no detection has landed for this long (tab hidden, camera stalled, service stopped), treat
@@ -21,6 +22,18 @@ const POSE_STALE_MS = 250
  * root, while `?input=pose`.
  */
 export function usePoseSource(enabled = true): void {
+  usePoseInterpreter(enabled, 'pose')
+}
+
+/**
+ * The detection-to-`ControlInput` loop behind both the live pose source and the replay source
+ * (which writes `poseStore` from a fixture instead of the camera). `source` is stamped on every
+ * input so the rest of the game can tell a recording from a player.
+ */
+export function usePoseInterpreter(
+  enabled: boolean,
+  source: Extract<ControlInput['source'], 'pose' | 'replay'>,
+): void {
   useEffect(() => {
     if (!enabled) return
     let gestureState: GestureState = DEFAULT_GESTURE_STATE
@@ -30,7 +43,7 @@ export function usePoseSource(enabled = true): void {
       const calibration = useCalibrationStore.getState().calibration ?? DEFAULT_CALIBRATION
       const { input, state } = interpretPose(landmarks, calibration, gestureState, tMs)
       gestureState = state
-      useInputStore.getState().setInput(input)
+      useInputStore.getState().setInput(source === input.source ? input : { ...input, source })
     }
 
     const tick = (now: number) => {
@@ -45,5 +58,5 @@ export function usePoseSource(enabled = true): void {
     }
 
     return frameLoop.add(tick, FRAME_PRIORITY.input)
-  }, [enabled])
+  }, [enabled, source])
 }

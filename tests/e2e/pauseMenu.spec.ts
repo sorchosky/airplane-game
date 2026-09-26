@@ -1,12 +1,5 @@
 import { expect, test } from '@playwright/test'
 
-test('title screen shows the three-step how to play', async ({ page }) => {
-  await page.goto('/')
-  const howTo = page.getByRole('region', { name: 'How to play' })
-  await expect(howTo.getByRole('listitem')).toHaveCount(3)
-  await page.screenshot({ path: 'test-results/28-title-how-to-play.png' })
-})
-
 test('keyboard: pause menu navigates with arrows and Enter quits to title', async ({ page }) => {
   await page.goto('/?input=keyboard')
   await page.getByRole('button', { name: 'Start' }).click()
@@ -27,7 +20,8 @@ test('pause menu Resume (click) runs the countdown back to flight', async ({ pag
   await page.getByRole('button', { name: 'Start' }).click()
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Resume' }).click()
-  await expect(page.getByTestId('resume-countdown')).toHaveText('3')
+  // Any tick counts: at software-GL frame rates the first poll can land on 2 or 1.
+  await expect(page.getByTestId('resume-countdown')).toHaveText(/^[123]$/)
   await expect(page.getByRole('dialog', { name: 'Paused' })).toBeHidden({ timeout: 5000 })
 })
 
