@@ -9,7 +9,11 @@ export const copy = {
 
   calibrate: {
     modelLoading: 'Warming up motion tracking…',
-    modelError: "Motion tracking didn't load. Check your connection and reload.",
+    modelErrorTitle: "Motion tracking didn't load",
+    modelErrorBody: 'Check your connection, then try again.',
+    modelRetry: 'Try again',
+    keyboardFallback: 'Fly with the keyboard instead',
+    cameraLost: 'Lost the camera. Reconnecting…',
     stepBack: 'Step back until your head and hips are in view',
     comeCloser: 'Come a little closer',
     spreadArms: 'Spread your arms like wings',
@@ -19,6 +23,8 @@ export const copy = {
   hud: {
     spreadArms: 'Spread your arms to fly',
     stepIntoView: 'Step into view',
+    cameraLost: 'Lost the camera. Reconnecting…',
+    warm: 'Your phone is getting warm',
   },
 
   pause: {

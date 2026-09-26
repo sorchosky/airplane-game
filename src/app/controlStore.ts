@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { useInputStore } from '../input/inputStore'
+import { useCameraStore } from '../pose/cameraService'
 import { usePoseStore } from '../pose/poseStore'
 import {
   DEFAULT_CONTROL_MACHINE_PARAMS,
@@ -14,6 +15,7 @@ import {
   type ControlMachineState,
   type ControlStepResult,
   type ControlView,
+  type Presence,
 } from './controlStateMachine'
 import { FRAME_PRIORITY, frameLoop } from './frameLoop'
 import { useGameStore } from './gameStore'
@@ -61,15 +63,17 @@ function sameView(a: ControlView, b: ControlView): boolean {
   return a.prompt === b.prompt && a.paused === b.paused && a.countdown === b.countdown
 }
 
-/** Keyboard input has no body to lose track of; pose/replay read the latest detection. */
-function personInFrame(): boolean {
-  if (useInputStore.getState().current.source === 'keyboard') return true
-  return usePoseStore.getState().frame !== null
+/** Keyboard input has no body to lose track of; pose/replay read the camera and latest detection. */
+function presence(): Presence {
+  const { source } = useInputStore.getState().current
+  if (source === 'keyboard') return 'in-frame'
+  if (source === 'pose' && useCameraStore.getState().status === 'lost') return 'camera-lost'
+  return usePoseStore.getState().frame !== null ? 'in-frame' : 'out-of-frame'
 }
 
 function apply({ state, command }: ControlStepResult, nowMs: number): void {
   const store = useControlStore.getState()
-  const view = controlView(state, nowMs, personInFrame(), paramsForMode())
+  const view = controlView(state, nowMs, presence(), paramsForMode())
   if (state !== store.machine || !sameView(view, store.view)) {
     useControlStore.setState({
       machine: state,
@@ -84,7 +88,7 @@ function apply({ state, command }: ControlStepResult, nowMs: number): void {
 
 /**
  * Runs the control-state machine every animation frame while the flight scene is up
- * (`flying` or `paused`), and binds Esc to pause in keyboard mode. Mount once near the app root,
+ * (`flying` or `paused`), binds Esc to pause in keyboard mode, and pauses when the tab is hidden. Mount once near the app root,
  * only during those states, so each flight starts from a fresh machine.
  */
 export function useControlStateDriver(): void {
@@ -110,9 +114,17 @@ export function useControlStateDriver(): void {
     }
     if (!params.gesturePause) window.addEventListener('keydown', onKeyDown)
 
+    // A hidden tab (app switcher, lock screen, a call) pauses through the machine, so coming back
+    // lands on the pause menu instead of a plane that flew on, or froze mid-turn, unattended.
+    const onVisibilityChange = () => {
+      if (document.hidden) useControlStore.getState().forcePause()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
     return () => {
       remove()
       window.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [])
 }

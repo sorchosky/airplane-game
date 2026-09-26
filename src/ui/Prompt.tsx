@@ -6,6 +6,7 @@ import { copy } from './copy'
 const COPY: Record<Exclude<ControlPrompt, null>, string> = {
   'spread-arms': copy.hud.spreadArms,
   'step-into-view': copy.hud.stepIntoView,
+  'camera-lost': copy.hud.cameraLost,
 }
 
 const FADE_MS = 200
