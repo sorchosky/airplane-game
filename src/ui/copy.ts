@@ -25,6 +25,7 @@ export const copy = {
     stepIntoView: 'Step into view',
     cameraLost: 'Lost the camera. Reconnecting…',
     warm: 'Your phone is getting warm',
+    clockLabel: 'Time of day',
   },
 
   pause: {
