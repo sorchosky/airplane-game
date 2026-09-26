@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { getVideo } from '../pose/cameraService'
 import { usePoseStore } from '../pose/poseStore'
 import { color } from '../styles/tokens'
-import { armLine } from './poseOverlayMath'
+import { armLine, createArmLinePoints } from './poseOverlayMath'
 
 export type ControlPreviewState = 'inactive' | 'active'
 
@@ -32,6 +32,10 @@ export function PoseOverlay({ controlState }: PoseOverlayProps) {
     if (!canvas || !ctx) return
 
     const video = getVideo()
+    // Reused every frame; `armLine` fills it in place.
+    const linePoints = createArmLinePoints()
+    const videoSize = { width: 0, height: 0 }
+    const canvasSize = { width: 0, height: 0 }
     let frame = 0
 
     const tick = () => {
@@ -44,10 +48,15 @@ export function PoseOverlay({ controlState }: PoseOverlayProps) {
       }
       ctx.clearRect(0, 0, width, height)
 
+      videoSize.width = video.videoWidth
+      videoSize.height = video.videoHeight
+      canvasSize.width = width
+      canvasSize.height = height
       const points = armLine(
         usePoseStore.getState().frame?.landmarks ?? null,
-        { width: video.videoWidth, height: video.videoHeight },
-        { width, height },
+        videoSize,
+        canvasSize,
+        linePoints,
       )
       const first = points?.[0]
       const last = points?.[points.length - 1]
@@ -61,14 +70,18 @@ export function PoseOverlay({ controlState }: PoseOverlayProps) {
 
         ctx.beginPath()
         ctx.moveTo(first.x, first.y)
-        for (const p of points.slice(1)) ctx.lineTo(p.x, p.y)
+        for (let i = 1; i < points.length; i++) {
+          const p = points[i]
+          if (p) ctx.lineTo(p.x, p.y)
+        }
         ctx.stroke()
 
-        for (const wrist of [first, last]) {
-          ctx.beginPath()
-          ctx.arc(wrist.x, wrist.y, WRIST_RADIUS_PX * dpr, 0, Math.PI * 2)
-          ctx.fill()
-        }
+        ctx.beginPath()
+        ctx.arc(first.x, first.y, WRIST_RADIUS_PX * dpr, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(last.x, last.y, WRIST_RADIUS_PX * dpr, 0, Math.PI * 2)
+        ctx.fill()
       }
 
       frame = requestAnimationFrame(tick)

@@ -46,7 +46,10 @@ export function Clouds() {
     const t = elapsed.current
     const { position } = useFlightStore.getState().state
     const { fieldSize, windX, windZ } = CLOUD_CONFIG
-    puffs.forEach((puff, i) => {
+    // A plain loop, not `forEach`: no per-frame closure, nothing allocated.
+    for (let i = 0; i < puffs.length; i++) {
+      const puff = puffs[i]
+      if (!puff) continue
       const x = wrapAround(puff.clusterX + windX * t, position.x, fieldSize)
       const z = wrapAround(puff.clusterZ + windZ * t, position.z, fieldSize)
       dummy.position.set(x + puff.offsetX, puff.y, z + puff.offsetZ)
@@ -54,7 +57,7 @@ export function Clouds() {
       dummy.scale.set(puff.radius, puff.radius * 0.75, puff.radius)
       dummy.updateMatrix()
       mesh.setMatrixAt(i, dummy.matrix)
-    })
+    }
     mesh.instanceMatrix.needsUpdate = true
   })
 

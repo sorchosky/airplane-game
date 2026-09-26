@@ -15,6 +15,7 @@ import {
   type ControlStepResult,
   type ControlView,
 } from './controlStateMachine'
+import { FRAME_PRIORITY, frameLoop } from './frameLoop'
 import { useGameStore } from './gameStore'
 import { getInputSourceFromUrl } from '../input/source'
 
@@ -94,17 +95,15 @@ export function useControlStateDriver(): void {
       view: INITIAL_VIEW,
     })
 
-    let frame = 0
-    const tick = () => {
-      const nowMs = performance.now()
+    // After the input sources (same frame loop, lower priority runs first), so the machine
+    // sees this frame's input rather than last frame's.
+    const remove = frameLoop.add((nowMs) => {
       const { active } = useInputStore.getState().current
       apply(
         stepControlMachine(useControlStore.getState().machine, { active, nowMs }, params),
         nowMs,
       )
-      frame = requestAnimationFrame(tick)
-    }
-    frame = requestAnimationFrame(tick)
+    }, FRAME_PRIORITY.control)
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !event.repeat) useControlStore.getState().togglePause()
@@ -112,7 +111,7 @@ export function useControlStateDriver(): void {
     if (!params.gesturePause) window.addEventListener('keydown', onKeyDown)
 
     return () => {
-      cancelAnimationFrame(frame)
+      remove()
       window.removeEventListener('keydown', onKeyDown)
     }
   }, [])

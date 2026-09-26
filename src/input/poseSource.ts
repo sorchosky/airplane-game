@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { FRAME_PRIORITY, frameLoop } from '../app/frameLoop'
 import { DEFAULT_CALIBRATION } from '../pose/calibration'
 import { useCalibrationStore } from '../pose/calibrationStore'
 import { DEFAULT_GESTURE_STATE, interpretPose, type GestureState } from '../pose/gesture'
@@ -24,7 +25,6 @@ export function usePoseSource(enabled = true): void {
     if (!enabled) return
     let gestureState: GestureState = DEFAULT_GESTURE_STATE
     let lastDetectedAtMs = -1
-    let frame = 0
 
     const interpret = (landmarks: PoseLandmarks | null, tMs: number) => {
       const calibration = useCalibrationStore.getState().calibration ?? DEFAULT_CALIBRATION
@@ -33,9 +33,8 @@ export function usePoseSource(enabled = true): void {
       useInputStore.getState().setInput(input)
     }
 
-    const tick = () => {
+    const tick = (now: number) => {
       const { frame: poseFrame, detectedAtMs } = usePoseStore.getState()
-      const now = performance.now()
 
       if (detectedAtMs !== lastDetectedAtMs && detectedAtMs > 0) {
         lastDetectedAtMs = detectedAtMs
@@ -43,14 +42,8 @@ export function usePoseSource(enabled = true): void {
       } else if (now - Math.max(lastDetectedAtMs, 0) > POSE_STALE_MS) {
         interpret(null, now)
       }
-
-      frame = requestAnimationFrame(tick)
     }
 
-    frame = requestAnimationFrame(tick)
-
-    return () => {
-      cancelAnimationFrame(frame)
-    }
+    return frameLoop.add(tick, FRAME_PRIORITY.input)
   }, [enabled])
 }

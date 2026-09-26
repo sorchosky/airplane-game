@@ -25,18 +25,21 @@ export interface CoverTransform {
  * canvas, then centered, so the overflowing axis is cropped equally on both sides. `drawn` is the
  * size of the whole scaled video, which is at least as large as the canvas on both axes.
  */
-export function coverTransform(video: Size2, canvas: Size2): CoverTransform | null {
+export function coverTransform(
+  video: Size2,
+  canvas: Size2,
+  out: CoverTransform = { scale: 1, offsetX: 0, offsetY: 0, width: 0, height: 0 },
+): CoverTransform | null {
   if (video.width <= 0 || video.height <= 0 || canvas.width <= 0 || canvas.height <= 0) return null
   const scale = Math.max(canvas.width / video.width, canvas.height / video.height)
   const width = video.width * scale
   const height = video.height * scale
-  return {
-    scale,
-    offsetX: (canvas.width - width) / 2,
-    offsetY: (canvas.height - height) / 2,
-    width,
-    height,
-  }
+  out.scale = scale
+  out.offsetX = (canvas.width - width) / 2
+  out.offsetY = (canvas.height - height) / 2
+  out.width = width
+  out.height = height
+  return out
 }
 
 /**
@@ -44,11 +47,14 @@ export function coverTransform(video: Size2, canvas: Size2): CoverTransform | nu
  * selfie space (`poseFrame.ts`), and the preview mirrors the video with `scaleX(-1)` about its
  * center. Cover cropping is symmetric, so mirroring commutes with it and no further flip is needed.
  */
-export function toCanvasPoint(point: Point2, transform: CoverTransform): Point2 {
-  return {
-    x: transform.offsetX + point.x * transform.width,
-    y: transform.offsetY + point.y * transform.height,
-  }
+export function toCanvasPoint(
+  point: Point2,
+  transform: CoverTransform,
+  out: Point2 = { x: 0, y: 0 },
+): Point2 {
+  out.x = transform.offsetX + point.x * transform.width
+  out.y = transform.offsetY + point.y * transform.height
+  return out
 }
 
 /** Wrist → elbow → shoulder → shoulder → elbow → wrist, in the player's left-to-right order. */
@@ -61,24 +67,33 @@ export const ARM_LINE_LANDMARKS = [
   LANDMARK.RIGHT_WRIST,
 ] as const
 
+/** Six reusable points for `armLine`, one per `ARM_LINE_LANDMARKS` entry. */
+export function createArmLinePoints(): Point2[] {
+  return ARM_LINE_LANDMARKS.map(() => ({ x: 0, y: 0 }))
+}
+
+const transformScratch: CoverTransform = { scale: 1, offsetX: 0, offsetY: 0, width: 0, height: 0 }
+
 /**
  * Canvas-space polyline through both arms and shoulders, or null when there is nothing to draw
  * (no person, missing landmarks, or no video size yet). Wrists are the first and last points.
+ * Writes into `out` (from `createArmLinePoints`; a fresh array by default) and returns it.
  */
 export function armLine(
   landmarks: PoseLandmarks | null,
   video: Size2,
   canvas: Size2,
+  out: Point2[] = createArmLinePoints(),
 ): Point2[] | null {
   if (!landmarks) return null
-  const transform = coverTransform(video, canvas)
+  const transform = coverTransform(video, canvas, transformScratch)
   if (!transform) return null
 
-  const points: Point2[] = []
-  for (const index of ARM_LINE_LANDMARKS) {
-    const landmark = landmarks[index]
-    if (!landmark) return null
-    points.push(toCanvasPoint(landmark, transform))
+  for (let i = 0; i < ARM_LINE_LANDMARKS.length; i++) {
+    const landmark = landmarks[ARM_LINE_LANDMARKS[i] ?? 0]
+    const point = out[i]
+    if (!landmark || !point) return null
+    toCanvasPoint(landmark, transform, point)
   }
-  return points
+  return out
 }
