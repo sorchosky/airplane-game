@@ -116,6 +116,8 @@ describe('design tokens', () => {
       'ambientGround',
       'cloudLight',
       'cloudShadow',
+      'gradeShadow',
+      'gradeHighlight',
     ]
     for (const [name, preset] of Object.entries(lightingPresets)) {
       for (const role of colorRoles) expect(preset[role], `${name}.${role}`).toMatch(HEX)
@@ -124,6 +126,10 @@ describe('design tokens', () => {
       expect(preset.sunDirection[1], `${name} sun above the horizon`).toBeGreaterThan(0)
       expect(preset.sunIntensity).toBeGreaterThan(0)
       expect(preset.hemisphereIntensity).toBeGreaterThan(0)
+      for (const amount of [preset.gradeShadowAmount, preset.gradeHighlightAmount]) {
+        expect(amount, `${name} grade amount`).toBeGreaterThanOrEqual(0)
+        expect(amount, `${name} grade amount`).toBeLessThanOrEqual(1)
+      }
     }
   })
 

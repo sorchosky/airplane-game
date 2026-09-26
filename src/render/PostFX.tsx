@@ -1,31 +1,35 @@
 import { useThree } from '@react-three/fiber'
-import {
-  Bloom,
-  EffectComposer,
-  HueSaturation,
-  Vignette,
-  wrapEffect,
-} from '@react-three/postprocessing'
-import { useEffect } from 'react'
+import { Bloom, EffectComposer, Vignette, wrapEffect } from '@react-three/postprocessing'
+import { useEffect, useState } from 'react'
 import type { Camera, Scene } from 'three'
 import { activeLighting } from '../world/lightingPreset'
 import { DisplayRenderPass } from './DisplayRenderPass'
-import { POST_FX, postFxConfig } from './postFx'
+import { GodRaysEffect } from './GodRaysEffect'
+import { gradeParams, POST_FX, postFxConfig } from './postFx'
 import { useQualityStore } from './qualityStore'
 import { WarmLiftEffect } from './WarmLiftEffect'
 
 const WarmLift = wrapEffect(WarmLiftEffect)
+const GodRays = wrapEffect(GodRaysEffect)
+
+function prefersReducedMotion(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
 
 const createRenderPass = (scene: Scene, camera: Camera) => new DisplayRenderPass(scene, camera)
 
 /**
- * Bloom, warm grade and vignette on top of the scene, sized by the quality tier. Mount inside
- * the `<Canvas>`. On `low` it renders nothing and R3F draws the scene straight to the canvas.
+ * Bloom, god rays, two-tone grade and vignette on top of the scene, sized by the quality tier.
+ * Mount inside the `<Canvas>`. On `low` it renders nothing and R3F draws the scene straight to
+ * the canvas.
  */
 export function PostFX() {
   const tier = useQualityStore((s) => s.tier)
-  const config = postFxConfig(tier)
+  const [reducedMotion] = useState(prefersReducedMotion)
+  const config = postFxConfig(tier, { reducedMotion })
   if (!config.enabled) return null
+  const lighting = activeLighting()
   return (
     <>
       <FrameInfoManualReset />
@@ -42,8 +46,8 @@ export function PostFX() {
           radius={POST_FX.bloom.radius}
           resolutionScale={config.bloomResolutionScale}
         />
-        {config.grade && <WarmLift tint={activeLighting().sun} lift={POST_FX.grade.lift} />}
-        {config.grade && <HueSaturation saturation={POST_FX.grade.saturation} />}
+        {config.godRays && <GodRays sunDirection={lighting.sunDirection} tint={lighting.sunGlow} />}
+        {config.grade && <WarmLift {...gradeParams(lighting)} />}
         {config.vignette && (
           <Vignette offset={POST_FX.vignette.offset} darkness={POST_FX.vignette.darkness} />
         )}

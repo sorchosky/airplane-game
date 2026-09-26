@@ -149,6 +149,16 @@ export interface LightingPreset {
   sunDirection: readonly [number, number, number]
   sunIntensity: number
   hemisphereIntensity: number
+  /**
+   * Two-tone colour grade on `high` (#72), display sRGB: the hue shadows lean toward (teal) and
+   * the hue highlights lean toward (warm). Only their hue and saturation move pixels; the grade
+   * keeps each pixel's luma, so tiers match in brightness.
+   */
+  gradeShadow: string
+  gradeHighlight: string
+  /** How far shadows and highlights lean toward their grade tints, 0..1 */
+  gradeShadowAmount: number
+  gradeHighlightAmount: number
 }
 
 export const lightingPresets = {
@@ -169,6 +179,11 @@ export const lightingPresets = {
     sunDirection: [0.6, 0.52, 0.49] as const,
     sunIntensity: 2.4,
     hemisphereIntensity: 0.9,
+    // The sky already carries the cool side, so highlights warm only a little.
+    gradeShadow: '#2f8a8c',
+    gradeHighlight: '#ffcf96',
+    gradeShadowAmount: 0.25,
+    gradeHighlightAmount: 0.15,
   },
   /** Low warm sun, peach horizon, violet zenith: `?tod=golden`, and the approach to dusk in #92. */
   goldenHour: {
@@ -184,6 +199,11 @@ export const lightingPresets = {
     sunDirection: [0.85, 0.28, 0.35] as const,
     sunIntensity: 2.2,
     hemisphereIntensity: 1.0,
+    // Already warm: keep the teal shadows for contrast and barely warm the highlights further.
+    gradeShadow: '#2f8a8c',
+    gradeHighlight: '#ffc58a',
+    gradeShadowAmount: 0.25,
+    gradeHighlightAmount: 0.08,
   },
 } as const satisfies Record<string, LightingPreset>
 
