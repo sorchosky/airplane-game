@@ -28,11 +28,18 @@ import { NEUTRAL_DEFLECTIONS, dampDeflections, targetDeflections } from './plane
  *   below allows a couple of those and still fails on any object, array or closure (32 bytes and
  *   up each). Measured after this change: step 32, camera 32, rig 16, audio 0, arm line 0 bytes
  *   per call; before it: 544, 440, 464, 106 and 528.
+ * - V8 optimises on background threads, so on a slow or busy machine (a shared CI runner) a
+ *   function can finish optimising partway through the measured loop, and the interpreted calls
+ *   before that count as allocations: CI once read the camera case at 80 bytes that measures 16
+ *   to 32 everywhere else. So each case is measured over several rounds and the smallest counts.
+ *   A real per-call allocation shows in every round; a late optimisation only in one.
  */
 declare const gc: (() => void) | undefined
 
 const WARM_UP = 60_000
 const ITERATIONS = 20_000
+/** Measured rounds per case; the smallest growth counts (see above). */
+const ROUNDS = 3
 /**
  * Bytes per call each case may grow by: 1.5× what it measures on Node 22 (V8 double boxing, see
  * above) plus a little, so V8 drift passes and one extra object (32 bytes and up) fails.
@@ -48,11 +55,15 @@ const CEILING_BYTES = {
 function heapGrowthPerCall(fn: () => void): number {
   if (typeof gc !== 'function') throw new Error('gc() is not exposed')
   for (let i = 0; i < WARM_UP; i++) fn()
-  gc()
-  const before = process.memoryUsage().heapUsed
-  for (let i = 0; i < ITERATIONS; i++) fn()
-  const after = process.memoryUsage().heapUsed
-  return (after - before) / ITERATIONS
+  let smallest = Infinity
+  for (let round = 0; round < ROUNDS; round++) {
+    gc()
+    const before = process.memoryUsage().heapUsed
+    for (let i = 0; i < ITERATIONS; i++) fn()
+    const after = process.memoryUsage().heapUsed
+    smallest = Math.min(smallest, (after - before) / ITERATIONS)
+  }
+  return smallest
 }
 
 const input: ControlInput = {
