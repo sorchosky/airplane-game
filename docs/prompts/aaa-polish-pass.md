@@ -1,6 +1,6 @@
 # AAA polish pass
 
-You are the lead on a small senior strike team working as one person: an art director who shipped open-world cel-shaded games, a gameplay/graphics engineer who owns feel and frame time, and an experience designer who specializes in first-time-user onboarding for unconventional input (Kinect, Wii, VR, camera-based play). Your job is to take Skyborne, a browser flight game in sorchosky/airplane-game, from a competent prototype to a portfolio showstopper that plays and looks like it came out of a AAA studio. Set the bar at "a stranger at a party picks it up with no explanation, is flying and grinning inside 60 seconds, and asks what engine it's built in."
+You are the lead on a small senior strike team working as one person: an art director who shipped open-world cel-shaded games, a gameplay/graphics engineer who owns feel and frame time, and an experience designer who specializes in first-time-user onboarding for unconventional input (Kinect, Wii, VR, camera-based play). Your job is to take Driftwing, a browser flight game in sorchosky/airplane-game, from a competent prototype to a portfolio showstopper that plays and looks like it came out of a AAA studio. Set the bar at "a stranger at a party picks it up with no explanation, is flying and grinning inside 60 seconds, and asks what engine it's built in."
 
 Think hard before you touch code. Audit, plan, then execute in slices you verify. Never trade correctness or frame time for spectacle.
 
@@ -49,7 +49,7 @@ The owner is explicitly asking for a BotW look and AAA polish, which conflicts w
 3. Clouds are flat-shaded Lambert icosahedra that render as grey blobs. BotW clouds are soft, layered, painterly, with bright tops and warm undersides.
 4. From the default chase camera the plane reads as a plus sign. The camera sits directly behind with no lead into turns, and the plane occupies little of the frame.
 5. No VFX at all: no wingtip vortices, no speed lines, no wind streaks, no water spray or dust on low passes, no birds, no ambient life.
-6. The title screen is a CSS gradient with text on it. No live 3D world, no logo mark, no motion. Paused and countdown screens cover the world with an opaque-looking dark scrim. The in-flight camera preview can show as a flat cream box.
+6. The Driftwing title screen (PR #57, see `src/app/screens/TitleScreen.tsx`, `titleIntro.ts`, `src/ui/TitleSky.tsx`) is the owner's own design, ported from a 7-frame Figma storyboard: a static golden-hour cirrus sky shader, a frosted blur band that sweeps across and reveals the wordmark, then Start fades up. The storyboard intent is a slow, sweeping cinematic fade-in. What shipped is the right idea but does not land that way: the sky is drawn once and never moves, the sweep is a quick 1.8 s linear pass, nothing has depth or parallax, and the title's contrast is only ~3:1. Paused and countdown screens cover the world with an opaque-looking dark scrim. The in-flight camera preview can show as a flat cream box.
 7. UI chrome is generic rounded rectangles. BotW's UI language is thin lines, generous negative space, restrained Sheikah-style geometric motifs, subtle glow, and almost no heavy panels.
 
 ### Engineering and feel
@@ -61,7 +61,7 @@ The owner is explicitly asking for a BotW look and AAA polish, which conflicts w
 6. Audio is two detuned sawtooth oscillators plus filtered noise. Functional, not premium.
 
 ### Experience
-1. Onboarding is three lines of text on the title screen. Nothing demonstrates the pose. Nothing lets the player practice before the plane is moving.
+1. There is no onboarding before calibration. The How to play plate was removed with the Driftwing title, so a first-timer goes from a wordmark and a Start button straight to a camera screen. Nothing demonstrates the pose. Nothing lets the player practice before the plane is moving.
 2. Calibration guidance is text only. The player at 2 m cannot tell which body part is wrong.
 3. During flight the only feedback on what the body is doing is a small corner preview. There is no in-world, glanceable indicator of roll and pitch input or the arms-out gate.
 4. The tilt-to-select, hold-to-pick pause menu is novel and never taught.
@@ -80,7 +80,8 @@ Then build, in roughly this order, each as its own PR with before and after scre
 5. **Plane presentation.** Livery that pops against green and blue, a readable 3/4 silhouette, specular hint on the canopy, wingtip vortex trails when banking hard, subtle control-surface motion that reads on a TV. Camera that frames the plane in the lower-center third with lead into turns so it never looks like a plus sign.
 6. **Landmarks.** A handful of authored silhouettes visible from far away (a tower, a stone arch, a waterfall, a lone giant tree, ruins) so the world has places, not just terrain. BotW's rule: always something interesting on the horizon.
 7. **Post and grade.** Tune bloom, add a subtle painterly grade, light god rays toward the sun on `high`, keep `medium` and `low` tiers honest.
-8. **UI reskin.** Title screen over a live, slowly orbiting 3D scene with a proper wordmark. Thin-line BotW-style chrome. Countdown and pause over a blurred or desaturated world rather than a dark slab. Fix the title-screen contrast gap noted in `art-direction.md` without adding a heavy plate.
+8. **Driftwing title, made cinematic.** The owner's storyboard is the brief, so keep its beats (sky alone, frosted band sweeps and reveals the wordmark, title holds, Start settles in) and the Driftwing wordmark treatment. Your job is to make it land as the slow, sweeping cinematic fade-in it was drawn as. Diagnose first why the current build reads flat, then fix it. Likely levers: fade up from black or white into the sky, a longer eased sweep with the band's blur and opacity breathing rather than a hard linear pass, a slowly drifting animated cirrus layer with parallax instead of a static draw, subtle light shift across the sky during the sweep, a per-letter or soft-gradient reveal under the band, and an audio swell timed to the reveal. Consider handing off from the title into the live 3D world (the camera drifting down through the cirrus to the plane) so Start feels like a continuation, not a cut. If the Figma MCP is available, ask the owner for the storyboard link and match it frame by frame. Fix the ~3:1 contrast without adding a heavy plate. Keep it once per page load and fully skipped under reduced motion, as logged in `docs/decisions.md`. Any timing change gets a decisions line.
+9. **UI reskin.** Carry the Driftwing title's type and chrome language into every other screen. Thin-line BotW-style chrome. Countdown and pause over a blurred or desaturated world rather than a dark slab.
 
 ## Pillar 2: Engineering (feel and performance)
 
@@ -117,7 +118,7 @@ Design principle: show, don't tell. The player is 2 m away with no controller. E
 
 ## Process
 
-1. **Audit PR first.** Branch `claude/aaa-audit`. Commit `docs/art-bible.md`, `docs/perf.md` with baseline measurements, `docs/experience.md` with the first-run flow as a storyboard, and a prioritized backlog. File GitHub issues for each slice under a new epic, sized per `docs/roadmap.md`, with dependencies. Stop and ask for owner sign-off on the art bible and palette before building art.
+1. **Audit PR first.** Use the branch the session assigns you for this first PR. You have the owner's permission to create and push additional branches for later slices, named `claude/aaa-<slice>`, each cut from current `main`. Commit `docs/art-bible.md`, `docs/perf.md` with baseline measurements, `docs/experience.md` with the first-run flow as a storyboard, and a prioritized backlog. File GitHub issues for each slice under a new epic, sized per `docs/roadmap.md`, with dependencies. Stop and ask for owner sign-off on the art bible and palette before building art.
 2. **Then execute** in this order unless the audit says otherwise: engineering foundations (latency probe, allocations, adaptive quality) → palette and lighting → terrain and foliage → camera and flight feel → onboarding and practice → clouds, VFX, landmarks → audio → UI reskin → golden path → final polish.
 3. **Every PR** follows `.github/pull_request_template.md`, closes its issue, includes before and after screenshots from the `?shot=` bookmarks, perf numbers from `?debug` on `medium` and `high`, verification steps, and handoff notes. Run `npm run check` and the relevant Playwright specs before each push. Use `/opt/pw-browsers/chromium` if Playwright versions mismatch, never `playwright install`.
 4. **Decisions.** Any lasting choice gets one line in `docs/decisions.md`.
