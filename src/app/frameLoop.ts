@@ -19,6 +19,8 @@ export interface FrameJobEntry {
 
 /** Fixed priorities. Lower runs first. */
 export const FRAME_PRIORITY = {
+  /** Pose detections that don't come from the camera (the replay source) land before inputs read them. */
+  detections: -10,
   input: 0,
   control: 10,
   audio: 20,
