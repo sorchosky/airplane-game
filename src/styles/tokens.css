@@ -1,7 +1,7 @@
 /* Google Fonts, self-hosted-equivalent via the Fonts API CDN. Both are
    licensed under the SIL Open Font License 1.1 (free for commercial use,
    no attribution required). See docs/art-direction.md for the rationale. */
-@import url('https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@600&family=Work+Sans:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600&family=Work+Sans:wght@400;500;600&display=swap');
 
 :root {
   /* Sky and atmosphere */
@@ -40,6 +40,16 @@
   --color-text-muted: #cdbca6;
   --color-accent: #5cb8bd;
 
+  /* Title screen */
+  --color-title-sky-top: #285799;
+  --color-title-sky-mid: #978bad;
+  --color-title-sky-low: #fd9e55;
+  --color-title-cloud-warm: #ffb988;
+  --color-title-cloud-cool: #bab5cc;
+  --color-title-text: #e4e9f6;
+  --color-title-text-shadow: #2c4781;
+  --color-title-start-border: rgba(228, 233, 246, 0.7);
+
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 16px;
@@ -52,11 +62,19 @@
   --font-body: 'Work Sans', system-ui, sans-serif;
   --weight-display: 600;
   --weight-button: 500;
+  --weight-hero: 400;
+  --weight-start: 600;
   --tracking-display: 0.14em;
+  --tracking-hero: 0.6em;
+  --tracking-hero-shadow: 0.7em;
+  --tracking-start: 0.3em;
+  --type-tv-hero: clamp(2.5rem, 5.5vw, 6rem);
   --type-tv-display: clamp(2.5rem, 4.5vw, 4rem);
   --type-tv-title: clamp(1.75rem, 3vw, 2.5rem);
   --type-tv-body: clamp(1.5rem, 2vw, 1.875rem);
   --type-tv-caption: clamp(1.125rem, 1.5vw, 1.375rem);
+
+  --radius-sharp: 2px;
 
   --size-camera-preview-width: 20vw;
   --size-camera-preview-width-large: 44vw;

@@ -3,15 +3,8 @@
 
 export const copy = {
   title: {
-    name: 'Skyborne',
-    tagline: 'Spread your arms and take to the sky.',
+    name: 'Driftwing',
     start: 'Start',
-    howToPlay: 'How to play',
-    steps: [
-      'Prop your phone sideways and cast it to your TV',
-      'Step back and spread your arms like wings',
-      'Tilt to turn. Raise your arms to climb, lower them to dive',
-    ],
   },
 
   calibrate: {
@@ -40,7 +33,7 @@ export const copy = {
 
   orientation: {
     title: 'Turn your phone sideways',
-    body: 'Skyborne flies in landscape.',
+    body: 'Driftwing flies in landscape.',
   },
 
   error: {
