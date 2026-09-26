@@ -51,6 +51,9 @@
   --color-title-text: #e4e9f6;
   --color-title-text-shadow: #2c4781;
   --color-title-start-border: rgba(228, 233, 246, 0.7);
+  --color-title-fade: #fff4e6;
+  --color-title-scrim: rgba(27, 39, 72, 0.4);
+  --color-title-glow: rgba(27, 39, 72, 0.6);
 
   --space-xs: 4px;
   --space-sm: 8px;

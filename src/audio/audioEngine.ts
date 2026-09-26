@@ -197,3 +197,60 @@ export function playCue(cue: AudioCue): void {
   osc.start(now)
   osc.stop(now + CUE_ATTACK_SECONDS + CUE_RELEASE_SECONDS + 0.02)
 }
+
+/** Title swell (#73): an open A-major pad, voiced low to high. */
+const SWELL_CHORD_HZ = [110, 164.81, 220, 277.18, 329.63] as const
+const SWELL_PEAK_GAIN = 0.07
+/** The pad opens from a muffled low-pass to this as it swells, then closes as it releases. */
+const SWELL_CUTOFF_HZ = { closed: 300, open: 2400 } as const
+
+export interface SwellTiming {
+  /** Seconds from now: the swell begins, peaks and has fully released. */
+  start: number
+  peak: number
+  end: number
+}
+
+/**
+ * A soft pad that swells under the title reveal, on the cue bus so it never touches the flight
+ * mix. Returns whether it was scheduled. It only plays if the page's `AudioContext` is already
+ * allowed to run: the title intro starts before any tap, and autoplay policy keeps a context
+ * created then suspended on most first visits, so this skips rather than play late.
+ */
+export function playTitleSwell(timing: SwellTiming): boolean {
+  if (muted) return false
+  const current = ensureGraph()
+  if (!current || current.context.state !== 'running') return false
+  applyGains()
+
+  const { context, cueBus } = current
+  const now = context.currentTime
+  const start = now + timing.start
+  const peak = now + timing.peak
+  const end = now + timing.end
+
+  const filter = context.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.Q.value = 0.5
+  filter.frequency.setValueAtTime(SWELL_CUTOFF_HZ.closed, start)
+  filter.frequency.exponentialRampToValueAtTime(SWELL_CUTOFF_HZ.open, peak)
+  filter.frequency.exponentialRampToValueAtTime(SWELL_CUTOFF_HZ.closed, end)
+
+  const gain = context.createGain()
+  gain.gain.setValueAtTime(0, start)
+  gain.gain.linearRampToValueAtTime(SWELL_PEAK_GAIN, peak)
+  gain.gain.exponentialRampToValueAtTime(0.0001, end)
+  filter.connect(gain).connect(cueBus)
+
+  SWELL_CHORD_HZ.forEach((frequency, i) => {
+    const osc = context.createOscillator()
+    osc.type = i === 0 ? 'triangle' : 'sine'
+    osc.frequency.value = frequency
+    // Alternate a few cents either side so the pad shimmers instead of sitting dead still.
+    osc.detune.value = (i % 2 === 0 ? 1 : -1) * 4
+    osc.connect(filter)
+    osc.start(start)
+    osc.stop(end + 0.05)
+  })
+  return true
+}
