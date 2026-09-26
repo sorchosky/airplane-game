@@ -5,6 +5,8 @@ import { expect, test } from '@playwright/test'
 test('keyboard: prompt while inactive, Esc pauses, Esc resumes through the countdown', async ({
   page,
 }) => {
+  // Three full-page screenshots of the flight scene under software GL can take seconds each.
+  test.setTimeout(60_000)
   await page.goto('/?input=keyboard')
   await page.getByRole('button', { name: 'Start' }).click()
 
@@ -24,7 +26,8 @@ test('keyboard: prompt while inactive, Esc pauses, Esc resumes through the count
   await page.screenshot({ path: 'test-results/18-paused.png' })
 
   await page.keyboard.press('Escape')
-  await expect(page.getByTestId('resume-countdown')).toHaveText('3')
+  // Any tick counts: at software-GL frame rates the first poll can land on 2 or 1.
+  await expect(page.getByTestId('resume-countdown')).toHaveText(/^[123]$/)
   await page.screenshot({ path: 'test-results/18-countdown.png' })
   await expect(paused).toBeHidden({ timeout: 5000 })
 })
