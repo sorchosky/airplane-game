@@ -42,4 +42,10 @@ export const copy = {
     cameraDenied: 'We need your camera to see you fly. Allow it in your browser settings.',
     cameraFailed: "Your camera didn't start. Give it another go.",
   },
+
+  // `?debug` only; never shown to players.
+  debug: {
+    record: 'Record pose',
+    stopAndSave: 'Stop and save',
+  },
 } as const
