@@ -5,8 +5,8 @@ The visual brief for the AAA polish pass. It replaces the palette section of
 stand).
 
 **Status: palette B, Hyrule morning, is the default.** The owner picked it on
-2026-09-26 (#88). Golden hour stays as a preset, and a full day cycle is a
-follow-up (#92, §4).
+2026-09-26 (#88). Golden hour stays as a preset, and a full day cycle driven
+by an in-game clock is a follow-up (#92, #94, §4).
 
 The target is *The Legend of Zelda: Breath of the Wild* seen from the air. The
 test for every frame: would it hold up next to a BotW screenshot at thumbnail
@@ -129,7 +129,7 @@ Two changes to the token model, then the values.
 
 ### Lighting tokens, preset `golden-hour`
 
-The current mood, kept as a preset and used for the golden path's finale.
+The current mood, kept as a preset (`?tod=golden`) and as the approach to\ndusk in the day cycle (#92).
 
 | Token | Value |
 |---|---|
@@ -206,12 +206,21 @@ flight, and `golden-hour`, behind `?tod=golden`. A preset drives the sun
 direction, sun colour and intensity, sky gradient, haze colours, hemisphere
 colours, cloud tints and a grade tint.
 
-The owner has asked for time to pass in play: a 5-minute loop through day,
-afternoon, dusk, night and morning, back to day (#92). Night is cool navy with
-stars and the plane's navigation lights blinking. A1 lays the groundwork for it.
-Every lighting value it adds is a token in a preset and reaches the shaders as
-a uniform, never a compiled constant, so #92 can blend presets per frame
-without recompiling. A snap switch is never acceptable in play.
+The owner has asked for time to pass in play (#88):
+
+- **Clock (#94).** An in-game clock runs 24 hours in 5 real minutes, shown on
+  the HUD in half-hour steps (`00:00` to `23:30`, then around again). It
+  carries on from the last flight session.
+- **Cycle (#92).** The lighting follows the clock's continuous time through
+  morning, day, afternoon, dusk and night, gradually, with no forced phase.
+  The golden path (X4) plays in whatever phase the clock is in.
+- **Night.** Cool navy with stars, a moon, and the plane's navigation lights
+  blinking.
+
+A1 lays the groundwork. Every lighting value it adds is a token in a preset and
+reaches the shaders as a uniform, never a compiled constant, so #92 can blend
+presets per frame without recompiling. A snap switch is never acceptable in
+play.
 
 ## 5. Shading model
 
