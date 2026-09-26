@@ -21,6 +21,8 @@ interface PerfStore {
   tier: QualityTier
   /** Gesture-to-visible-bank hops, p50 and p95, from `latencyProbe`. */
   latency: LatencySummary
+  /** True once every tile of the current layout is drawn (no tiles pending). */
+  terrainReady: boolean
 }
 
 export const usePerfStore = create<PerfStore>(() => ({
@@ -35,4 +37,5 @@ export const usePerfStore = create<PerfStore>(() => ({
   dpr: 1,
   tier: 'high',
   latency: createLatencySummary(),
+  terrainReady: false,
 }))

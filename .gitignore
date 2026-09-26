@@ -11,6 +11,8 @@ dist-ssr
 coverage
 playwright-report
 test-results
+# ?shot= bookmark captures (copy the ones a PR needs into docs/screenshots/)
+shots
 /node_modules/.tmp
 
 # editor
