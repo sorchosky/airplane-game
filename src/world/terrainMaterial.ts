@@ -1,6 +1,12 @@
 import { MeshToonMaterial } from 'three'
 import { getToonGradientMap } from '../render/toon'
-import { TERRAIN_PALETTE, type Rgb } from './terrainColor'
+import {
+  strataWarpLength,
+  SUN_TINT_AWAY,
+  SUN_TINT_TOWARD,
+  TERRAIN_PALETTE,
+  type Rgb,
+} from './terrainColor'
 import type { TerrainConfig } from './terrainConfig'
 import { waterTimeUniform } from './waterShader'
 
@@ -41,6 +47,8 @@ const vec3 TERRAIN_SNOW = ${vec3(p.snow)};
 const vec3 TERRAIN_WATER_SHALLOW = ${vec3(p.waterShallow)};
 const vec3 TERRAIN_WATER_DEEP = ${vec3(p.waterDeep)};
 const float TERRAIN_WATER_LEVEL = ${float(config.waterLevel)};
+const float TERRAIN_PI = 3.14159265;
+const vec3 TERRAIN_LUMA = vec3(0.2126, 0.7152, 0.0722);
 
 // Hash and value noise. Smooth, -1..1, cheap enough to run per pixel.
 float terrainHash(vec2 p) {
@@ -66,7 +74,42 @@ float terrainNoise(vec2 worldXZ) {
   return clamp(terrainValueNoise(p) * 0.7 + terrainValueNoise(p * 2.3 + 17.0) * 0.3, -1.0, 1.0);
 }
 
-vec3 terrainColor(float height, float slope, float noise) {
+// Brush breakup (#69): three taps along the downhill direction, averaged, so on a slope the
+// strokes streak down the fall line; on flat ground the taps collapse into one round sample.
+// The taps are offset from the pixel rather than rotating its coordinates, so the pattern stays
+// put as the normal turns.
+float terrainBrushNoise(vec2 worldXZ, vec3 normal) {
+  vec2 downhill = normal.xz;
+  float steepness = length(downhill);
+  vec2 along = steepness > 1e-4 ? downhill / steepness : vec2(0.0);
+  float reach = ${float(b.brushScale)} * ${float(b.brushStretch - 1)} * 0.5 * smoothstep(0.02, 0.15, steepness);
+  vec2 p = worldXZ / ${float(b.brushScale)} + 71.0;
+  vec2 step = along * reach / ${float(b.brushScale)};
+  float n = terrainValueNoise(p - step) + terrainValueNoise(p) + terrainValueNoise(p + step);
+  // Averaging three samples narrows the spread; 1.4 brings it back to about -1..1.
+  return clamp(n * (1.4 / 3.0), -1.0, 1.0);
+}
+
+// Hue rotation about the grey axis; mirrors \`rotateHue\`.
+vec3 terrainRotateHue(vec3 c, float degrees) {
+  float a = radians(degrees);
+  float cosA = cos(a);
+  float sinA = sin(a) / sqrt(3.0);
+  float grey = (c.r + c.g + c.b) / 3.0 * (1.0 - cosA);
+  return c * cosA + vec3(c.b - c.g, c.r - c.b, c.g - c.r) * sinA + grey;
+}
+
+// Strata cycles at height y; mirrors \`strataPhase\`.
+float terrainStrataPhase(float y, float macro) {
+  return y * ${float((1 / b.strataSpacingMin + 1 / b.strataSpacingMax) / 2)}
+    + ${float(((1 / b.strataSpacingMin - 1 / b.strataSpacingMax) / 2) * strataWarpLength(config))} * sin(y / ${float(strataWarpLength(config))})
+    + macro * ${float(b.strataJitter)};
+}
+
+vec3 terrainColor(
+  float height, float slope, float noise,
+  float macro, float macroValue, float brush, float distance, float sunFacing, vec3 ambientSky
+) {
   float sandLine = TERRAIN_WATER_LEVEL + ${float(b.sandHeight)} + noise * ${float(b.sandJitter)};
   float snowLine = ${float(b.snowHeight)} + noise * ${float(b.snowJitter)};
   float jitteredSlope = slope + noise * ${float(b.slopeJitter)};
@@ -80,10 +123,27 @@ vec3 terrainColor(float height, float slope, float noise) {
   float water = ${float(b.underwaterTint)} * smoothstep(0.0, 1.0, depth);
   float waterDepth = smoothstep(0.0, ${float(b.deepWaterDepth)}, depth);
 
-  vec3 c = mix(TERRAIN_GRASS_LIGHT, TERRAIN_GRASS_SHADOW, grassShade);
-  c = mix(c, TERRAIN_SAND, sand);
+  // Sun-facing grass leans to grass-light, grass turned away to a cool grass-shadow and sky mix.
+  vec3 grass = mix(TERRAIN_GRASS_LIGHT, TERRAIN_GRASS_SHADOW, grassShade);
+  float toward = ${float(b.sunTintToward)} * smoothstep(${float(SUN_TINT_TOWARD[0])}, ${float(SUN_TINT_TOWARD[1])}, sunFacing);
+  float away = ${float(b.sunTintAway)} * (1.0 - smoothstep(${float(SUN_TINT_AWAY[1])}, ${float(SUN_TINT_AWAY[0])}, sunFacing));
+  grass = mix(grass, TERRAIN_GRASS_LIGHT, toward);
+  // The sky's hue at grass-shadow's brightness; mirrors \`coolGrass\`.
+  vec3 skyAtShadow = ambientSky * (dot(TERRAIN_GRASS_SHADOW, TERRAIN_LUMA) / max(dot(ambientSky, TERRAIN_LUMA), 1e-4));
+  grass = mix(grass, mix(TERRAIN_GRASS_SHADOW, skyAtShadow, ${float(b.sunTintCool)}), away);
+  grass = terrainRotateHue(grass, macro * ${float(b.macroHueDegrees)}) * (1.0 + macroValue * ${float(b.macroValue)});
+
+  vec3 c = mix(grass, TERRAIN_SAND, sand);
   c = mix(c, TERRAIN_ROCK, rock);
+  float strata = smoothstep(${float(b.strataRockWeight)}, ${float(b.strataRockWeight + 0.2)}, rock)
+    * (1.0 - smoothstep(${float(b.strataFadeStart)}, ${float(b.strataFadeEnd)}, distance));
+  // Shader-only antialiasing: strata start fading below 16 pixels a cycle and are gone by 6
+  // (fwidth is cycles per pixel), so distant cliffs never turn into pinstripes or moire.
+  float strataPhase = terrainStrataPhase(height, macro);
+  strata *= 1.0 - smoothstep(0.0625, 0.1667, fwidth(strataPhase));
+  c *= 1.0 + ${float(b.strataValue)} * sin(2.0 * TERRAIN_PI * strataPhase) * strata;
   c = mix(c, TERRAIN_SNOW, snow);
+  c *= 1.0 + ${float(b.brushValue)} * brush * (1.0 - smoothstep(${float(b.brushFadeStart)}, ${float(b.brushFadeEnd)}, distance));
   return mix(c, mix(TERRAIN_WATER_SHALLOW, TERRAIN_WATER_DEEP, waterDepth), water);
 }
 
@@ -100,34 +160,55 @@ float terrainFoam(float height, float noise, float time, float distance) {
 
 const VERTEX_PARS = /* glsl */ `
 varying vec3 vTerrainWorld;
-varying float vTerrainUp;
+varying vec3 vTerrainNormal;
 `
 
 const VERTEX_MAIN = /* glsl */ `
 #include <begin_vertex>
 vTerrainWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;
-vTerrainUp = normalize(mat3(modelMatrix) * objectNormal).y;
+vTerrainNormal = normalize(mat3(modelMatrix) * objectNormal);
 `
 
 function fragmentPars(config: TerrainConfig): string {
   return /* glsl */ `
 uniform float uWaterTime;
+// The lighting preset's ambient sky (linear) and, when there's no fog chunk to declare it, the
+// sun direction: both from \`atmosphereUniforms.ts\`.
+uniform vec3 atmoAmbientSky;
+#ifndef USE_FOG
+uniform vec3 atmoSunDir;
+#endif
 varying vec3 vTerrainWorld;
-varying float vTerrainUp;
+varying vec3 vTerrainNormal;
 ${terrainColorGlsl(config)}
 `
 }
 
-const FRAGMENT_COLOR = /* glsl */ `
+function fragmentColor(config: TerrainConfig): string {
+  return /* glsl */ `
 #include <color_fragment>
 {
+  vec3 terrainNormal = normalize(vTerrainNormal);
   float terrainNoiseValue = terrainNoise(vTerrainWorld.xz);
-  float terrainSlope = 1.0 - clamp(vTerrainUp, 0.0, 1.0);
-  diffuseColor.rgb = terrainColor(vTerrainWorld.y, terrainSlope, terrainNoiseValue);
-  float foam = terrainFoam(vTerrainWorld.y, terrainNoiseValue, uWaterTime, length(vViewPosition));
+  float terrainSlope = 1.0 - clamp(terrainNormal.y, 0.0, 1.0);
+  float terrainDistance = length(vViewPosition);
+  vec2 terrainMacroP = vTerrainWorld.xz / ${float(config.bands.macroScale)};
+  diffuseColor.rgb = terrainColor(
+    vTerrainWorld.y,
+    terrainSlope,
+    terrainNoiseValue,
+    terrainValueNoise(terrainMacroP),
+    terrainValueNoise(terrainMacroP * 1.7 + 41.0),
+    terrainBrushNoise(vTerrainWorld.xz, terrainNormal),
+    terrainDistance,
+    dot(terrainNormal, atmoSunDir),
+    atmoAmbientSky
+  );
+  float foam = terrainFoam(vTerrainWorld.y, terrainNoiseValue, uWaterTime, terrainDistance);
   diffuseColor.rgb = mix(diffuseColor.rgb, TERRAIN_SNOW, foam * 0.8);
 }
 `
+}
 
 /**
  * The one terrain material every tile shares. A `MeshToonMaterial` on the toon factory's shared
@@ -143,7 +224,7 @@ export function createTerrainMaterial(config: TerrainConfig): MeshToonMaterial {
       .replace('#include <begin_vertex>', VERTEX_MAIN)
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>\n${fragmentPars(config)}`)
-      .replace('#include <color_fragment>', FRAGMENT_COLOR)
+      .replace('#include <color_fragment>', fragmentColor(config))
   }
   material.customProgramCacheKey = () => 'terrain'
   return material

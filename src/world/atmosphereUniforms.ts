@@ -10,7 +10,8 @@ import { activeLighting } from './lightingPreset'
  * presets every frame.
  *
  * Sky and haze colours are display sRGB, like the sky itself (see `atmosphereShader.ts`); the sun's
- * light colour is linear, for materials that light in linear space (water glints, rim light).
+ * light colour and the ambient sky are linear, for materials that light in linear space (water
+ * glints, rim light, the terrain's sun tint).
  */
 export interface AtmosphereUniforms {
   [name: string]: { value: Float32Array }
@@ -21,6 +22,7 @@ export interface AtmosphereUniforms {
   atmoSunDisc: { value: Float32Array }
   atmoSunDir: { value: Float32Array }
   atmoSunLight: { value: Float32Array }
+  atmoAmbientSky: { value: Float32Array }
 }
 
 const vec3 = () => ({ value: new Float32Array(3) })
@@ -33,6 +35,7 @@ export const atmosphereUniforms: AtmosphereUniforms = {
   atmoSunDisc: vec3(),
   atmoSunDir: vec3(),
   atmoSunLight: vec3(),
+  atmoAmbientSky: vec3(),
 }
 
 const scratch = new Color()
@@ -70,6 +73,7 @@ export function applyLighting(preset: LightingPreset): void {
   writeDisplay(u.atmoSunGlow.value, preset.sunGlow)
   writeDisplay(u.atmoSunDisc.value, SUN_DISC)
   writeLinear(u.atmoSunLight.value, preset.sun)
+  writeLinear(u.atmoAmbientSky.value, preset.ambientSky)
   const [x, y, z] = sunDirectionOf(preset)
   u.atmoSunDir.value[0] = x
   u.atmoSunDir.value[1] = y
