@@ -11,6 +11,7 @@ import { hasDebugFlag } from '../input/source'
 import { PostFX } from '../render/PostFX'
 import { QualityGovernor } from '../render/QualityGovernor'
 import { Atmosphere } from '../world/Atmosphere'
+import { Landmarks } from '../world/Landmarks'
 import { Terrain } from '../world/Terrain'
 import { Water } from '../world/Water'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
@@ -59,6 +60,7 @@ export function FlightScene() {
         <Plane paused={paused || shot !== null} />
         <Terrain />
         <Water />
+        <Landmarks />
         <PerfProbe />
         <QualityGovernor />
         <PostFX />
