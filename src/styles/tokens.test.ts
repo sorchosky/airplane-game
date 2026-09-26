@@ -1,16 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { color, lighting, space, toonRamp, type } from './tokens'
+import { color, lightingPresets, space, toonRamp, type, type LightingPreset } from './tokens'
 
 const HEX = /^#[0-9a-f]{6}$/i
 const RGBA = /^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*[\d.]+\s*\)$/i
 
-// The exact semantic roles required by #20's acceptance criteria.
+// Albedo and UI roles (#20); the lighting roles moved into the presets in #64.
 const REQUIRED_COLOR_ROLES = [
-  'skyZenith',
-  'skyHorizon',
-  'fog',
-  'sun',
   'grassLight',
   'grassShadow',
   'rock',
@@ -109,11 +105,53 @@ describe('design tokens', () => {
     expect(toonRamp.thresholds[0]).toBeLessThan(toonRamp.thresholds[1])
   })
 
-  it('gives the sun direction three finite components', () => {
-    expect(lighting.sunDirection).toHaveLength(3)
-    for (const component of lighting.sunDirection) {
-      expect(Number.isFinite(component)).toBe(true)
+  it('gives every lighting preset every colour role, a sun above the horizon and positive light', () => {
+    const colorRoles: Array<keyof LightingPreset> = [
+      'skyZenith',
+      'skyHorizon',
+      'sunGlow',
+      'fog',
+      'sun',
+      'ambientSky',
+      'ambientGround',
+      'cloudLight',
+      'cloudShadow',
+    ]
+    for (const [name, preset] of Object.entries(lightingPresets)) {
+      for (const role of colorRoles) expect(preset[role], `${name}.${role}`).toMatch(HEX)
+      expect(preset.sunDirection).toHaveLength(3)
+      for (const c of preset.sunDirection) expect(Number.isFinite(c)).toBe(true)
+      expect(preset.sunDirection[1], `${name} sun above the horizon`).toBeGreaterThan(0)
+      expect(preset.sunIntensity).toBeGreaterThan(0)
+      expect(preset.hemisphereIntensity).toBeGreaterThan(0)
     }
+  })
+
+  // #64: the plane has to read from the couch against the ground and the sky. Palette B's warm
+  // white body is close in value to the pale morning horizon (about 1.1:1), so, as in BotW, the
+  // silhouette is carried by the ink outline; the body separates from the grass it flies over.
+  describe('plane readability (palette B)', () => {
+    const morning = lightingPresets.morning
+
+    it('outlines the plane at 3:1 or more against the horizon, the zenith and the grass', () => {
+      for (const backdrop of [morning.skyHorizon, morning.skyZenith, color.grassLight]) {
+        expect(contrastRatio(color.outline, backdrop), backdrop).toBeGreaterThanOrEqual(3)
+      }
+    })
+
+    it('separates the body from the grass in shade and from deep water by 3:1 or more', () => {
+      expect(contrastRatio(color.planeBody, color.grassShadow)).toBeGreaterThanOrEqual(3)
+      expect(contrastRatio(color.planeBody, color.waterDeep)).toBeGreaterThanOrEqual(3)
+    })
+
+    it('keeps the stripe at 3:1 or more against the pale horizon', () => {
+      expect(contrastRatio(color.planeStripe, morning.skyHorizon)).toBeGreaterThanOrEqual(3)
+    })
+
+    it('records why the body alone cannot carry the silhouette against the morning sky', () => {
+      expect(contrastRatio(color.planeBody, morning.skyHorizon)).toBeLessThan(1.5)
+      expect(contrastRatio(color.planeBody, color.grassLight)).toBeLessThan(3)
+    })
   })
 
   it('mirrors every color, space and type value into tokens.css as a custom property', () => {

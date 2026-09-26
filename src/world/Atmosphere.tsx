@@ -1,10 +1,10 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { Fog } from 'three'
 import { useQualityStore } from '../render/qualityStore'
-import { color } from '../styles/tokens'
-import { hazeForViewDistance, LIGHT_INTENSITY, SUN_DIRECTION } from './atmosphere'
+import { hazeForViewDistance, SUN_DIRECTION } from './atmosphere'
 import { installAtmosphereFog } from './atmosphereShader'
 import { Clouds } from './Clouds'
+import { activeLighting } from './lightingPreset'
 import { Sky } from './Sky'
 import { TERRAIN_CONFIG } from './terrainConfig'
 
@@ -46,17 +46,19 @@ function HazeDriver() {
  */
 export function Atmosphere() {
   const [x, y, z] = SUN_DIRECTION
+  const light = activeLighting()
   return (
     <>
-      <fog attach="fog" args={[color.fog, FULL_HAZE.start, FULL_HAZE.end]} />
+      <fog attach="fog" args={[light.fog, FULL_HAZE.start, FULL_HAZE.end]} />
       <HazeDriver />
       <Sky />
       <directionalLight
         position={[x * SUN_LIGHT_DISTANCE, y * SUN_LIGHT_DISTANCE, z * SUN_LIGHT_DISTANCE]}
-        color={color.sun}
-        intensity={LIGHT_INTENSITY.sun}
+        color={light.sun}
+        intensity={light.sunIntensity}
       />
-      <hemisphereLight args={[color.skyZenith, color.grassShadow, LIGHT_INTENSITY.hemisphere]} />
+      {/* Sky-coloured fill from above, grass-bounced from below: shadows read sky-lit (#64). */}
+      <hemisphereLight args={[light.ambientSky, light.ambientGround, light.hemisphereIntensity]} />
       <Clouds />
     </>
   )

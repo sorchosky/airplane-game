@@ -8,34 +8,35 @@
 
 // Colors are plain hex/rgba strings, which `new THREE.Color(...)` and
 // `<color args={[...]} />` accept directly — no wrapper needed to be
-// "Three.js Color-ready". Palette target: a warm, low-contrast sunset —
-// muted and painterly, not saturated/cartoony.
+// "Three.js Color-ready".
+//
+// Two groups (#64, `docs/art-bible.md` §3): `color` holds albedo, the colour a surface *is*, which
+// never changes with the time of day, plus the UI. How the world is *lit* lives in
+// `lightingPresets` below: sky, haze, sun and ambient. Palette B, "Hyrule morning", chosen by the
+// owner on 2026-09-26 (#88).
 export const color = {
-  // Sky and atmosphere
-  skyZenith: '#5c5b74',
-  skyHorizon: '#e7a878',
-  fog: '#e3bd9a',
-  sun: '#f8b968',
+  // Terrain albedo
+  grassLight: '#93b352',
+  grassShadow: '#567c3b',
+  sand: '#d9c89c',
+  rock: '#9b9486',
+  rockShadow: '#6e685e',
+  snow: '#f5f6f8',
+  waterShallow: '#6fc0c8',
+  waterDeep: '#2f6d8c',
+  foliage: '#3f7d46',
+  foliageLight: '#6da356',
+  bark: '#6b5442',
 
-  // Terrain
-  grassLight: '#b7a35e',
-  grassShadow: '#6d5a3a',
-  sand: '#cdb48a',
-  rock: '#a3907b',
-  snow: '#f6ead9',
-  waterShallow: '#7fa79c',
-  waterDeep: '#39525a',
-  foliage: '#5f6b41',
+  // Cel-shading linework: a cool near-black, so outlines read as ink rather than brown.
+  outline: '#1f2a33',
 
-  // Cel-shading linework
-  outline: '#2a2219',
-
-  // Plane livery (cream body, warm terracotta stripe, muted metal)
-  planeBody: '#f1e7d4',
-  planeStripe: '#c2572f',
-  planeMetal: '#a99b89',
+  // Plane livery: warm white body, safety-orange stripe, warm grey metal.
+  planeBody: '#f4efe3',
+  planeStripe: '#d8562b',
+  planeMetal: '#9c948a',
   // Cabin window band and tires: a cool, dark slate tint.
-  planeGlass: '#3a4248',
+  planeGlass: '#35414d',
 
   // Gesture-control state (muted teal-cyan, not neon, so it reads as a
   // deliberate system color against the warm palette rather than clashing).
@@ -120,12 +121,78 @@ export const toonRamp = {
   edgeSoftness: 0.05,
 } as const
 
-// Lighting constants shared by every material/scene ticket in M3.
+/**
+ * How the world is lit at one time of day (#64). Sky and haze colours are display sRGB (the sky and
+ * the haze are written after tone mapping); `sun` and the ambient colours light the scene. Every
+ * value reaches the shaders as a uniform (`atmosphereUniforms.ts`), so the day cycle (#92) can blend
+ * two presets per frame without recompiling.
+ */
+export interface LightingPreset {
+  /** Sky straight up. */
+  skyZenith: string
+  /** Sky at the horizon toward the sun; away from the sun it leans toward the zenith. */
+  skyHorizon: string
+  /** The soft halo around the sun, separate from the sun's light so the sky can stay pale. */
+  sunGlow: string
+  /** Near haze over the first few hundred metres: cool and pale by day (aerial perspective). */
+  fog: string
+  /** The sun's light on the world. */
+  sun: string
+  /** Hemisphere fill from above: the sky colour that lifts shadowed faces. */
+  ambientSky: string
+  /** Hemisphere fill from below: grass-bounced light. */
+  ambientGround: string
+  /** Sunlit and shadowed cloud tones. */
+  cloudLight: string
+  cloudShadow: string
+  /** World-space direction the sun shines FROM, not normalized. */
+  sunDirection: readonly [number, number, number]
+  sunIntensity: number
+  hemisphereIntensity: number
+}
+
+export const lightingPresets = {
+  /**
+   * The default: cerulean sky fading to a pale horizon, cool haze, a warm cream sun at about 34°
+   * elevation (the audit's 41° flattened the relief, `docs/art-bible.md` §3).
+   */
+  morning: {
+    skyZenith: '#3f7fc4',
+    skyHorizon: '#d5e6f0',
+    sunGlow: '#ffe6bd',
+    fog: '#bfd3e2',
+    sun: '#fff2d2',
+    ambientSky: '#8fb4de',
+    ambientGround: '#6b7a52',
+    cloudLight: '#fbfaf5',
+    cloudShadow: '#b9c3d6',
+    sunDirection: [0.6, 0.52, 0.49] as const,
+    sunIntensity: 2.4,
+    hemisphereIntensity: 0.9,
+  },
+  /** Low warm sun, peach horizon, violet zenith: `?tod=golden`, and the approach to dusk in #92. */
+  goldenHour: {
+    skyZenith: '#566a9c',
+    skyHorizon: '#f3c08f',
+    sunGlow: '#ffc27a',
+    fog: '#e8cdb0',
+    sun: '#ffd48a',
+    ambientSky: '#8a8fb8',
+    ambientGround: '#7a6a4a',
+    cloudLight: '#fff1dc',
+    cloudShadow: '#b8a4bd',
+    sunDirection: [0.85, 0.28, 0.35] as const,
+    sunIntensity: 2.2,
+    hemisphereIntensity: 1.0,
+  },
+} as const satisfies Record<string, LightingPreset>
+
+export type LightingPresetName = keyof typeof lightingPresets
+
+export const DEFAULT_LIGHTING_PRESET: LightingPresetName = 'morning'
+
+// Lighting constants that don't change with the time of day.
 export const lighting = {
-  // World-space direction the sun shines FROM: low on the horizon for a
-  // golden-hour/sunset mood (small Y, large horizontal component), rather
-  // than a high overhead noon sun. #22 owns normalizing and animating this.
-  sunDirection: [0.85, 0.28, 0.35] as const,
   rimStrength: 0.4,
 } as const
 

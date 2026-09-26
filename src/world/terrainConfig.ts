@@ -47,6 +47,43 @@ export interface TerrainBands {
   underwaterTint: number
   /** m, height of the soft foam line on the shore above `waterLevel` */
   foamHeight: number
+  // Painterly surface detail (#69, `docs/art-bible.md` §5), on top of the bands.
+  /** m, feature size of the macro noise that drifts the grass hue and value */
+  macroScale: number
+  /** degrees, how far the macro noise turns the grass hue either way */
+  macroHueDegrees: number
+  /** 0..1, how far the macro noise moves the grass value either way */
+  macroValue: number
+  /** m, feature size of the brush breakup noise */
+  brushScale: number
+  /** how much longer brush strokes run down the slope than across it (1 = round) */
+  brushStretch: number
+  /** 0..1, how far the brush noise moves the value either way */
+  brushValue: number
+  /** m from the camera where the brush breakup starts to fade, and where it is gone */
+  brushFadeStart: number
+  brushFadeEnd: number
+  /**
+   * m, the closest and widest spacing of the rock strata. #69 asked for 4–7 m; from flight height
+   * that read as pinstripes, so the bands are wider (see docs/decisions.md).
+   */
+  strataSpacingMin: number
+  strataSpacingMax: number
+  /** 0..1, how far a stratum moves the rock value either way */
+  strataValue: number
+  /** rock weight (0..1) above which strata show */
+  strataRockWeight: number
+  /** strata cycles the macro noise shifts the bands by, so they wave across the landscape */
+  strataJitter: number
+  /** m from the camera where the strata start to fade, and where they are gone (no shimmer) */
+  strataFadeStart: number
+  strataFadeEnd: number
+  /** 0..1, how far grass facing the sun (within 30°) leans to `grass-light` */
+  sunTintToward: number
+  /** 0..1, how far grass facing away from the sun leans to its cool mix */
+  sunTintAway: number
+  /** 0..1, how far that cool mix leans from `grass-shadow` to the sky's hue, at the same brightness */
+  sunTintCool: number
 }
 
 export interface TerrainConfig {
@@ -148,6 +185,24 @@ export const TERRAIN_CONFIG: TerrainConfig = {
     deepWaterDepth: 14,
     underwaterTint: 0.75,
     foamHeight: 0.6,
+    macroScale: 400,
+    macroHueDegrees: 6,
+    macroValue: 0.06,
+    brushScale: 35,
+    brushStretch: 3,
+    brushValue: 0.04,
+    brushFadeStart: 1000,
+    brushFadeEnd: 1500,
+    strataSpacingMin: 10,
+    strataSpacingMax: 16,
+    strataValue: 0.06,
+    strataRockWeight: 0.5,
+    strataJitter: 0.6,
+    strataFadeStart: 1500,
+    strataFadeEnd: 3000,
+    sunTintToward: 0.35,
+    sunTintAway: 0.35,
+    sunTintCool: 0.35,
   },
   chunkSize: 512,
   lodRings: [

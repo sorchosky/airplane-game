@@ -1,4 +1,5 @@
-import { lighting } from '../styles/tokens'
+import type { LightingPreset } from '../styles/tokens'
+import { activeLighting } from './lightingPreset'
 import type { TerrainConfig } from './terrainConfig'
 
 // Pure sky, haze and cloud-layout math. No React or Three. The GLSL twin of the haze functions
@@ -8,14 +9,15 @@ import type { TerrainConfig } from './terrainConfig'
 // - Real air scatters light, so the further away something is, the more of the air's own colour
 //   you see instead of the object's. Games fake this with "fog": each pixel is blended toward a
 //   haze colour by an amount that grows with its distance from the camera.
-// - Here there are two layers. The near layer is a warm dusty haze (`fog` token) that builds up
+// - Here there are two layers. The near layer is the preset's `fog` colour (cool and pale by day,
+//   warm and dusty at golden hour, #64) that builds up
 //   gradually (exponential: quick at first, then levelling off at `hazeWarmMax`). The far layer
 //   blends toward whatever the sky looks like in that exact direction, reaching 100% at
 //   `hazeFadeEnd`. Because a fully hazed hill is *exactly* the sky colour behind it, the terrain
 //   edge at 10 km, and the line where land meets sky, can never be seen.
-// - The horizon facing the sun is warm peach; the horizon facing away from it shifts toward the
-//   dusky blue-violet zenith. So distant land away from the sun fades to blue, the way hills do
-//   at sunset.
+// - The horizon facing the sun takes the preset's horizon colour; the horizon facing away from it
+//   shifts toward the zenith colour. So distant land away from the sun fades to blue, the way
+//   hills do.
 
 type Vec3 = readonly [number, number, number]
 
@@ -28,13 +30,7 @@ function normalize([x, y, z]: Vec3): Vec3 {
  * Unit vector pointing from the world *toward* the sun. The one source for the sky's sun disc,
  * the haze glow and the directional light.
  */
-export const SUN_DIRECTION: Vec3 = normalize(lighting.sunDirection)
-
-/** Light intensities for the sun and its sky/ground fill. Tuned by eye against the tokens. */
-export const LIGHT_INTENSITY = {
-  sun: 2.2,
-  hemisphere: 1.1,
-} as const
+export const SUN_DIRECTION: Vec3 = normalize(activeLighting().sunDirection)
 
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1)
@@ -182,4 +178,54 @@ export function cloudLayout(config: CloudConfig): CloudPuff[] {
 export function wrapAround(value: number, center: number, size: number): number {
   const shifted = value - center + size / 2
   return center + (shifted - Math.floor(shifted / size) * size) - size / 2
+}
+
+/** An sRGB hex colour as linear RGB, the space three lights in. */
+export function hexToLinear(hex: string): [number, number, number] {
+  const channel = (offset: number) => {
+    const c = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  }
+  return [channel(1), channel(3), channel(5)]
+}
+
+/**
+ * Sunlit cloud faces land on this multiple of the preset's `cloudLight` (linear, before tone
+ * mapping). ACES maps 1.3 to about 0.8: near-white on screen, and under the bloom threshold, so
+ * clouds never bloom.
+ */
+export const CLOUD_LIT_GAIN = 1.3
+
+export interface CloudShading {
+  /** Linear Lambert colour, 0..1 per channel. */
+  albedo: Vec3
+  /** Linear emissive colour, at intensity 1. */
+  emissive: Vec3
+}
+
+/**
+ * Lambert colour and emissive (#64) that put a cloud's shadowed side on the preset's
+ * `cloudShadow` and its sunlit side on `cloudLight` × `CLOUD_LIT_GAIN`, whatever the preset's sun
+ * and sky fill. three's Lambert gives `albedo / π × (sun × N·L + hemisphere) + emissive`; for a
+ * side-facing puff (hemisphere halfway between sky and ground), N·L = 0 and N·L = 1 are two
+ * equations for the two unknowns. Tops pick up a little more sky blue, undersides a little ground.
+ */
+export function cloudShading(preset: LightingPreset): CloudShading {
+  const lit = hexToLinear(preset.cloudLight)
+  const shadow = hexToLinear(preset.cloudShadow)
+  const sun = hexToLinear(preset.sun)
+  const sky = hexToLinear(preset.ambientSky)
+  const ground = hexToLinear(preset.ambientGround)
+  const albedo: [number, number, number] = [0, 0, 0]
+  const emissive: [number, number, number] = [0, 0, 0]
+  for (let i = 0; i < 3; i++) {
+    const sunLight = (sun[i] ?? 0) * preset.sunIntensity
+    const skyFill =
+      (0.5 * ((sky[i] ?? 0) + (ground[i] ?? 0)) * preset.hemisphereIntensity) / Math.PI
+    const target = (lit[i] ?? 0) * CLOUD_LIT_GAIN - (shadow[i] ?? 0)
+    const a = sunLight > 0 ? Math.min(1, Math.max(0, (target * Math.PI) / sunLight)) : 1
+    albedo[i] = a
+    emissive[i] = Math.max(0, (shadow[i] ?? 0) - a * skyFill)
+  }
+  return { albedo, emissive }
 }

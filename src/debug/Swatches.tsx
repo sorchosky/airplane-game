@@ -1,18 +1,28 @@
-import { color, lighting, space, toonRamp, type } from '../styles/tokens'
+import { Color } from 'three'
+import { TOON_BAND_LEVELS } from '../render/toon'
+import {
+  color,
+  DEFAULT_LIGHTING_PRESET,
+  lighting,
+  lightingPresets,
+  space,
+  toonRamp,
+  type,
+  type LightingPreset,
+} from '../styles/tokens'
 
 const COLOR_ROWS: Array<{ label: string; token: string; value: string }> = [
-  { label: 'sky-zenith', token: 'skyZenith', value: color.skyZenith },
-  { label: 'sky-horizon', token: 'skyHorizon', value: color.skyHorizon },
-  { label: 'fog', token: 'fog', value: color.fog },
-  { label: 'sun', token: 'sun', value: color.sun },
   { label: 'grass-light', token: 'grassLight', value: color.grassLight },
   { label: 'grass-shadow', token: 'grassShadow', value: color.grassShadow },
   { label: 'sand', token: 'sand', value: color.sand },
   { label: 'rock', token: 'rock', value: color.rock },
+  { label: 'rock-shadow', token: 'rockShadow', value: color.rockShadow },
   { label: 'snow', token: 'snow', value: color.snow },
   { label: 'water-shallow', token: 'waterShallow', value: color.waterShallow },
   { label: 'water-deep', token: 'waterDeep', value: color.waterDeep },
   { label: 'foliage', token: 'foliage', value: color.foliage },
+  { label: 'foliage-light', token: 'foliageLight', value: color.foliageLight },
+  { label: 'bark', token: 'bark', value: color.bark },
   { label: 'outline', token: 'outline', value: color.outline },
   { label: 'plane-body', token: 'planeBody', value: color.planeBody },
   { label: 'plane-stripe', token: 'planeStripe', value: color.planeStripe },
@@ -25,6 +35,24 @@ const COLOR_ROWS: Array<{ label: string; token: string; value: string }> = [
   { label: 'text-muted', token: 'textMuted', value: color.textMuted },
   { label: 'accent', token: 'accent', value: color.accent },
 ]
+
+/** The colour roles of a lighting preset, in the order the swatch rows show them. */
+const LIGHTING_ROLES: Array<{ label: string; key: keyof LightingPreset }> = [
+  { label: 'sky-zenith', key: 'skyZenith' },
+  { label: 'sky-horizon', key: 'skyHorizon' },
+  { label: 'sun-glow', key: 'sunGlow' },
+  { label: 'fog', key: 'fog' },
+  { label: 'sun', key: 'sun' },
+  { label: 'ambient-sky', key: 'ambientSky' },
+  { label: 'ambient-ground', key: 'ambientGround' },
+  { label: 'cloud-light', key: 'cloudLight' },
+  { label: 'cloud-shadow', key: 'cloudShadow' },
+]
+
+const PRESET_LABELS: Record<keyof typeof lightingPresets, string> = {
+  morning: 'Morning (default)',
+  goldenHour: 'Golden hour (?tod=golden)',
+}
 
 // `tv-display` is the only size that gets the uppercase/wide-tracking main-title
 // treatment — it's reserved for the logo. `tv-title` uses the display font only for
@@ -49,7 +77,23 @@ const TYPE_ROWS: Array<{
   { label: 'tv-caption', token: 'tvCaption', size: type.tvCaption, font: type.fontBody },
 ]
 
-function Swatch({ label, token, value }: { label: string; token: string; value: string }) {
+/** `grass-light` at each toon band's lit level, scaled in linear light like the shader does. */
+const RAMP_BANDS = TOON_BAND_LEVELS.map((level) =>
+  new Color(color.grassLight).multiplyScalar(level).getStyle(),
+)
+
+/** `path` is where the value lives in `tokens.ts`; `color.<token>` when omitted. */
+function Swatch({
+  label,
+  token,
+  value,
+  path,
+}: {
+  label: string
+  token: string
+  value: string
+  path?: string
+}) {
   // The label sits on the fixed dark `surfaceHud` panel below the swatch, never on the swatch
   // color itself, so it always uses the light UI text color regardless of how light or dark the
   // swatch is.
@@ -61,7 +105,7 @@ function Swatch({ label, token, value }: { label: string; token: string; value: 
       <div style={{ padding: space.sm, background: color.surfaceHud, color: color.textPrimary }}>
         <div style={{ fontFamily: type.fontBody, fontWeight: type.weightButton }}>{label}</div>
         <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', opacity: 0.85 }}>
-          color.{token}
+          {path ?? `color.${token}`}
         </div>
         <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', opacity: 0.85 }}>{value}</div>
       </div>
@@ -104,7 +148,7 @@ export function Swatches() {
       style={{
         minHeight: '100%',
         padding: space.xl,
-        background: `linear-gradient(180deg, ${color.skyZenith}, ${color.skyHorizon})`,
+        background: `linear-gradient(180deg, ${lightingPresets[DEFAULT_LIGHTING_PRESET].skyZenith}, ${lightingPresets[DEFAULT_LIGHTING_PRESET].skyHorizon})`,
       }}
     >
       <div
@@ -174,22 +218,52 @@ export function Swatches() {
             {toonRamp.thresholds.map((t) => t.toFixed(2)).join(' and ')} (N·L), edge softness{' '}
             {toonRamp.edgeSoftness}.
           </p>
+          <p style={{ fontSize: type.tvCaption, maxWidth: '60ch' }}>
+            Shown on <code>grass-light</code>, lit at {TOON_BAND_LEVELS.join(' / ')} of the sun (
+            <code>TOON_BAND_LEVELS</code>); in the world the sky fill adds on top.
+          </p>
           <div style={{ display: 'flex', height: 48, borderRadius: space.xs, overflow: 'hidden' }}>
-            <div style={{ flex: toonRamp.thresholds[0], background: color.grassShadow }} />
+            <div style={{ flex: toonRamp.thresholds[0], background: RAMP_BANDS[0] }} />
             <div
               style={{
                 flex: toonRamp.thresholds[1] - toonRamp.thresholds[0],
-                background: color.foliage,
+                background: RAMP_BANDS[1],
               }}
             />
-            <div style={{ flex: 1 - toonRamp.thresholds[1], background: color.grassLight }} />
+            <div style={{ flex: 1 - toonRamp.thresholds[1], background: RAMP_BANDS[2] }} />
           </div>
         </Section>
 
-        <Section title="Lighting">
-          <p style={{ fontSize: type.tvCaption }}>
-            Sun direction [{lighting.sunDirection.join(', ')}] · rim strength {lighting.rimStrength}
-          </p>
+        <Section title="Lighting presets">
+          {(Object.keys(lightingPresets) as Array<keyof typeof lightingPresets>).map((name) => {
+            const preset: LightingPreset = lightingPresets[name]
+            return (
+              <div key={name} style={{ marginBottom: space.xl }}>
+                <p style={{ fontSize: type.tvCaption, margin: `0 0 ${space.sm}` }}>
+                  {PRESET_LABELS[name]} · sun [{preset.sunDirection.join(', ')}] ×
+                  {preset.sunIntensity} · sky fill ×{preset.hemisphereIntensity}
+                </p>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                    gap: space.md,
+                  }}
+                >
+                  {LIGHTING_ROLES.map((role) => (
+                    <Swatch
+                      key={role.key}
+                      label={role.label}
+                      token={role.key}
+                      path={`lightingPresets.${name}.${role.key}`}
+                      value={String(preset[role.key])}
+                    />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+          <p style={{ fontSize: type.tvCaption }}>Rim strength {lighting.rimStrength}</p>
         </Section>
 
         <Section title="Gesture control state">

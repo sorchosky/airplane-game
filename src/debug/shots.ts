@@ -1,5 +1,6 @@
 import { Quaternion, Vector3 } from 'three'
 import type { FlightState } from '../flight/flightModel'
+import { activeLighting } from '../world/lightingPreset'
 
 /**
  * `?shot=<name>`: fixed camera bookmarks for before/after screenshots. Every art PR captures the
@@ -35,8 +36,14 @@ export interface ShotBookmark {
 
 const deg = (degrees: number): number => (degrees * Math.PI) / 180
 
-/** World-space heading whose forward vector points along the sun's horizontal direction. */
-const TOWARD_SUN = -1.9614
+/**
+ * World-space heading whose forward vector, (-sin h, 0, -cos h), points along the active lighting
+ * preset's horizontal sun direction, so `toward-sun` faces the sun under any `?tod=` (#64).
+ */
+const TOWARD_SUN = (() => {
+  const [x, , z] = activeLighting().sunDirection
+  return Math.atan2(-x, -z)
+})()
 const AWAY_FROM_SUN = TOWARD_SUN + Math.PI
 
 export const SHOT_BOOKMARKS: readonly ShotBookmark[] = [

@@ -10,13 +10,15 @@ import {
   type ColorRepresentation,
 } from 'three'
 import { color as colorTokens, lighting, toonRamp } from '../styles/tokens'
+import { atmosphereUniforms } from '../world/atmosphereUniforms'
 
 /**
  * Lit level of each toon band (shadow / mid / highlight), as a fraction of the light's color.
- * The shadow band stays well above 0 so the unlit side reads as a soft fill, not an ink shadow,
- * matching the low-contrast sunset look in docs/art-direction.md.
+ * The shadow band stays well above 0 so the unlit side reads as a soft fill, not an ink shadow;
+ * the hemisphere light adds the sky's colour on top, so shadows read cool and sky-lit (#64,
+ * `docs/art-bible.md` §5).
  */
-export const TOON_BAND_LEVELS = [0.5, 0.78, 1] as const
+export const TOON_BAND_LEVELS = [0.62, 0.86, 1] as const
 
 /** Texels in the gradient map. Enough to resolve `toonRamp.edgeSoftness` as a short ramp. */
 export const TOON_RAMP_WIDTH = 256
@@ -86,7 +88,7 @@ export function getToonGradientMap(): DataTexture {
 
 export interface ToonMaterialOptions {
   color: ColorRepresentation
-  /** Soft fresnel rim light tinted with the `sun` token. Off by default. */
+  /** Soft fresnel rim light tinted with the lighting preset's sun colour. Off by default. */
   rim?: boolean
 }
 
@@ -101,9 +103,9 @@ const RIM_FRAGMENT = /* glsl */ `
   #include <opaque_fragment>`
 
 function addRimLight(material: MeshToonMaterial): void {
-  const rimColor = new Color(colorTokens.sun)
   material.onBeforeCompile = (shader) => {
-    shader.uniforms.toonRimColor = { value: rimColor }
+    // Shared with the lighting preset, so the rim follows the sun's colour.
+    shader.uniforms.toonRimColor = atmosphereUniforms.atmoSunLight
     shader.uniforms.toonRimStrength = { value: lighting.rimStrength }
     shader.fragmentShader = shader.fragmentShader
       .replace(
@@ -220,6 +222,7 @@ export function getOutlineMaterial({
       thickness: { value: thickness },
       maxPixels: { value: maxPixels },
       viewportHeight: viewportHeightUniform,
+      ...atmosphereUniforms,
       // Fog uniforms, so outlines fade into the haze with the geometry they belong to.
       fogColor: { value: new Color() },
       fogNear: { value: 1 },

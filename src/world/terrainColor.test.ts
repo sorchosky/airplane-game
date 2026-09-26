@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { linearRgb, TERRAIN_PALETTE, terrainColorAt, type Rgb } from './terrainColor'
+import { lightingPresets } from '../styles/tokens'
+import {
+  coolGrass,
+  linearRgb,
+  luminance,
+  rotateHue,
+  strataPhase,
+  sunTintWeights,
+  TERRAIN_PALETTE,
+  terrainColorAt,
+  type Rgb,
+  type TerrainSurface,
+} from './terrainColor'
 import { TERRAIN_CONFIG } from './terrainConfig'
 
 const config = TERRAIN_CONFIG
@@ -99,5 +111,154 @@ describe('terrainColorAt', () => {
       terrainColorAt(GRASS_HEIGHT, FLAT, 0.3),
       terrainColorAt(GRASS_HEIGHT, FLAT, 0.3, config),
     )
+  })
+})
+
+/** Hue angle in degrees, in the plane perpendicular to the grey axis. */
+function hueDegrees([r, g, bl]: Rgb): number {
+  return (Math.atan2(Math.sqrt(3) * (g - bl), 2 * r - g - bl) * 180) / Math.PI
+}
+
+const sum = (c: Rgb) => c[0] + c[1] + c[2]
+
+/** No detail: sunFacing between the two tint ramps, no noise, at the camera. */
+const NEUTRAL: TerrainSurface = {
+  macro: 0,
+  macroValue: 0,
+  brush: 0,
+  distance: 0,
+  sunFacing: 0.45,
+  ambientSky: linearRgb(lightingPresets.morning.ambientSky),
+}
+const at = (overrides: Partial<TerrainSurface>): TerrainSurface => ({ ...NEUTRAL, ...overrides })
+
+describe('rotateHue', () => {
+  const green = TERRAIN_PALETTE.grassLight
+
+  it('keeps brightness and is the identity at 0° and 360°', () => {
+    expect(sum(rotateHue(green, 6))).toBeCloseTo(sum(green), 10)
+    expectColor(rotateHue(green, 0), green)
+    expectColor(rotateHue(green, 360), green)
+  })
+
+  it('turns the hue by the given angle', () => {
+    expect(hueDegrees(rotateHue(green, 6)) - hueDegrees(green)).toBeCloseTo(6, 6)
+    expect(hueDegrees(rotateHue(green, -6)) - hueDegrees(green)).toBeCloseTo(-6, 6)
+  })
+})
+
+describe('strataPhase', () => {
+  it('spaces the strata between strataSpacingMin and strataSpacingMax', () => {
+    const dy = 0.01
+    let widest = 0
+    let closest = Infinity
+    for (let y = 0; y < 600; y += 0.5) {
+      const spacing = dy / (strataPhase(y + dy, 0) - strataPhase(y, 0))
+      widest = Math.max(widest, spacing)
+      closest = Math.min(closest, spacing)
+    }
+    expect(closest).toBeGreaterThanOrEqual(b.strataSpacingMin - 0.01)
+    expect(widest).toBeLessThanOrEqual(b.strataSpacingMax + 0.01)
+    expect(closest).toBeLessThan(b.strataSpacingMin + 0.1)
+    expect(widest).toBeGreaterThan(b.strataSpacingMax - 0.1)
+  })
+
+  it('shifts with the macro noise, so bands wave across the landscape', () => {
+    expect(strataPhase(200, 1) - strataPhase(200, 0)).toBeCloseTo(b.strataJitter, 10)
+  })
+})
+
+describe('coolGrass', () => {
+  it("leans grass-shadow to the sky's hue at grass-shadow's own brightness", () => {
+    for (const preset of Object.values(lightingPresets)) {
+      const cool = coolGrass(linearRgb(preset.ambientSky))
+      const shadow = TERRAIN_PALETTE.grassShadow
+      expect(luminance(cool)).toBeCloseTo(luminance(shadow), 6)
+      expect(cool[2] / cool[1]).toBeGreaterThan(shadow[2] / shadow[1])
+    }
+  })
+})
+
+describe('sunTintWeights', () => {
+  it('leans fully to grass-light within 30° of the sun and not at all past 60°', () => {
+    expect(sunTintWeights(Math.cos(Math.PI / 6)).toward).toBeCloseTo(b.sunTintToward, 10)
+    expect(sunTintWeights(1).toward).toBeCloseTo(b.sunTintToward, 10)
+    expect(sunTintWeights(0.5).toward).toBe(0)
+  })
+
+  it('leans fully cool on faces turned from the sun, and never both ways at once', () => {
+    expect(sunTintWeights(0).away).toBeCloseTo(b.sunTintAway, 10)
+    expect(sunTintWeights(-0.5).away).toBeCloseTo(b.sunTintAway, 10)
+    expect(sunTintWeights(0.35).away).toBe(0)
+    for (let f = -1; f <= 1; f += 0.05) {
+      const w = sunTintWeights(f)
+      expect(w.toward === 0 || w.away === 0).toBe(true)
+    }
+  })
+})
+
+describe('terrainColorAt with surface detail (#69)', () => {
+  it('is the plain band colour when the detail is neutral', () => {
+    for (const noise of [-1, 0, 1]) {
+      expectColor(
+        terrainColorAt(GRASS_HEIGHT, FLAT, noise, config, NEUTRAL),
+        terrainColorAt(GRASS_HEIGHT, FLAT, noise, config),
+      )
+    }
+  })
+
+  it('turns the grass hue ±macroHueDegrees and moves its value ±macroValue', () => {
+    const plain = terrainColorAt(GRASS_HEIGHT, FLAT, 1, config)
+    const warm = terrainColorAt(GRASS_HEIGHT, FLAT, 1, config, at({ macro: 1 }))
+    expect(hueDegrees(warm) - hueDegrees(plain)).toBeCloseTo(b.macroHueDegrees, 6)
+    const bright = terrainColorAt(GRASS_HEIGHT, FLAT, 1, config, at({ macroValue: 1 }))
+    expect(sum(bright) / sum(plain)).toBeCloseTo(1 + b.macroValue, 6)
+  })
+
+  it('breaks up the value ±brushValue near the camera and fades it out by brushFadeEnd', () => {
+    const plain = terrainColorAt(GRASS_HEIGHT, FLAT, 0, config)
+    const near = terrainColorAt(GRASS_HEIGHT, FLAT, 0, config, at({ brush: -1 }))
+    expect(sum(near) / sum(plain)).toBeCloseTo(1 - b.brushValue, 6)
+    const far = terrainColorAt(
+      GRASS_HEIGHT,
+      FLAT,
+      0,
+      config,
+      at({ brush: -1, distance: b.brushFadeEnd }),
+    )
+    expectColor(far, plain)
+  })
+
+  it('bands rock with strata, not grass, and fades them out by strataFadeEnd', () => {
+    const cliff = 0.6
+    const height = 150
+    const plainRock = terrainColorAt(height, cliff, 0, config)
+    const ratios: number[] = []
+    for (let y = height; y < height + 8; y += 0.25) {
+      const banded = terrainColorAt(y, cliff, 0, config, NEUTRAL)
+      ratios.push(sum(banded) / sum(terrainColorAt(y, cliff, 0, config)))
+    }
+    expect(Math.max(...ratios)).toBeCloseTo(1 + b.strataValue, 2)
+    expect(Math.min(...ratios)).toBeCloseTo(1 - b.strataValue, 2)
+    expectColor(
+      terrainColorAt(height, cliff, 0, config, at({ distance: b.strataFadeEnd })),
+      plainRock,
+    )
+    // Gentle grass slopes carry no strata at any height.
+    for (let y = GRASS_HEIGHT; y < GRASS_HEIGHT + 8; y += 0.5) {
+      expectColor(terrainColorAt(y, FLAT, 0, config, NEUTRAL), terrainColorAt(y, FLAT, 0, config))
+    }
+  })
+
+  it('leans sunlit grass to grass-light and shaded grass cooler and bluer', () => {
+    const plain = terrainColorAt(GRASS_HEIGHT, FLAT, -1, config)
+    const sunlit = terrainColorAt(GRASS_HEIGHT, FLAT, -1, config, at({ sunFacing: 1 }))
+    const shaded = terrainColorAt(GRASS_HEIGHT, FLAT, -1, config, at({ sunFacing: -0.2 }))
+    const distance = (a: Rgb, c: Rgb) => Math.hypot(a[0] - c[0], a[1] - c[1], a[2] - c[2])
+    expect(distance(sunlit, TERRAIN_PALETTE.grassLight)).toBeLessThan(
+      distance(plain, TERRAIN_PALETTE.grassLight),
+    )
+    expect(shaded[2] / shaded[1]).toBeGreaterThan(plain[2] / plain[1])
+    expect(sum(shaded)).toBeLessThan(sum(plain))
   })
 })

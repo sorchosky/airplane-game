@@ -1,10 +1,10 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import { IcosahedronGeometry, InstancedMesh, MeshLambertMaterial, Object3D } from 'three'
+import { Color, IcosahedronGeometry, InstancedMesh, MeshLambertMaterial, Object3D } from 'three'
 import { activeShot } from '../debug/shots'
 import { useFlightStore } from '../flight/flightStore'
-import { color } from '../styles/tokens'
-import { CLOUD_CONFIG, cloudLayout, wrapAround } from './atmosphere'
+import { CLOUD_CONFIG, cloudLayout, cloudShading, wrapAround } from './atmosphere'
+import { activeLighting } from './lightingPreset'
 
 /**
  * Drifting cumulus clusters, one instanced mesh (one draw call) of low-poly puffs. Clusters live
@@ -18,11 +18,12 @@ export function Clouds() {
   const puffs = useMemo(() => cloudLayout(CLOUD_CONFIG), [])
   const mesh = useMemo(() => {
     const geometry = new IcosahedronGeometry(1, 1)
-    // A little warm self-light keeps the low sun from turning the shaded undersides grey-brown.
+    // Shaded sides land on the preset's `cloudShadow` and sunlit sides on `cloudLight`, so the
+    // undersides stay a soft blue-grey rather than going dark. A4 (#70) replaces these puffs.
+    const { albedo, emissive } = cloudShading(activeLighting())
     const material = new MeshLambertMaterial({
-      color: color.snow,
-      emissive: color.fog,
-      emissiveIntensity: 0.35,
+      color: new Color().setRGB(...albedo),
+      emissive: new Color().setRGB(...emissive),
       flatShading: true,
     })
     const instanced = new InstancedMesh(geometry, material, puffs.length)
