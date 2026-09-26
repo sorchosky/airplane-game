@@ -86,6 +86,27 @@ describe('buildPlaneGeometry', () => {
     }
   })
 
+  it('shades only the wheel pants of the body with the trim', () => {
+    const shaded = buildPlaneGeometry([0.5, 0.6, 0.7])
+    const colors = shaded.body.getAttribute('color')
+    expect(colors.count).toBe(shaded.body.getAttribute('position').count)
+    const position = shaded.body.getAttribute('position')
+    let trimmed = 0
+    for (let i = 0; i < colors.count; i++) {
+      if (colors.getX(i) === 1) continue
+      trimmed++
+      expect([colors.getX(i), colors.getY(i), colors.getZ(i)]).toEqual([
+        expect.closeTo(0.5),
+        expect.closeTo(0.6),
+        expect.closeTo(0.7),
+      ])
+      // Every trimmed vertex is down at the wheels, below the fuselage.
+      expect(position.getY(i)).toBeLessThan(-0.6)
+    }
+    expect(trimmed).toBeGreaterThan(0)
+    shaded.dispose()
+  })
+
   it('winds closed parts outward', () => {
     expect(signedVolume(plane.body)).toBeGreaterThan(0)
     expect(signedVolume(plane.metal)).toBeGreaterThan(0)

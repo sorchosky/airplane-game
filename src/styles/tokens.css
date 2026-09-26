@@ -28,8 +28,10 @@
   /* Plane livery */
   --color-plane-body: #f4efe3;
   --color-plane-stripe: #d8562b;
-  --color-plane-metal: #9c948a;
+  --color-plane-trim: #d6cfc1;
+  --color-plane-metal: #857e75;
   --color-plane-glass: #35414d;
+  --color-vapor: #eef3f7;
 
   /* Gesture-control state */
   --color-control-active: #5cb8bd;

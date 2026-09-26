@@ -10,6 +10,7 @@ import {
   chaseCameraOrientation,
   dampVector3,
   desiredCameraPosition,
+  framedLookAt,
 } from './cameraMath'
 import { DEFAULT_FLIGHT_PARAMS, createInitialFlightState, step } from './flightModel'
 import { NEUTRAL_DEFLECTIONS, dampDeflections, targetDeflections } from './planeRig'
@@ -46,7 +47,7 @@ const ROUNDS = 3
  */
 const CEILING_BYTES = {
   step: 56, // measured 32
-  camera: 80, // measured 48
+  camera: 120, // measured 80 with the framing aim (#71); 48 before it
   rig: 32, // measured 16
   audio: 16, // measured 0
   armLine: 16, // measured 0
@@ -90,12 +91,14 @@ describe('hot path allocations', () => {
     const desired = new Vector3()
     const position = new Vector3(0, 4, 12)
     const lookAt = new Vector3()
+    const aim = new Vector3()
     const orientation = new Quaternion()
     const growth = heapGrowthPerCall(() => {
-      desiredCameraPosition(plane, 0.3, CHASE_CAMERA_PARAMS, desired)
+      desiredCameraPosition(plane, 0.3, CHASE_CAMERA_PARAMS, desired, 0.4)
       dampVector3(position, desired, 6, 1 / 60, position)
       dampVector3(lookAt, plane, 8, 1 / 60, lookAt)
-      chaseCameraOrientation(position, lookAt, 0.4, 0.25, orientation)
+      framedLookAt(position, lookAt, 60, CHASE_CAMERA_PARAMS.screenY, aim)
+      chaseCameraOrientation(position, aim, 0.4, 0.25, orientation)
       chaseCameraFov(50, CHASE_CAMERA_PARAMS)
     })
     expect(growth).toBeLessThan(CEILING_BYTES.camera)

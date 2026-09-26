@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import { DoubleSide, MeshBasicMaterial, type Group, type Mesh } from 'three'
+import { Color, DoubleSide, MeshBasicMaterial, type Group, type Mesh } from 'three'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { useInputStore } from '../input/inputStore'
 import { getOutlineMaterial } from '../render/toon'
@@ -8,7 +8,7 @@ import { ToonMesh } from '../render/ToonMesh'
 import { useToon } from '../render/useToon'
 import { color } from '../styles/tokens'
 import { useFlightStore } from './flightStore'
-import { buildPlaneGeometry } from './planeGeometry'
+import { buildPlaneGeometry, type Shade } from './planeGeometry'
 import {
   NEUTRAL_DEFLECTIONS,
   createArticulation,
@@ -20,6 +20,17 @@ import {
 
 /** Opacity of the prop blur disc: a hint of motion, not a solid plate. */
 const PROP_DISC_OPACITY = 0.28
+
+/**
+ * The wheel-pant trim relative to the body colour, per linear channel: the body mesh multiplies its
+ * `color.planeBody` material by this on the pants, so they take `color.planeTrim` without a mesh
+ * (and two draw calls) of their own.
+ */
+function trimShade(): Shade {
+  const body = new Color(color.planeBody)
+  const trim = new Color(color.planeTrim)
+  return [trim.r / body.r, trim.g / body.g, trim.b / body.b]
+}
 
 // Outline hulls are decoration: never let them catch raycasts meant for the plane.
 const noRaycast = () => undefined
@@ -35,11 +46,12 @@ interface PlaneModelProps {
  * `useFrame` so nothing re-renders at frame rate.
  *
  * Draw calls: body, stripe, metal and prop blades each draw once plus an outline hull; the glass
- * band draws once, un-outlined. At cruise the blades swap for the disc (one call), so 8 in
+ * band draws once, un-outlined, with a stepped specular glint. The wheel pants' darker trim is a
+ * vertex colour on the body, not a mesh of its own. At cruise the blades swap for the disc (one call), so 8 in
  * flight and 9 in a climb.
  */
 export function PlaneModel({ paused = false }: PlaneModelProps) {
-  const geometry = useMemo(() => buildPlaneGeometry(), [])
+  const geometry = useMemo(() => buildPlaneGeometry(trimShade()), [])
   // The stripe mesh's surfaces move, so it can't use `ToonMesh`, whose outline hull is a static
   // copy. It gets its own hull, articulated in step with the mesh.
   const stripeHull = useMemo(() => toCreasedNormals(geometry.stripe, Math.PI), [geometry])
@@ -107,13 +119,13 @@ export function PlaneModel({ paused = false }: PlaneModelProps) {
 
   return (
     <group>
-      <ToonMesh color={color.planeBody} castShadow>
+      <ToonMesh color={color.planeBody} vertexColors castShadow>
         <primitive object={geometry.body} attach="geometry" />
       </ToonMesh>
       <ToonMesh color={color.planeMetal} castShadow>
         <primitive object={geometry.metal} attach="geometry" />
       </ToonMesh>
-      <ToonMesh color={color.planeGlass} outline={false}>
+      <ToonMesh color={color.planeGlass} specular outline={false}>
         <primitive object={geometry.glass} attach="geometry" />
       </ToonMesh>
       <mesh geometry={geometry.stripe} material={stripeMaterial} castShadow>
