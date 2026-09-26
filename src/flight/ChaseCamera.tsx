@@ -28,6 +28,7 @@ export function ChaseCamera() {
   const cameraRef = useRef<ThreePerspectiveCamera>(null)
   const smoothedPosition = useRef(new Vector3())
   const smoothedLookAt = useRef(new Vector3())
+  const desiredPosition = useRef(new Vector3())
   const initialized = useRef(false)
 
   // Read once per mount: a live media-query listener isn't worth it for a setting that doesn't
@@ -45,36 +46,43 @@ export function ChaseCamera() {
     if (!camera) return
 
     const { state } = useFlightStore.getState()
-    const desiredPosition = desiredCameraPosition(state.position, state.heading, params)
+    // Every vector below is a long-lived scratch written in place: a frame allocates nothing.
+    const desired = desiredCameraPosition(
+      state.position,
+      state.heading,
+      params,
+      desiredPosition.current,
+    )
     const desiredLookAt = state.position
 
     if (!initialized.current) {
-      smoothedPosition.current.copy(desiredPosition)
+      smoothedPosition.current.copy(desired)
       smoothedLookAt.current.copy(desiredLookAt)
       initialized.current = true
     } else {
-      smoothedPosition.current = dampVector3(
+      dampVector3(
         smoothedPosition.current,
-        desiredPosition,
+        desired,
         params.positionDampingRate,
         delta,
+        smoothedPosition.current,
       )
-      smoothedLookAt.current = dampVector3(
+      dampVector3(
         smoothedLookAt.current,
         desiredLookAt,
         params.lookAtDampingRate,
         delta,
+        smoothedLookAt.current,
       )
     }
 
     camera.position.copy(smoothedPosition.current)
-    camera.quaternion.copy(
-      chaseCameraOrientation(
-        smoothedPosition.current,
-        smoothedLookAt.current,
-        state.bank,
-        params.rollFraction,
-      ),
+    chaseCameraOrientation(
+      smoothedPosition.current,
+      smoothedLookAt.current,
+      state.bank,
+      params.rollFraction,
+      camera.quaternion,
     )
 
     const fov = chaseCameraFov(state.speed, params)

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { FRAME_PRIORITY, frameLoop } from '../app/frameLoop'
 import { useInputStore } from './inputStore'
 import { rampTowards } from './ramp'
 import { touchTargets } from './touchTargets'
@@ -42,7 +43,6 @@ export function useKeyboardSource(enabled = true): void {
     if (!enabled) return
     const pressed = new Set<string>()
     let active = false
-    let frame = 0
     let lastTime = performance.now()
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -56,8 +56,7 @@ export function useKeyboardSource(enabled = true): void {
       pressed.delete(event.key)
     }
 
-    const tick = () => {
-      const now = performance.now()
+    const tick = (now: number) => {
       const dt = Math.min(0.1, (now - lastTime) / 1000)
       lastTime = now
 
@@ -77,18 +76,16 @@ export function useKeyboardSource(enabled = true): void {
         confidence: 1,
         source: 'keyboard',
       })
-
-      frame = requestAnimationFrame(tick)
     }
 
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
-    frame = requestAnimationFrame(tick)
+    const remove = frameLoop.add(tick, FRAME_PRIORITY.input)
 
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
-      cancelAnimationFrame(frame)
+      remove()
     }
   }, [enabled])
 }

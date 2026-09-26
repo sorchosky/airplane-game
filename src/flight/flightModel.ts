@@ -84,7 +84,7 @@ interface SpringResult {
  * Critically damped spring-damper (the closed-form approximation behind Unity's SmoothDamp /
  * Game Programming Gems 4's "critically damped ease"). Unlike a raw semi-implicit Euler spring
  * it never overshoots the target and stays stable at any smoothTime/dt combination, which matters
- * here since `step` may be called with a large `dt` in tests.
+ * here since `step` may be called with a large `dt` in tests. Writes into `out` (no allocation).
  */
 function smoothDamp(
   current: number,
@@ -92,6 +92,7 @@ function smoothDamp(
   velocity: number,
   smoothTime: number,
   dt: number,
+  out: SpringResult,
 ): SpringResult {
   const omega = 2 / Math.max(0.0001, smoothTime)
   const x = omega * dt
@@ -107,19 +108,29 @@ function smoothDamp(
     nextVelocity = 0
   }
 
-  return { value: nextValue, velocity: nextVelocity }
+  out.value = nextValue
+  out.velocity = nextVelocity
+  return out
 }
 
-/** One fixed-size integration step. `dt` should be <= FIXED_DT; `step` below enforces that. */
+// Scratch for the two springs and the orientation. `integrate` reads everything it needs from
+// `state` before writing `out`, so `out` may be `state` itself (the store steps in place).
+const bankSpring: SpringResult = { value: 0, velocity: 0 }
+const pitchSpring: SpringResult = { value: 0, velocity: 0 }
+const scratchEuler = new Euler()
+
+/** One fixed-size integration step into `out`. `dt` should be <= FIXED_DT; `step` enforces that. */
 function integrate(
   state: FlightState,
   input: ControlInput,
   dt: number,
   params: FlightParams,
   groundHeight: number,
+  out: FlightState,
 ): FlightState {
   const roll = clampAxis(input.roll)
   const pitchInput = clampAxis(input.pitch)
+  const { x: px, y: py, z: pz } = state.position
 
   // Autopilot: when input isn't active, targets go to level flight. Same integration path either
   // way, no separate autopilot code.
@@ -130,7 +141,7 @@ function integrate(
   // nothing at the top of the band to `floorPitchBias` at the ground. Goes through the same pitch
   // spring as the pilot's input, so the pull-up eases in rather than snapping.
   const floorDepth = clamp(
-    (groundHeight + params.floorClearance - state.position.y) / params.floorClearance,
+    (groundHeight + params.floorClearance - py) / params.floorClearance,
     0,
     1,
   )
@@ -139,13 +150,14 @@ function integrate(
     params.maxPitchAngle,
   )
 
-  const bankSpring = smoothDamp(state.bank, targetBank, state.bankRate, params.bankSmoothTime, dt)
-  const pitchSpring = smoothDamp(
+  smoothDamp(state.bank, targetBank, state.bankRate, params.bankSmoothTime, dt, bankSpring)
+  smoothDamp(
     state.pitchAngle,
     targetPitch,
     state.pitchRate,
     params.pitchSmoothTime,
     dt,
+    pitchSpring,
   )
   const bank = bankSpring.value
   const pitchAngle = pitchSpring.value
@@ -175,40 +187,40 @@ function integrate(
 
   // Soft ceiling: ease climb rate to zero over the last `ceilingSoftening` metres below it. The
   // hard clamp on position.y is just a safety net against overshoot from a large dt.
-  const roomToCeiling = params.ceiling - state.position.y
+  const roomToCeiling = params.ceiling - py
   const climbSoftening = clamp(roomToCeiling / params.ceilingSoftening, 0, 1)
   const effectiveClimbRate = climbRate > 0 ? climbRate * climbSoftening : climbRate
 
-  const position = state.position.clone()
-  position.x += forwardX * dt
-  position.z += forwardZ * dt
-  position.y = Math.min(position.y + effectiveClimbRate * dt, params.ceiling)
+  let y = Math.min(py + effectiveClimbRate * dt, params.ceiling)
   // The ground wins over the ceiling: never below `floorMinAltitude`, even on a slope rising
   // faster than the pull-up.
-  position.y = Math.max(position.y, groundHeight + params.floorMinAltitude)
+  y = Math.max(y, groundHeight + params.floorMinAltitude)
+  out.position.set(px + forwardX * dt, y, pz + forwardZ * dt)
 
   // Roll is applied about the plane's own forward axis (0, 0, -1), which is a rotation of -bank
   // about world +Z; composed with pitch about local X and yaw about world Y via Three's 'YXZ'
   // Euler order (Z applied first, then X, then Y -- i.e. roll, then pitch, then yaw).
-  const orientation = new Quaternion().setFromEuler(new Euler(pitchAngle, heading, -bank, 'YXZ'))
+  out.orientation.setFromEuler(scratchEuler.set(pitchAngle, heading, -bank, 'YXZ'))
 
-  return {
-    position,
-    orientation,
-    bank,
-    pitchAngle,
-    heading,
-    speed,
-    bankRate: bankSpring.velocity,
-    pitchRate: pitchSpring.velocity,
-  }
+  out.bank = bank
+  out.pitchAngle = pitchAngle
+  out.heading = heading
+  out.speed = speed
+  out.bankRate = bankSpring.velocity
+  out.pitchRate = pitchSpring.velocity
+  return out
 }
 
 /**
  * Advances the flight model by `dt` seconds. `groundHeight` is the terrain height (m) under the
- * plane, sampled once per call by the caller; omit it for open sky with no floor. Internally subdivides `dt` into fixed 60 Hz chunks
- * (with a shorter final chunk for any remainder) so the simulation is numerically stable and
- * gives the same result regardless of how the caller's frame rate happens to chop up real time.
+ * plane, sampled once per call by the caller; omit it for open sky with no floor. Internally
+ * subdivides `dt` into fixed 60 Hz chunks (with a shorter final chunk for any remainder) so the
+ * simulation is numerically stable and gives the same result regardless of how the caller's
+ * frame rate happens to chop up real time.
+ *
+ * Writes the result into `out` and returns it. `out` may be `state` itself (the store steps in
+ * place, so a frame allocates nothing); without `out` a fresh state is returned and `state` is
+ * left untouched.
  */
 export function step(
   state: FlightState,
@@ -216,13 +228,29 @@ export function step(
   dt: number,
   params: FlightParams,
   groundHeight = Number.NEGATIVE_INFINITY,
+  out: FlightState = createInitialFlightState(params),
 ): FlightState {
-  let next = state
+  let current = state
   let remaining = dt
   while (remaining > 1e-9) {
     const h = Math.min(FIXED_DT, remaining)
-    next = integrate(next, input, h, params, groundHeight)
+    integrate(current, input, h, params, groundHeight, out)
+    current = out
     remaining -= h
   }
-  return next
+  if (current !== out) copyFlightState(state, out)
+  return out
+}
+
+/** Copies every field of `from` into `to` (no allocation). */
+export function copyFlightState(from: FlightState, to: FlightState): FlightState {
+  to.position.copy(from.position)
+  to.orientation.copy(from.orientation)
+  to.bank = from.bank
+  to.pitchAngle = from.pitchAngle
+  to.heading = from.heading
+  to.speed = from.speed
+  to.bankRate = from.bankRate
+  to.pitchRate = from.pitchRate
+  return to
 }

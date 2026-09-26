@@ -58,25 +58,25 @@ export function turnRate(bank: number, speed: number, gravity: number): number {
  * Where each surface wants to be. Positive = trailing edge up (ailerons, elevator) or toward the
  * right (rudder). Rolling right raises the right aileron and drops the left; climbing raises the
  * elevator; a right turn swings the rudder right. With `active` false the autopilot is flying,
- * so the stick-driven surfaces center.
+ * so the stick-driven surfaces center. Written into `out` (a fresh object by default).
  */
 export function targetDeflections(
   input: ControlInput,
   flight: { bank: number; speed: number },
   gravity: number,
   params: PlaneRigParams = PLANE_RIG_PARAMS,
+  out: SurfaceDeflections = { ...NEUTRAL_DEFLECTIONS },
 ): SurfaceDeflections {
   const roll = input.active ? clamp(input.roll, -1, 1) : 0
   const pitch = input.active ? clamp(input.pitch, -1, 1) : 0
   const turn = turnRate(flight.bank, flight.speed, gravity) / params.rudderFullTurnRate
   const elevator = pitch * params.elevatorMax
-  return {
-    aileronRight: roll * params.aileronMax,
-    aileronLeft: -roll * params.aileronMax,
-    elevatorLeft: elevator,
-    elevatorRight: elevator,
-    rudder: clamp(turn, -1, 1) * params.rudderMax,
-  }
+  out.aileronRight = roll * params.aileronMax
+  out.aileronLeft = -roll * params.aileronMax
+  out.elevatorLeft = elevator
+  out.elevatorRight = elevator
+  out.rudder = clamp(turn, -1, 1) * params.rudderMax
+  return out
 }
 
 /** Frame-rate-independent step of `current` toward `target`, in place. */
@@ -87,9 +87,13 @@ export function dampDeflections(
   params: PlaneRigParams = PLANE_RIG_PARAMS,
 ): SurfaceDeflections {
   const t = 1 - Math.exp(-params.surfaceDampingRate * dt)
-  for (const surface of CONTROL_SURFACES) {
-    current[surface] += (target[surface] - current[surface]) * t
-  }
+  // Written out per surface: a loop over the names stores through computed keys, which V8 boxes
+  // and re-looks-up on every write (measured at ~320 B per call), and this runs every frame.
+  current.aileronLeft += (target.aileronLeft - current.aileronLeft) * t
+  current.aileronRight += (target.aileronRight - current.aileronRight) * t
+  current.elevatorLeft += (target.elevatorLeft - current.elevatorLeft) * t
+  current.elevatorRight += (target.elevatorRight - current.elevatorRight) * t
+  current.rudder += (target.rudder - current.rudder) * t
   return current
 }
 
@@ -141,10 +145,15 @@ export function createArticulation(
   const v = new Vector3()
   return {
     apply: (deflections) => {
-      CONTROL_SURFACES.forEach((name, s) => {
+      // Indexed loops (no `forEach` closure or `for...of` iterator): this runs every frame.
+      for (let s = 0; s < CONTROL_SURFACES.length; s++) {
+        const name = CONTROL_SURFACES[s]
+        const indices = moving[s]
+        if (!name || !indices) continue
         const hinge = hinges[name]
         rotation.setFromAxisAngle(hinge.axis, deflections[name])
-        for (const i of moving[s] ?? []) {
+        for (let k = 0; k < indices.length; k++) {
+          const i = indices[k] ?? 0
           v.fromArray(restPosition, i * 3)
             .sub(hinge.origin)
             .applyQuaternion(rotation)
@@ -153,7 +162,7 @@ export function createArticulation(
           v.fromArray(restNormal, i * 3).applyQuaternion(rotation)
           normal.setXYZ(i, v.x, v.y, v.z)
         }
-      })
+      }
       position.needsUpdate = true
       normal.needsUpdate = true
     },

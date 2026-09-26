@@ -78,15 +78,19 @@ export function PlaneModel({ paused = false }: PlaneModelProps) {
   const propRef = useRef<Group>(null)
   const bladesRef = useRef<Group>(null)
   const discRef = useRef<Mesh>(null)
-  const rig = useRef({ deflections: { ...NEUTRAL_DEFLECTIONS }, discShowing: false })
+  const rig = useRef({
+    deflections: { ...NEUTRAL_DEFLECTIONS },
+    target: { ...NEUTRAL_DEFLECTIONS },
+    discShowing: false,
+  })
 
   useFrame((_frameState, delta) => {
     if (paused) return
     const input = useInputStore.getState().current
     const { state, params } = useFlightStore.getState()
 
-    const { deflections } = rig.current
-    const target = targetDeflections(input, state, params.turnGravity)
+    const { deflections, target } = rig.current
+    targetDeflections(input, state, params.turnGravity, undefined, target)
     dampDeflections(deflections, target, delta)
     for (const articulation of articulations) articulation.apply(deflections)
 

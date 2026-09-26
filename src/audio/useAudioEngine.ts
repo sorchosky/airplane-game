@@ -1,10 +1,11 @@
 import { useEffect } from 'react'
+import { FRAME_PRIORITY, frameLoop } from '../app/frameLoop'
 import { useControlStore } from '../app/controlStore'
 import { useGameStore } from '../app/gameStore'
 import { useFlightStore } from '../flight/flightStore'
 import { useInputStore } from '../input/inputStore'
 import { playCue, setDucked, setMuted, updateAudioParams } from './audioEngine'
-import { computeAudioParams } from './audioParams'
+import { computeAudioParams, type EngineWindParams } from './audioParams'
 import { useAudioStore } from './audioStore'
 
 /**
@@ -31,13 +32,19 @@ export function useAudioEngine(): void {
   }, [])
 
   useEffect(() => {
-    let frame = 0
     let lastActive: boolean | null = null
     let lastCountdown: number | null = null
+    // One params object for the life of the flight; `computeAudioParams` fills it in place.
+    const audioParams: EngineWindParams = {
+      engineFreq: 0,
+      engineGain: 0,
+      windCutoff: 0,
+      windGain: 0,
+    }
 
-    const tick = () => {
+    const tick = (): void => {
       const { state, params } = useFlightStore.getState()
-      updateAudioParams(computeAudioParams(state, params))
+      updateAudioParams(computeAudioParams(state, params, undefined, audioParams))
 
       const active = useInputStore.getState().current.active
       if (lastActive !== null && active !== lastActive) {
@@ -50,11 +57,8 @@ export function useAudioEngine(): void {
         playCue('countdown')
       }
       lastCountdown = countdown
-
-      frame = requestAnimationFrame(tick)
     }
-    frame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frame)
+    return frameLoop.add(tick, FRAME_PRIORITY.audio)
   }, [])
 
   useEffect(() => {

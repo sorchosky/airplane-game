@@ -8,5 +8,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    // `allocations.test.ts` measures heap growth per call and needs a callable `gc()`.
+    execArgv: ['--expose-gc'],
   },
 })

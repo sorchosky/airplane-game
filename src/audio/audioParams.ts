@@ -67,12 +67,14 @@ const lerp = (min: number, max: number, t: number): number => min + (max - min) 
  * the engine note rises in a dive even though the pilot isn't climbing). Engine gain blends
  * airspeed with climb effort (`sin(pitchAngle)`, floored at 0 so diving never reads as harder work
  * than level flight) since climbing needs more power. Wind gain/cutoff blend airspeed with bank
- * angle, since a hard turn digs the airframe deeper into the airstream.
+ * angle, since a hard turn digs the airframe deeper into the airstream. Written into `out` (a
+ * fresh object by default) so a per-frame caller can reuse one.
  */
 export function computeAudioParams(
   flight: FlightAudioInput,
   range: FlightAudioRange,
   tunables: AudioTunables = DEFAULT_AUDIO_TUNABLES,
+  out: EngineWindParams = { engineFreq: 0, engineGain: 0, windCutoff: 0, windGain: 0 },
 ): EngineWindParams {
   const speedSpan = Math.max(1e-6, range.maxSpeed - range.minSpeed)
   const normSpeed = clamp01((flight.speed - range.minSpeed) / speedSpan)
@@ -84,10 +86,9 @@ export function computeAudioParams(
   )
   const windBlend = clamp01((1 - tunables.bankWeight) * normSpeed + tunables.bankWeight * normBank)
 
-  return {
-    engineFreq: lerp(tunables.engineFreqMin, tunables.engineFreqMax, normSpeed),
-    engineGain: lerp(tunables.engineGainMin, tunables.engineGainMax, gainBlend),
-    windCutoff: lerp(tunables.windCutoffMin, tunables.windCutoffMax, windBlend),
-    windGain: lerp(tunables.windGainMin, tunables.windGainMax, windBlend),
-  }
+  out.engineFreq = lerp(tunables.engineFreqMin, tunables.engineFreqMax, normSpeed)
+  out.engineGain = lerp(tunables.engineGainMin, tunables.engineGainMax, gainBlend)
+  out.windCutoff = lerp(tunables.windCutoffMin, tunables.windCutoffMax, windBlend)
+  out.windGain = lerp(tunables.windGainMin, tunables.windGainMax, windBlend)
+  return out
 }
