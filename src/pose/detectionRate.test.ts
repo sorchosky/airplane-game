@@ -26,4 +26,25 @@ describe('stepDetectionRate', () => {
   it('stays at 20 Hz for inference between the thresholds', () => {
     expect(run(every(32, 0, 30_000))).toBe(INITIAL_DETECTION_RATE)
   })
+
+  it('starts at 20 Hz', () => {
+    expect(detectionIntervalMs(INITIAL_DETECTION_RATE)).toBeCloseTo(1000 / 20)
+  })
+
+  // #66: 30 Hz only where inference is cheap enough not to starve the main thread.
+  it('climbs to 30 Hz after 10 s of inference under 8 ms', () => {
+    expect(detectionIntervalMs(run(every(5, 0, 9500)))).toBeCloseTo(1000 / 20)
+    expect(detectionIntervalMs(run(every(5, 0, 10_500)))).toBeCloseTo(1000 / 30)
+  })
+
+  it('does not climb to 30 Hz on a phone-class 15–25 ms inference', () => {
+    expect(detectionIntervalMs(run(every(15, 0, 60_000)))).toBeCloseTo(1000 / 20)
+  })
+
+  it('drops from 30 back to 20 Hz once inference passes 13 ms for 2 s', () => {
+    const at30 = run(every(5, 0, 10_500))
+    let state = at30
+    for (const [ms, t] of every(16, 10_550, 12_600)) state = stepDetectionRate(state, ms, t)
+    expect(detectionIntervalMs(state)).toBeCloseTo(1000 / 20)
+  })
 })
