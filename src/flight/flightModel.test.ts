@@ -4,6 +4,7 @@ import type { ControlInput } from '../input/types'
 import {
   DEFAULT_FLIGHT_PARAMS,
   FIXED_DT,
+  FLIGHT_FEEL,
   createInitialFlightState,
   step,
   type FlightState,
@@ -196,5 +197,84 @@ describe('soft floor', () => {
   it('starts at the given spawn position', () => {
     const state = createInitialFlightState(params, new Vector3(10, 200, -30))
     expect(state.position.toArray()).toEqual([10, 200, -30])
+  })
+})
+
+// Each FLIGHT_FEEL constant, pinned by what it does in the air (#68).
+describe('flight feel', () => {
+  const HIGH = new Vector3(0, 400, 0)
+  const at = (overrides: Partial<FlightState> = {}): FlightState => ({
+    ...createInitialFlightState(params, HIGH),
+    ...overrides,
+  })
+  /** Seconds of flight at the 60 Hz sim rate. */
+  const fly = (state: FlightState, control: ControlInput, seconds: number) =>
+    stepMany(state, control, FIXED_DT, Math.round(seconds / FIXED_DT))
+
+  it('energyGain: a dive buys speed that carries into the climb after it', () => {
+    const dived = fly(at(), input({ pitch: -1 }), 3)
+    expect(dived.speed).toBeGreaterThan(params.cruiseSpeed + 8)
+
+    // The same 3 s climb from level flight, entered at cruise or at the speed the dive bought.
+    const fromCruise = fly(at(), input({ pitch: 1 }), 3)
+    const fromDive = fly(at({ speed: dived.speed }), input({ pitch: 1 }), 3)
+    expect(fromDive.position.y - HIGH.y).toBeGreaterThan(fromCruise.position.y - HIGH.y + 5)
+    expect(fromDive.speed).toBeGreaterThan(fromCruise.speed)
+  })
+
+  it('energyGain: a sustained full dive settles near 64 m/s, under maxSpeed', () => {
+    const state = fly(at(), input({ pitch: -1 }), 20)
+    expect(state.speed).toBeGreaterThan(62)
+    expect(state.speed).toBeLessThan(FLIGHT_FEEL.maxSpeed)
+  })
+
+  it('minSpeed still floors a sustained climb', () => {
+    const state = fly(at(), input({ pitch: 1 }), 20)
+    expect(state.speed).toBeCloseTo(params.minSpeed, 5)
+  })
+
+  it('maxSpeed caps speed however it was reached', () => {
+    const state = fly(at({ speed: 90 }), input({ pitch: -1 }), 0.1)
+    expect(state.speed).toBeLessThanOrEqual(FLIGHT_FEEL.maxSpeed)
+  })
+
+  it('speedDecayTime: level flight sheds most of a dive’s extra speed in about 4 s', () => {
+    const excess = 64 - params.cruiseSpeed
+    const after1s = fly(at({ speed: 64 }), input(), 1).speed - params.cruiseSpeed
+    const after4s = fly(at({ speed: 64 }), input(), 4).speed - params.cruiseSpeed
+    expect(after1s).toBeGreaterThan(excess * 0.5) // an easing, not a snap
+    expect(after4s).toBeLessThan(excess * 0.25)
+  })
+
+  it('yawLagTime: the nose follows the wings a beat late', () => {
+    const noLag = { ...params, yawLagTime: 0 }
+    let lagged = at()
+    let instant = at()
+    for (let i = 0; i < 12; i++) {
+      lagged = step(lagged, input({ roll: 1 }), FIXED_DT, params)
+      instant = step(instant, input({ roll: 1 }), FIXED_DT, noLag)
+    }
+    // After 0.2 s the wings match but the lagged plane has turned less.
+    expect(lagged.bank).toBeCloseTo(instant.bank, 10)
+    expect(Math.abs(lagged.heading)).toBeLessThan(Math.abs(instant.heading) * 0.8)
+    // The lag is short: once the wings settle, the turn bank has caught up with them.
+    const settled = fly(lagged, input({ roll: 1 }), 2)
+    expect(settled.yawBank).toBeCloseTo(settled.bank, 2)
+  })
+
+  it('floorContact reads 0 in open sky and grows with depth into the band', () => {
+    const ground = 100
+    const clear = step(at({ position: new Vector3(0, 400, 0) }), input(), FIXED_DT, params, ground)
+    const shallow = step(
+      at({ position: new Vector3(0, 115, 0) }),
+      input(),
+      FIXED_DT,
+      params,
+      ground,
+    )
+    const deep = step(at({ position: new Vector3(0, 104, 0) }), input(), FIXED_DT, params, ground)
+    expect(clear.floorContact).toBe(0)
+    expect(shallow.floorContact).toBeGreaterThan(FLIGHT_FEEL.floorContactEnter)
+    expect(deep.floorContact).toBeGreaterThan(shallow.floorContact)
   })
 })
