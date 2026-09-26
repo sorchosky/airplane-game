@@ -90,6 +90,11 @@ export class TerrainStreamer {
     return this.active.size
   }
 
+  /** Whether the layout around the plane is complete: something drawn and nothing still building. */
+  get ready(): boolean {
+    return this.pending.size === 0 && this.active.size > 0
+  }
+
   dispose(): void {
     for (const worker of this.workers) worker.terminate()
     this.workers.length = 0

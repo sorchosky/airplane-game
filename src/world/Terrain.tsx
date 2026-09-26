@@ -51,8 +51,9 @@ export function Terrain() {
     if (!streamer) return
     const { position } = useFlightStore.getState().state
     streamer.update(position.x, position.z)
-    if (usePerfStore.getState().terrainTiles !== streamer.tileCount) {
-      usePerfStore.setState({ terrainTiles: streamer.tileCount })
+    const perf = usePerfStore.getState()
+    if (perf.terrainTiles !== streamer.tileCount || perf.terrainReady !== streamer.ready) {
+      usePerfStore.setState({ terrainTiles: streamer.tileCount, terrainReady: streamer.ready })
     }
   })
 

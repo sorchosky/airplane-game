@@ -1,6 +1,7 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import { IcosahedronGeometry, InstancedMesh, MeshLambertMaterial, Object3D } from 'three'
+import { activeShot } from '../debug/shots'
 import { useFlightStore } from '../flight/flightStore'
 import { color } from '../styles/tokens'
 import { CLOUD_CONFIG, cloudLayout, wrapAround } from './atmosphere'
@@ -42,7 +43,8 @@ export function Clouds() {
   )
 
   useFrame((_state, delta) => {
-    elapsed.current += delta
+    // `?shot=` bookmarks freeze the drift so a capture is repeatable.
+    if (!activeShot()) elapsed.current += delta
     const t = elapsed.current
     const { position } = useFlightStore.getState().state
     const { fieldSize, windX, windZ } = CLOUD_CONFIG

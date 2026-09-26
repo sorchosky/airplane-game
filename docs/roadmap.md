@@ -69,3 +69,12 @@ Five milestones, each tracked as an epic issue with sub-issues. Every ticket is 
 | #27 | Mobile performance pass and debug HUD | M | #18, #25 | needs-human: device test while casting |
 | #28 | Pause menu, orientation prompt, reduced motion, UX copy | M | #18 | |
 | #29 | Audio: engine and wind | S | #10 | optional |
+
+## M5 AAA polish pass · epic #58 (see `docs/aaa-backlog.md`)
+
+A multi-PR pass that takes the prototype to portfolio quality: engineering
+foundations (latency, allocations, adaptive quality), a BotW-faithful palette
+and lighting, terrain and foliage, flight feel, onboarding, clouds, VFX,
+landmarks, audio, UI reskin and an authored golden path. Slices, sizes and
+dependencies are in the backlog; each is filed as an issue (#59–#83) under the epic. Art
+slices wait for the owner's sign-off on `docs/art-bible.md`.

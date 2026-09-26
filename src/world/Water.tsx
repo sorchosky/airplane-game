@@ -1,6 +1,7 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import type { Mesh } from 'three'
+import { activeShot } from '../debug/shots'
 import { useFlightStore } from '../flight/flightStore'
 import { TERRAIN_CONFIG } from './terrainConfig'
 import { createWaterMaterial, waterTimeUniform } from './waterShader'
@@ -23,7 +24,8 @@ export function Water() {
   useEffect(() => () => material.dispose(), [material])
 
   useFrame((_state, delta) => {
-    waterTimeUniform.value += delta
+    // `?shot=` bookmarks freeze the ripples so a capture is repeatable.
+    if (!activeShot()) waterTimeUniform.value += delta
     const mesh = meshRef.current
     if (!mesh) return
     const { position } = useFlightStore.getState().state
