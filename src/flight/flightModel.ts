@@ -14,14 +14,21 @@ export interface FlightState {
   // camera, HUD and audio can ignore these.
   bankRate: number // rad/s
   pitchRate: number // rad/s
+  // The bank the turn rate follows: the real bank, lagged by `yawLagTime`, so the nose swings a
+  // beat after the wings (#68).
+  yawBank: number // radians
+  // How deep the plane is in the soft floor band, 0 (clear) .. 1 (at the ground). Drives the
+  // pull-up and, through `flightStore`'s floor-contact event, the low-pass VFX and audio.
+  floorContact: number
 }
 
 export interface FlightParams {
   cruiseSpeed: number // m/s, target airspeed in level, unpitched flight (~100 mph, per docs/decisions.md)
   minSpeed: number // m/s, floor speed can't drop below even in a sustained climb
   maxSpeed: number // m/s, ceiling speed can't exceed even in a sustained dive
-  speedPitchSensitivity: number // m/s of target-speed change per full radian of pitch (dive = faster, climb = slower)
-  speedResponseTime: number // seconds, time constant for speed easing toward its pitch-derived target
+  energyGain: number // m/s^2, acceleration along the flight path per unit sin(pitch): dives gain speed, climbs spend it
+  speedDecayTime: number // seconds, time constant of speed relaxing back to cruise (drag and throttle together)
+  yawLagTime: number // seconds, lag between the bank and the bank the turn rate follows
   maxBankAngle: number // radians, target bank angle at full roll input (~50°)
   maxPitchAngle: number // radians, target pitch angle at full pitch input (~25°)
   bankSmoothTime: number // seconds, critically-damped spring time constant for bank chasing its target
@@ -36,12 +43,39 @@ export interface FlightParams {
 
 const degToRad = (degrees: number): number => (degrees * Math.PI) / 180
 
+/**
+ * The feel constants (#68): energy, weight and the floor. Kept together so tuning happens in one
+ * place; `flightModel.test.ts` pins what each one does.
+ */
+export const FLIGHT_FEEL = {
+  /**
+   * Stronger than real gravity along the path (9.81) so a dive visibly buys speed: a sustained
+   * full dive settles near 64 m/s, a sustained full climb would fall to 26 but `minSpeed` holds it
+   * at 32.
+   */
+  energyGain: 18,
+  /** Level flight sheds a dive's extra speed with this time constant: 80 % gone in about 4 s. */
+  speedDecayTime: 2.5,
+  /** Room above the steady full-dive speed, so a dive into the floor pull-up still has headroom. */
+  maxSpeed: 68,
+  /** A beat of weight: the nose follows the wings by 0.15 s. */
+  yawLagTime: 0.15,
+  /**
+   * Floor contact starts this deep into the soft-floor band (0..1), a metre into a 20 m band, so
+   * grazing the top of it doesn't count. It ends back above `floorContactExit`, so hovering at
+   * the edge doesn't chatter.
+   */
+  floorContactEnter: 0.05,
+  floorContactExit: 0.02,
+} as const
+
 export const DEFAULT_FLIGHT_PARAMS: FlightParams = {
   cruiseSpeed: 45,
   minSpeed: 32,
-  maxSpeed: 60,
-  speedPitchSensitivity: 15,
-  speedResponseTime: 1.5,
+  maxSpeed: FLIGHT_FEEL.maxSpeed,
+  energyGain: FLIGHT_FEEL.energyGain,
+  speedDecayTime: FLIGHT_FEEL.speedDecayTime,
+  yawLagTime: FLIGHT_FEEL.yawLagTime,
   maxBankAngle: degToRad(50),
   maxPitchAngle: degToRad(25),
   bankSmoothTime: 0.35,
@@ -72,6 +106,8 @@ export function createInitialFlightState(
     speed: params.cruiseSpeed,
     bankRate: 0,
     pitchRate: 0,
+    yawBank: 0,
+    floorContact: 0,
   }
 }
 
@@ -162,22 +198,25 @@ function integrate(
   const bank = bankSpring.value
   const pitchAngle = pitchSpring.value
 
-  // Coordinated turn: bank produces a yaw rate, there's no direct yaw input. In this Y-up,
-  // forward -Z, right-handed frame, a positive (rightward) rotation about +Y actually swings the
-  // nose toward -X (left) -- see the forward-vector math below -- so turning right needs heading
-  // to *decrease*, hence the minus sign.
-  const yawRate = -(params.turnGravity * Math.tan(bank)) / state.speed
+  // Coordinated turn: bank produces a yaw rate, there's no direct yaw input. The turn follows a
+  // lagged copy of the bank, so the wings lead and the nose follows. In this Y-up, forward -Z,
+  // right-handed frame, a positive (rightward) rotation about +Y actually swings the nose toward
+  // -X (left) -- see the forward-vector math below -- so turning right needs heading to
+  // *decrease*, hence the minus sign.
+  const yawLerp = params.yawLagTime > 0 ? 1 - Math.exp(-dt / params.yawLagTime) : 1
+  const yawBank = state.yawBank + (bank - state.yawBank) * yawLerp
+  const yawRate = -(params.turnGravity * Math.tan(yawBank)) / state.speed
   const heading = state.heading + yawRate * dt
 
-  // Speed: constant cruise, nudged by pitch (dive = faster, climb = slower), clamped, and eased
-  // toward its target so pitch changes feel like drag/gravity rather than a throttle switch.
-  const targetSpeed = clamp(
-    params.cruiseSpeed - params.speedPitchSensitivity * Math.sin(pitchAngle),
+  // Speed as energy: gravity along the path speeds a dive and slows a climb, and drag plus
+  // throttle pull it back toward cruise. A dive's extra speed carries into the climb after it.
+  const pathAcceleration = -params.energyGain * Math.sin(pitchAngle)
+  const decay = (params.cruiseSpeed - state.speed) / params.speedDecayTime
+  const speed = clamp(
+    state.speed + (pathAcceleration + decay) * dt,
     params.minSpeed,
     params.maxSpeed,
   )
-  const speedLerp = 1 - Math.exp(-dt / params.speedResponseTime)
-  const speed = state.speed + (targetSpeed - state.speed) * speedLerp
 
   const horizontalSpeed = Math.cos(pitchAngle) * speed
   // forward vector = Ry(heading) * (0, 0, -1) = (-sin(heading), 0, -cos(heading))
@@ -208,6 +247,8 @@ function integrate(
   out.speed = speed
   out.bankRate = bankSpring.velocity
   out.pitchRate = pitchSpring.velocity
+  out.yawBank = yawBank
+  out.floorContact = floorDepth
   return out
 }
 
@@ -252,5 +293,7 @@ export function copyFlightState(from: FlightState, to: FlightState): FlightState
   to.speed = from.speed
   to.bankRate = from.bankRate
   to.pitchRate = from.pitchRate
+  to.yawBank = from.yawBank
+  to.floorContact = from.floorContact
   return to
 }

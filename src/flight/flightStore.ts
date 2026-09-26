@@ -10,6 +10,11 @@ import {
   type FlightParams,
   type FlightState,
 } from './flightModel'
+import {
+  createFloorContactTracker,
+  trackFloorContact,
+  type FloorContactEvent,
+} from './floorContact'
 
 /** m above the valley floor the plane starts at */
 const SPAWN_ALTITUDE = 120
@@ -23,6 +28,20 @@ function spawnPosition(): Vector3 {
     spawn = new Vector3(point.x, point.groundHeight + SPAWN_ALTITUDE, point.z)
   }
   return spawn
+}
+
+type FloorContactListener = (event: FloorContactEvent) => void
+const floorContactListeners = new Set<FloorContactListener>()
+const floorContact = createFloorContactTracker()
+
+/**
+ * Low-pass payoff hook (#68): called when the plane dips into the soft floor (`start`, with its
+ * depth) and when it climbs back out (`end`, with the deepest point). For VFX and audio (F2, F3);
+ * the continuous depth is `state.floorContact`. Returns the unsubscribe function.
+ */
+export function onFloorContact(listener: FloorContactListener): () => void {
+  floorContactListeners.add(listener)
+  return () => floorContactListeners.delete(listener)
 }
 
 interface FlightStore {
@@ -47,6 +66,8 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
   tick: (input, dt, groundHeight) => {
     const { state, params } = get()
     step(state, input, dt, params, groundHeight, state)
+    const event = trackFloorContact(floorContact, state.floorContact)
+    if (event) for (const listener of floorContactListeners) listener(event)
   },
   reset: () => set({ state: createInitialFlightState(get().params, spawnPosition()) }),
 }))
