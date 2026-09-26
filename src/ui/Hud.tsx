@@ -4,6 +4,7 @@ import { useInputStore } from '../input/inputStore'
 import { getInputSourceFromUrl } from '../input/source'
 import { CameraPreview } from './CameraPreview'
 import { Prompt } from './Prompt'
+import { WarmCaption } from './WarmCaption'
 
 /**
  * Flight HUD over the canvas: the control prompt and, when steering by pose, the camera preview
@@ -19,6 +20,7 @@ export function Hud() {
     <div data-testid="hud" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
       {showPreview && <CameraPreview controlState={active ? 'active' : 'inactive'} />}
       <Prompt prompt={prompt} />
+      <WarmCaption />
     </div>
   )
 }
