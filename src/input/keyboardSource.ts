@@ -15,12 +15,18 @@ const ROLL_RIGHT_KEYS = new Set(['d', 'D', 'ArrowRight'])
 const PITCH_DIVE_KEYS = new Set(['w', 'W', 'ArrowUp'])
 const PITCH_CLIMB_KEYS = new Set(['s', 'S', 'ArrowDown'])
 const TOGGLE_ACTIVE_KEYS = new Set([' '])
+/** Held, like the arms-back sweep it stands in for (#93). */
+const BOOST_KEYS = new Set(['Shift'])
 
 export function targetRoll(pressed: Set<string>): number {
   const left = [...pressed].some((key) => ROLL_LEFT_KEYS.has(key))
   const right = [...pressed].some((key) => ROLL_RIGHT_KEYS.has(key))
   if (left === right) return 0
   return left ? -1 : 1
+}
+
+export function isBoosting(pressed: Set<string>): boolean {
+  return [...pressed].some((key) => BOOST_KEYS.has(key))
 }
 
 export function targetPitch(pressed: Set<string>): number {
@@ -54,6 +60,12 @@ export function useKeyboardSource(enabled = true): void {
 
     const onKeyUp = (event: KeyboardEvent) => {
       pressed.delete(event.key)
+      // Shift (boost) changes a letter's case between its keydown and keyup: D down, Shift down,
+      // D up reports "D" and would leave "d" held forever.
+      if (event.key.length === 1) {
+        pressed.delete(event.key.toLowerCase())
+        pressed.delete(event.key.toUpperCase())
+      }
     }
 
     const tick = (now: number) => {
@@ -73,6 +85,7 @@ export function useKeyboardSource(enabled = true): void {
         roll: rampTowards(current.roll, keyRoll || touchTargets.roll, RAMP_RATE, dt),
         pitch: rampTowards(current.pitch, keyPitch || touchTargets.pitch, RAMP_RATE, dt),
         active,
+        boost: isBoosting(pressed),
         confidence: 1,
         source: 'keyboard',
       })
