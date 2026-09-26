@@ -1,11 +1,35 @@
-import { useCallback } from 'react'
+import { type CSSProperties, useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { resumeAudioEngine } from '../../audio/audioEngine'
-import { color, space, type } from '../../styles/tokens'
+import { color, radius, space, type } from '../../styles/tokens'
 import { copy } from '../../ui/copy'
+import { TitleSky } from '../../ui/TitleSky'
 import { useGameStore } from '../gameStore'
 import { tryLockLandscape } from '../orientation'
 import { isKeyboardInputMode } from '../urlFlags'
 import { acquireWakeLock } from '../wakeLock'
+import {
+  BAND_BLUR_PX,
+  BAND_WIDTH_VW,
+  START_EASING,
+  TITLE_INTRO,
+  bandKeyframes,
+  revealKeyframes,
+  shouldPlayIntro,
+  startBeginsAt,
+  startKeyframes,
+} from './titleIntro'
+
+/** Module scope, so the intro plays once per page load (see `shouldPlayIntro`). */
+let introPlayed = false
+
+/** The wordmark's shadow sits this far below it (Figma: 8 px at 48 px type). */
+const HERO_SHADOW_OFFSET = '0.1667em'
+/** Figma: the shadow is `title-text-shadow` at 20%. */
+const HERO_SHADOW_OPACITY = 0.2
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
 
 export function TitleScreen() {
   const startPermission = useGameStore((s) => s.startPermission)
@@ -31,146 +55,159 @@ export function TitleScreen() {
     permissionGranted()
   }, [permissionGranted, skipToFlying, startPermission])
 
+  // Decided once per mount, before the first paint, so a skipped intro never flashes.
+  const [playIntro] = useState(() => shouldPlayIntro(introPlayed, prefersReducedMotion()))
+  const revealRef = useRef<HTMLDivElement>(null)
+  const bandRef = useRef<HTMLDivElement>(null)
+  const startRef = useRef<HTMLButtonElement>(null)
+
+  useLayoutEffect(() => {
+    const reveal = revealRef.current
+    const band = bandRef.current
+    const start = startRef.current
+    if (!playIntro || !reveal || !band || !start) return
+    introPlayed = true
+
+    const sweep: KeyframeAnimationOptions = {
+      duration: TITLE_INTRO.sweep,
+      delay: TITLE_INTRO.skyHold,
+      easing: 'linear',
+      fill: 'both',
+    }
+    const animations = [
+      reveal.animate(revealKeyframes(), sweep),
+      band.animate(bandKeyframes(), sweep),
+      start.animate(startKeyframes(), {
+        duration: TITLE_INTRO.startDuration,
+        delay: startBeginsAt(),
+        easing: START_EASING,
+        fill: 'backwards',
+      }),
+    ]
+    // The reveal's end state (clip past the right edge) equals no clip; drop it so the title
+    // isn't left carrying a clip-path.
+    const [revealAnimation] = animations
+    revealAnimation?.finished.then(
+      () => revealAnimation.cancel(),
+      () => undefined,
+    )
+    return () => animations.forEach((a) => a.cancel())
+  }, [playIntro])
+
   return (
     <div
       style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        justifyContent: 'center',
-        alignContent: 'center',
-        gap: space.xxl,
+        position: 'relative',
         height: '100%',
         width: '100%',
-        overflowY: 'auto',
-        padding: space.xl,
-        color: color.textPrimary,
-        background: `linear-gradient(180deg, ${color.skyZenith}, ${color.skyHorizon})`,
+        overflow: 'hidden',
+        color: color.titleText,
       }}
     >
+      <TitleSky />
       <div
         style={{
+          position: 'absolute',
+          inset: 0,
           display: 'flex',
-          flexDirection: 'column',
           alignItems: 'center',
-          gap: space.lg,
-          textAlign: 'center',
         }}
       >
-        {/* No panel behind the title/tagline or button, and no drop shadows, per owner
-          request — everything sits directly on the sky gradient. The title is large
-          enough (tv-display resolves well above 32px) to clear WCAG's 3:1 large-text
-          minimum without help, even mid-gradient, so it carries no shadow at all. The
-          tagline is regular-weight body text and needs the full 4.5:1, which the raw
-          gradient alone doesn't reliably clear — it keeps a minimal, zero-offset text
-          glow (not an offset "drop" shadow) as the smallest legibility assist that
-          still works. Known tradeoff either way: see docs/art-direction.md's contrast
-          note. */}
-        <h1
-          style={{
-            fontFamily: type.fontDisplay,
-            fontWeight: type.weightDisplay,
-            fontSize: type.tvDisplay,
-            textTransform: 'uppercase',
-            letterSpacing: type.trackingDisplay,
-            margin: 0,
-          }}
-        >
-          {copy.title.name}
-        </h1>
-        <p
-          style={{
-            fontSize: type.tvBody,
-            textShadow: `0 0 4px ${color.outline}`,
-            margin: 0,
-            maxWidth: '40ch',
-          }}
-        >
-          {copy.title.tagline}
-        </p>
+        {/* Full-width row so the reveal clip and the band share viewport coordinates. */}
+        <div ref={revealRef} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+          <h1
+            style={{
+              display: 'grid',
+              margin: 0,
+              fontFamily: type.fontDisplay,
+              fontWeight: type.weightHero,
+              fontSize: type.tvHero,
+              lineHeight: 1,
+              textTransform: 'uppercase',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                ...heroLayer(type.trackingHeroShadow),
+                color: color.titleTextShadow,
+                opacity: HERO_SHADOW_OPACITY,
+                transform: `translateY(${HERO_SHADOW_OFFSET})`,
+              }}
+            >
+              {copy.title.name}
+            </span>
+            <span style={heroLayer(type.trackingHero)}>{copy.title.name}</span>
+          </h1>
+        </div>
+      </div>
+      {/* Frame 07: the title sits dead center and Start hangs below it, rather than the two being
+        centered as a group. */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: 0,
+          right: 0,
+          display: 'flex',
+          justifyContent: 'center',
+          paddingTop: `calc(${type.tvHero} / 2 + ${space.lg})`,
+        }}
+      >
         <button
+          ref={startRef}
           type="button"
           onClick={handleStart}
           style={{
-            fontFamily: type.fontDisplay,
-            fontWeight: type.weightDisplay,
-            fontSize: type.tvTitle,
-            textTransform: 'uppercase',
-            letterSpacing: type.trackingDisplay,
             minHeight: 64,
-            minWidth: 240,
             padding: `${space.md} ${space.xl}`,
-            borderRadius: space.md,
-            border: `2px solid ${color.textPrimary}`,
+            borderRadius: radius.sharp,
+            border: `2px solid ${color.titleStartBorder}`,
             background: 'transparent',
-            color: color.textPrimary,
+            color: color.titleText,
+            fontFamily: type.fontBody,
+            fontWeight: type.weightStart,
+            fontSize: type.tvBody,
+            lineHeight: 1,
+            letterSpacing: type.trackingStart,
+            textTransform: 'uppercase',
             cursor: 'pointer',
           }}
         >
-          {copy.title.start}
+          {/* Letter-spacing also trails the last letter; pull it back so the label centers. */}
+          <span style={{ marginRight: `calc(-1 * ${type.trackingStart})` }}>
+            {copy.title.start}
+          </span>
         </button>
       </div>
-      <HowToPlay />
+      {playIntro && (
+        <div
+          ref={bandRef}
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            height: '100%',
+            width: `${BAND_WIDTH_VW}vw`,
+            backdropFilter: `blur(${BAND_BLUR_PX}px)`,
+            WebkitBackdropFilter: `blur(${BAND_BLUR_PX}px)`,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
     </div>
   )
 }
 
-/**
- * The three setup steps, on a `surface-hud` plate: unlike the title and tagline, this is several
- * lines of body text, which needs the plate to clear AA (docs/decisions.md, 2026-09-25 art).
- */
-function HowToPlay() {
-  return (
-    <section
-      aria-labelledby="how-to-play"
-      style={{
-        maxWidth: '26ch',
-        padding: `${space.lg} ${space.xl}`,
-        borderRadius: space.md,
-        background: color.surfaceHud,
-        fontSize: type.tvBody,
-      }}
-    >
-      <h2
-        id="how-to-play"
-        style={{
-          fontFamily: type.fontDisplay,
-          fontWeight: type.weightDisplay,
-          fontSize: type.tvBody,
-          textTransform: 'uppercase',
-          letterSpacing: type.trackingDisplay,
-          color: color.textMuted,
-          margin: `0 0 ${space.md}`,
-        }}
-      >
-        {copy.title.howToPlay}
-      </h2>
-      <ol
-        style={{
-          listStyle: 'none',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: space.md,
-          margin: 0,
-          padding: 0,
-        }}
-      >
-        {copy.title.steps.map((step, i) => (
-          <li key={step} style={{ display: 'flex', gap: space.md }}>
-            <span
-              aria-hidden="true"
-              style={{
-                fontFamily: type.fontDisplay,
-                fontWeight: type.weightDisplay,
-                color: color.accent,
-              }}
-            >
-              {i + 1}
-            </span>
-            <span>{step}</span>
-          </li>
-        ))}
-      </ol>
-    </section>
-  )
+/** One of the wordmark's two stacked layers (the text and its shadow share a grid cell). */
+function heroLayer(tracking: string): CSSProperties {
+  return {
+    gridArea: '1 / 1',
+    justifySelf: 'center',
+    letterSpacing: tracking,
+    // Letter-spacing also trails the last letter; indent by the same amount so the word centers.
+    paddingLeft: tracking,
+  }
 }

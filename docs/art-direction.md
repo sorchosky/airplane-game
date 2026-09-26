@@ -133,10 +133,11 @@ saturated as the original red-orange.
   the same reasoning that makes it a common recommendation in font-pairing
   guides applies here.
 - **Font weights are loaded exactly, not "whatever's default":** `Josefin
-  Sans` is only ever used at `type.weightDisplay` (600); `Work Sans` at its
-  browser default (400, for body copy) and `type.weightButton` (500, for
-  buttons and labels). `tokens.css`'s Google Fonts import requests exactly
-  those three weights — no more, no less — and `tokens.test.ts` asserts the
+  Sans` is used at `type.weightDisplay` (600) and `type.weightHero` (400, the
+  title wordmark); `Work Sans` at its browser default (400, for body copy),
+  `type.weightButton` (500, for buttons and labels) and `type.weightStart`
+  (600, the title screen's Start). `tokens.css`'s Google Fonts import requests
+  exactly those weights — no more, no less — and `tokens.test.ts` asserts the
   import URL matches, so a component can't silently request an unloaded
   weight (which would force the browser into synthetic-bold territory) or
   the font file bloat of loading a weight nothing uses.
@@ -173,26 +174,13 @@ Enforced by `tokens.test.ts` so a future palette change can't silently drop
 below AA. Full contrast math and the alpha-compositing assumption are in that
 test file.
 
-**Known gap: `TitleScreen` text isn't reliably AA-compliant.** `text-primary`
-directly on the gradient is only AA-compliant near the top (`skyZenith`,
-5.4:1) — it drops well below both the 4.5:1 (normal text) and 3:1
-(large text/UI) minimums by the middle of the gradient. An earlier revision
-routed the title/tagline/button through a `surface-hud` plate to fix this,
-but the owner asked for that panel removed for this round of visual testing
-(no background behind the type, no drop shadows, a plain outlined button) —
-text now sits directly on the gradient. Where it lands, per element:
-
-- **Title (`h1`):** no shadow at all. At `tv-display`'s resolved size (well
-  above the 32px "large text" threshold) it clears the relaxed 3:1 minimum
-  near the middle of the gradient on its own; only degrades near the very
-  bottom.
-- **Tagline (`p`):** regular-weight body text, held to the full 4.5:1, which
-  the raw gradient doesn't reliably clear. Keeps a minimal, zero-offset text
-  glow (`0 0 4px outline`, not an offset "drop" shadow) as the smallest
-  legibility assist that still helps.
-- **Start button:** no shadow on the label or the border. Both `text-primary`
-  and its use as the border color are the least protected of the three —
-  contrast is marginal to failing in the lower half of the gradient.
+**Known gap: `TitleScreen` contrast is marginal.** The title screen follows the
+owner's Figma "Driftwing" storyboard: `title-text` directly on the ported cirrus
+sky (`TitleSky`), no plate, no tagline or How to play. At screen center, where
+the wordmark sits, the sky is roughly a 70/30 mix of `title-sky-mid` and
+`title-sky-top`, which gives `title-text` about 3:1: enough for the wordmark as
+large text, marginal for the Start label and its 70% border. Cloud wisps
+passing behind lower it further in places.
 
 `?swatches` still uses the `surface-hud` sheet, since none of this applies
 there. Revisit before this ships: bring back a plate (even a lighter one),

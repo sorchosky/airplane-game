@@ -137,6 +137,10 @@ describe('design tokens', () => {
       'tvTitle',
       'tvBody',
       'tvCaption',
+      'tvHero',
+      'trackingHero',
+      'trackingHeroShadow',
+      'trackingStart',
     ] as const) {
       expect(
         normalizedCss.includes(stripQuotes(type[key])),
@@ -145,6 +149,8 @@ describe('design tokens', () => {
     }
     expect(css.includes(`--weight-display: ${type.weightDisplay};`)).toBe(true)
     expect(css.includes(`--weight-button: ${type.weightButton};`)).toBe(true)
+    expect(css.includes(`--weight-hero: ${type.weightHero};`)).toBe(true)
+    expect(css.includes(`--weight-start: ${type.weightStart};`)).toBe(true)
   })
 
   it('loads exactly the Google Fonts weights the tokens use (no unused/missing weights)', () => {
@@ -152,9 +158,10 @@ describe('design tokens', () => {
     const importUrl = css.match(/@import url\('([^']+)'\)/)?.[1]
     expect(importUrl, 'tokens.css should @import a Google Fonts URL').toBeDefined()
 
-    // fontDisplay is only ever used at weightDisplay (headings/logo); fontBody is used at its
-    // default weight (400, unset in any component) and at weightButton (buttons/labels).
-    expect(importUrl).toContain(`Josefin+Sans:wght@${type.weightDisplay}`)
-    expect(importUrl).toContain(`Work+Sans:wght@400;${type.weightButton}`)
+    // fontDisplay is used at weightHero (the title wordmark) and weightDisplay (headings);
+    // fontBody at its default weight (400, unset in any component), weightButton
+    // (buttons/labels) and weightStart (the title screen's Start).
+    expect(importUrl).toContain(`Josefin+Sans:wght@${type.weightHero};${type.weightDisplay}`)
+    expect(importUrl).toContain(`Work+Sans:wght@400;${type.weightButton};${type.weightStart}`)
   })
 })

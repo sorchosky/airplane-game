@@ -50,6 +50,18 @@ export const color = {
   textPrimary: '#f3e8d8',
   textMuted: '#cdbca6',
   accent: '#5cb8bd',
+
+  // Title screen (Figma "Driftwing" storyboard). The sky colors are the Figma "Golden hour
+  // cirrus" shader's palette pre-mixed at the title's time-of-day, so `TitleSky` only blends
+  // three sky stops and two cloud tones.
+  titleSkyTop: '#285799',
+  titleSkyMid: '#978bad',
+  titleSkyLow: '#fd9e55',
+  titleCloudWarm: '#ffb988',
+  titleCloudCool: '#bab5cc',
+  titleText: '#e4e9f6',
+  titleTextShadow: '#2c4781',
+  titleStartBorder: 'rgba(228, 233, 246, 0.7)',
 } as const
 
 // 8pt spacing scale.
@@ -80,7 +92,17 @@ export const type = {
   // unloaded weight (tokens.css only loads the weights below).
   weightDisplay: 600,
   weightButton: 500,
+  // Title screen: Josefin at regular weight for the wordmark, Work Sans semibold for Start.
+  weightHero: 400,
+  weightStart: 600,
   trackingDisplay: '0.14em',
+  // Wordmark tracking, its offset shadow's (wider, so it reads as cast onto the clouds) and
+  // Start's, all as the Figma ratios (28.8 / 33.6 / 4.2 px at 48 / 48 / 14 px).
+  trackingHero: '0.6em',
+  trackingHeroShadow: '0.7em',
+  trackingStart: '0.3em',
+  // The wordmark: 48px on the 874px-wide Figma frame, capped for large TVs.
+  tvHero: 'clamp(2.5rem, 5.5vw, 6rem)',
   tvDisplay: 'clamp(2.5rem, 4.5vw, 4rem)',
   tvTitle: 'clamp(1.75rem, 3vw, 2.5rem)',
   tvBody: 'clamp(1.5rem, 2vw, 1.875rem)',
@@ -105,6 +127,11 @@ export const lighting = {
   // than a high overhead noon sun. #22 owns normalizing and animating this.
   sunDirection: [0.85, 0.28, 0.35] as const,
   rimStrength: 0.4,
+} as const
+
+// Corner radii.
+export const radius = {
+  sharp: '2px',
 } as const
 
 // HUD element sizing, relative to viewport so it scales with the TV.
