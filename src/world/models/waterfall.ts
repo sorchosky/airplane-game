@@ -36,6 +36,8 @@ export function buildWaterfall(
   const baseRadius = Math.max(20, plungeDistance - 8)
   const topRadius = baseRadius * 0.72
   const bottom = -Math.max(foundation, waterDepth) - 12
+  // Wider than it is deep, so it reads as a bluff along the shore, not a chimney.
+  const wide = [1.8, 1, 1] as const
   const cliff = mergeParts([
     prism({
       color: color.rockShadow,
@@ -46,6 +48,7 @@ export function buildWaterfall(
       sides: 7,
       jitter: 3,
       seed: 31,
+      scale: wide,
     }),
     prism({
       color: color.rock,
@@ -56,6 +59,7 @@ export function buildWaterfall(
       sides: 7,
       jitter: 2.5,
       seed: 32,
+      scale: wide,
     }),
     // Grass lip with a slight overhang, the way turf hangs over a cliff edge.
     prism({
@@ -67,7 +71,22 @@ export function buildWaterfall(
       sides: 7,
       jitter: 0.8,
       seed: 33,
+      scale: wide,
     }),
+    // Lower shoulders stepping down either side, so the skyline steps like a real escarpment.
+    ...[-1, 1].map((side, i) =>
+      prism({
+        color: color.rock,
+        radiusBottom: baseRadius * 0.85,
+        radiusTop: baseRadius * 0.6,
+        bottom,
+        top: height * (0.55 - i * 0.12),
+        sides: 6,
+        jitter: 2.5,
+        seed: 34 + i,
+        position: [side * baseRadius * 1.9, 0, baseRadius * 0.25],
+      }),
+    ),
   ])
 
   // The ribbon: from the lip at `topRadius`, water shoots forward and falls on a parabola to the
