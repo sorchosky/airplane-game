@@ -4,6 +4,7 @@ import { useInputStore } from '../input/inputStore'
 import { getInputSourceFromUrl } from '../input/source'
 import { CameraPreview } from './CameraPreview'
 import { ClockReadout } from './ClockReadout'
+import { LockInReveal } from './LockInReveal'
 import { Prompt } from './Prompt'
 import { WarmCaption } from './WarmCaption'
 
@@ -19,6 +20,7 @@ export function Hud() {
 
   return (
     <div data-testid="hud" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      <LockInReveal />
       {showPreview && <CameraPreview controlState={active ? 'active' : 'inactive'} />}
       <Prompt prompt={prompt} />
       <WarmCaption />

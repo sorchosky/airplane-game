@@ -197,3 +197,38 @@ export function playCue(cue: AudioCue): void {
   osc.start(now)
   osc.stop(now + CUE_ATTACK_SECONDS + CUE_RELEASE_SECONDS + 0.02)
 }
+
+/** Lock-in chime partials (Hz): a bright fifth, the second note a beat behind the first. */
+const CHIME_PARTIALS = [
+  { frequency: 880, delay: 0 },
+  { frequency: 1320, delay: 0.09 },
+] as const
+const CHIME_RELEASE_SECONDS = 0.7
+
+/**
+ * The calibration lock-in chime (#63, storyboard frame 03): two ringing sine notes on the cue bus,
+ * so it plays at the end of calibration before the engine is up, and only mute silences it.
+ */
+export function playLockInChime(): void {
+  if (!graph || muted) return
+  const { context, cueBus } = graph
+  const now = context.currentTime
+  for (const { frequency, delay } of CHIME_PARTIALS) {
+    const start = now + delay
+    const osc = context.createOscillator()
+    osc.type = 'sine'
+    osc.frequency.value = frequency
+
+    const gain = context.createGain()
+    gain.gain.setValueAtTime(0, start)
+    gain.gain.linearRampToValueAtTime(CUE_GAIN, start + CUE_ATTACK_SECONDS)
+    gain.gain.exponentialRampToValueAtTime(
+      0.0001,
+      start + CUE_ATTACK_SECONDS + CHIME_RELEASE_SECONDS,
+    )
+
+    osc.connect(gain).connect(cueBus)
+    osc.start(start)
+    osc.stop(start + CUE_ATTACK_SECONDS + CHIME_RELEASE_SECONDS + 0.02)
+  }
+}

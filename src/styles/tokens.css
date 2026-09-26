@@ -41,6 +41,8 @@
   --color-text-primary: #f3e8d8;
   --color-text-muted: #cdbca6;
   --color-accent: #5cb8bd;
+  --color-line: rgba(247, 244, 236, 0.55);
+  --color-lock-flash: #ffffff;
 
   /* Title screen */
   --color-title-sky-top: #285799;
@@ -79,8 +81,9 @@
   --radius-sharp: 2px;
 
   --size-camera-preview-width: 20vw;
-  --size-camera-preview-width-large: 44vw;
-  --size-calibration-figure: clamp(160px, 18vw, 240px);
+  --size-calibrate-frame: 12px;
+  --size-pose-demo-figure: clamp(72px, 8vw, 120px);
+  --size-hold-ring: clamp(40px, 4vw, 56px);
 }
 
 * {

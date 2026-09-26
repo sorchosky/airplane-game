@@ -97,3 +97,217 @@ export function armLine(
   }
   return out
 }
+
+/**
+ * Calibration skeleton (#63). The joints drawn over the player and in the target silhouette, in one
+ * shared order so both are drawn from the same segment list.
+ */
+export const SKELETON_JOINTS = [
+  LANDMARK.NOSE,
+  LANDMARK.LEFT_SHOULDER,
+  LANDMARK.RIGHT_SHOULDER,
+  LANDMARK.LEFT_ELBOW,
+  LANDMARK.RIGHT_ELBOW,
+  LANDMARK.LEFT_WRIST,
+  LANDMARK.RIGHT_WRIST,
+  LANDMARK.LEFT_HIP,
+  LANDMARK.RIGHT_HIP,
+] as const
+
+/** Positions in `SKELETON_JOINTS`, by name, for readable segment definitions. */
+export const JOINT = {
+  head: 0,
+  leftShoulder: 1,
+  rightShoulder: 2,
+  leftElbow: 3,
+  rightElbow: 4,
+  leftWrist: 5,
+  rightWrist: 6,
+  leftHip: 7,
+  rightHip: 8,
+} as const
+
+export type SkeletonLimb = 'arm' | 'torso'
+
+export interface SkeletonSegment {
+  from: number
+  to: number
+  limb: SkeletonLimb
+}
+
+/** Bones between joints. The head is drawn as a circle, not a bone. */
+export const SKELETON_SEGMENTS: readonly SkeletonSegment[] = [
+  { from: JOINT.leftWrist, to: JOINT.leftElbow, limb: 'arm' },
+  { from: JOINT.leftElbow, to: JOINT.leftShoulder, limb: 'arm' },
+  { from: JOINT.rightWrist, to: JOINT.rightElbow, limb: 'arm' },
+  { from: JOINT.rightElbow, to: JOINT.rightShoulder, limb: 'arm' },
+  { from: JOINT.leftShoulder, to: JOINT.rightShoulder, limb: 'torso' },
+  { from: JOINT.leftShoulder, to: JOINT.leftHip, limb: 'torso' },
+  { from: JOINT.rightShoulder, to: JOINT.rightHip, limb: 'torso' },
+  { from: JOINT.leftHip, to: JOINT.rightHip, limb: 'torso' },
+]
+
+export interface SkeletonJoint extends Point2 {
+  /** Whether the pose model saw this joint well enough to draw. */
+  visible: boolean
+}
+
+export interface Skeleton {
+  joints: SkeletonJoint[]
+  /** Head circle radius in canvas pixels, from the shoulder span. */
+  headRadius: number
+}
+
+/** A reusable skeleton for `skeletonPoints` / `targetSkeleton`. */
+export function createSkeleton(): Skeleton {
+  return { joints: SKELETON_JOINTS.map(() => ({ x: 0, y: 0, visible: false })), headRadius: 0 }
+}
+
+/** Joints below this visibility are left out of the drawn skeleton. */
+export const MIN_JOINT_VISIBILITY = 0.5
+/** Head radius as a share of the shoulder span. */
+export const HEAD_RADIUS_PER_SHOULDER = 0.35
+
+/** Video size assumed before the first frame arrives (or under `?input=replay`, with no camera). */
+export const FALLBACK_VIDEO_SIZE: Size2 = { width: 640, height: 480 }
+
+function setHeadRadius(skeleton: Skeleton): void {
+  const left = skeleton.joints[JOINT.leftShoulder]
+  const right = skeleton.joints[JOINT.rightShoulder]
+  skeleton.headRadius =
+    left && right ? Math.hypot(left.x - right.x, left.y - right.y) * HEAD_RADIUS_PER_SHOULDER : 0
+}
+
+/**
+ * The player's skeleton in canvas pixels, or null when there is nothing to draw (no person, or no
+ * canvas size yet). Joints the model can't see are marked invisible rather than dropped, so a
+ * missing hip still leaves the arms drawn. Writes into `out` and returns it.
+ */
+export function skeletonPoints(
+  landmarks: PoseLandmarks | null,
+  video: Size2,
+  canvas: Size2,
+  out: Skeleton = createSkeleton(),
+): Skeleton | null {
+  if (!landmarks) return null
+  const transform = coverTransform(video, canvas, transformScratch)
+  if (!transform) return null
+
+  for (let i = 0; i < SKELETON_JOINTS.length; i++) {
+    const landmark = landmarks[SKELETON_JOINTS[i] ?? 0]
+    const joint = out.joints[i]
+    if (!joint) continue
+    joint.visible = landmark !== undefined && landmark.visibility >= MIN_JOINT_VISIBILITY
+    if (landmark) toCanvasPoint(landmark, transform, joint)
+  }
+  setHeadRadius(out)
+  return out
+}
+
+/**
+ * The T-pose the player should fill, in normalized image space for a player about two metres from
+ * a propped phone. `shoulderWidth` sits mid-range of the calibration distance check
+ * (`DEFAULT_CALIBRATION_PARAMS`, 0.07–0.2), which is roughly where a 0.38 m shoulder span lands at
+ * 2 m on a ~70° front camera. The other lengths are body proportions as multiples of it.
+ */
+export const TARGET_POSE = {
+  centerX: 0.5,
+  shoulderY: 0.38,
+  shoulderWidth: 0.135,
+  upperArm: 0.8,
+  forearm: 0.75,
+  headAboveShoulders: 0.6,
+  shoulderToHip: 1.3,
+  hipWidth: 0.65,
+} as const
+
+/**
+ * The target silhouette in canvas pixels, scaled by `scale` about the middle of the torso (the
+ * too-close / too-far cue). Lengths are in video pixels before the cover transform, so the target
+ * keeps human proportions whatever the video's aspect. Writes into `out` and returns it.
+ */
+export function targetSkeleton(
+  video: Size2,
+  canvas: Size2,
+  scale = 1,
+  out: Skeleton = createSkeleton(),
+): Skeleton | null {
+  const transform = coverTransform(video, canvas, transformScratch)
+  if (!transform) return null
+
+  const t = TARGET_POSE
+  // Everything in video pixels first.
+  const unit = t.shoulderWidth * video.width * scale
+  const cx = t.centerX * video.width
+  const shoulderY = t.shoulderY * video.height
+  const hipY = shoulderY + t.shoulderToHip * t.shoulderWidth * video.width
+  const pivotY = (shoulderY + hipY) / 2
+  const sy = pivotY + (shoulderY - pivotY) * scale
+  const hy = pivotY + (hipY - pivotY) * scale
+  const half = unit / 2
+
+  const place = (index: number, x: number, y: number) => {
+    const joint = out.joints[index]
+    if (!joint) return
+    joint.x = transform.offsetX + x * transform.scale
+    joint.y = transform.offsetY + y * transform.scale
+    joint.visible = true
+  }
+  place(JOINT.head, cx, sy - t.headAboveShoulders * unit)
+  place(JOINT.leftShoulder, cx - half, sy)
+  place(JOINT.rightShoulder, cx + half, sy)
+  place(JOINT.leftElbow, cx - half - t.upperArm * unit, sy)
+  place(JOINT.rightElbow, cx + half + t.upperArm * unit, sy)
+  place(JOINT.leftWrist, cx - half - (t.upperArm + t.forearm) * unit, sy)
+  place(JOINT.rightWrist, cx + half + (t.upperArm + t.forearm) * unit, sy)
+  place(JOINT.leftHip, cx - (t.hipWidth * unit) / 2, hy)
+  place(JOINT.rightHip, cx + (t.hipWidth * unit) / 2, hy)
+  setHeadRadius(out)
+  return out
+}
+
+/** The calibration check the overlay is showing. Mirrors the flow's phases, minus `done`. */
+export type OverlayCheck = 'noPerson' | 'tooClose' | 'tooFar' | 'armsNotOut' | 'holding'
+
+/** One pulse, ms: slow enough to read as breathing from the couch rather than as a blink. */
+export const PULSE_PERIOD_MS = 1200
+/** How far the target shrinks (too close) or grows (too far) at the peak of a pulse. */
+export const TARGET_SCALE_SWING = 0.15
+/** The target's resting opacity (`line` at 40 %). */
+export const TARGET_ALPHA = 0.4
+
+/** 0..1..0 over `PULSE_PERIOD_MS`, starting at 0. A raised cosine, so it eases at both ends. */
+export function pulse(tMs: number): number {
+  return 0.5 - 0.5 * Math.cos((2 * Math.PI * tMs) / PULSE_PERIOD_MS)
+}
+
+export interface TargetStyle {
+  /** Scale about the torso middle. */
+  scale: number
+  /** Whether the torso and head / the arms are drawn as the failing part. */
+  bodyHighlight: boolean
+  armHighlight: boolean
+  /** Opacity of the highlighted parts; the rest stay at `TARGET_ALPHA`. */
+  highlightAlpha: number
+}
+
+/**
+ * How the target shows the failing check: the whole target pulses when nobody is in view, the arm
+ * segments pulse for arms-not-out, and the target shrinks or grows for too close / too far. Under
+ * reduced motion the cue holds at its peak instead of pulsing.
+ */
+export function targetStyle(
+  check: OverlayCheck,
+  tMs: number,
+  reducedMotion: boolean,
+  out: TargetStyle = { scale: 1, bodyHighlight: false, armHighlight: false, highlightAlpha: 1 },
+): TargetStyle {
+  const p = reducedMotion ? 1 : pulse(tMs)
+  out.scale = 1
+  out.bodyHighlight = check === 'noPerson'
+  out.armHighlight = check === 'noPerson' || check === 'armsNotOut'
+  out.highlightAlpha = TARGET_ALPHA + (1 - TARGET_ALPHA) * p
+  if (check === 'tooClose') out.scale = 1 - TARGET_SCALE_SWING * p
+  if (check === 'tooFar') out.scale = 1 + TARGET_SCALE_SWING * p
+  return out
+}
