@@ -51,6 +51,25 @@ export interface GestureParams {
    * last value instead of extrapolating further.
    */
   predictionMaxAheadMs: number
+  /**
+   * Arms-back boost (#93): how far behind its shoulder each wrist must be, in depth (landmark z,
+   * away from the camera), as a multiple of shoulder width, for the sweep to start counting.
+   */
+  boostEnterDepthRatio: number
+  /** Lower depth the sweep may sag to once boosting before it releases: hysteresis at the edge. */
+  boostExitDepthRatio: number
+  /** Continuous time the sweep must hold before `boost` turns on. */
+  boostEngageMs: number
+  /**
+   * Highest the wrists may be above the shoulder line (pitch ratio) and still count as a sweep:
+   * tucked wings sit at or below the shoulders, so arms thrown up and back in a climb never boost.
+   */
+  boostMaxPitchRatio: number
+  /**
+   * Mean arm visibility the sweep needs. Below the gate's `minVisibility`, since wrists behind the
+   * body are partly hidden by it and MediaPipe reports them with less confidence.
+   */
+  boostMinVisibility: number
   oneEuro: OneEuroParams
 }
 
@@ -67,6 +86,11 @@ export const DEFAULT_GESTURE_PARAMS: GestureParams = {
   pitchFullScaleRatio: 0.6,
   predictionGain: 0.5,
   predictionMaxAheadMs: 50,
+  boostEnterDepthRatio: 0.5,
+  boostExitDepthRatio: 0.3,
+  boostEngageMs: 300,
+  boostMaxPitchRatio: 0.25,
+  boostMinVisibility: 0.3,
   oneEuro: DEFAULT_ONE_EURO_PARAMS,
 }
 
@@ -76,6 +100,10 @@ export interface GestureState {
   conditionSincePassedMs: number | null
   /** Timestamp (ms) the raw gate condition most recently became continuously false, or null. */
   conditionSinceFailedMs: number | null
+  /** Arms-back boost is on (#93). Only ever true while `active`. */
+  boost: boolean
+  /** Timestamp (ms) the arms-back sweep most recently became continuously true, or null. */
+  sweptSinceMs: number | null
   rollFilter: OneEuroState
   pitchFilter: OneEuroState
 }
@@ -84,6 +112,8 @@ export const DEFAULT_GESTURE_STATE: GestureState = {
   active: false,
   conditionSincePassedMs: null,
   conditionSinceFailedMs: null,
+  boost: false,
+  sweptSinceMs: null,
   rollFilter: createOneEuroState(),
   pitchFilter: createOneEuroState(),
 }
@@ -228,6 +258,12 @@ function updateGate(
 export interface ArmMeasurement {
   /** Whether the arms-outstretched gate condition holds on this frame (no timing applied). */
   outstretched: boolean
+  /**
+   * How far the shallower wrist is behind its shoulder in depth (z grows away from the camera),
+   * over shoulder width. Taking the shallower wrist means both arms must sweep: one arm back reads
+   * as the other arm's depth.
+   */
+  sweepDepthRatio: number
   /** Wrist-to-wrist line angle in degrees, positive when the player's right wrist is lower. */
   rollDeg: number
   /** Mean wrist height above the shoulders, divided by shoulder width. Positive = arms raised. */
@@ -278,8 +314,24 @@ export function measureArms(
     (Math.atan2(rightWrist.y - leftWrist.y, rightWrist.x - leftWrist.x) * 180) / Math.PI
   const pitchRatio =
     ((leftShoulder.y + rightShoulder.y) / 2 - (leftWrist.y + rightWrist.y) / 2) / shoulderWidth
+  const sweepDepthRatio =
+    Math.min(leftWrist.z - leftShoulder.z, rightWrist.z - rightShoulder.z) / shoulderWidth
 
-  return { outstretched, rollDeg, pitchRatio, shoulderWidth, meanVisibility }
+  return { outstretched, sweepDepthRatio, rollDeg, pitchRatio, shoulderWidth, meanVisibility }
+}
+
+/**
+ * Whether this frame shows the arms-back sweep (#93): both wrists behind their shoulders, at or
+ * below shoulder height, well enough tracked. `boosting` selects the lower exit depth, so a sweep
+ * that sags a little mid-boost doesn't flicker off.
+ */
+function isSwept(arms: ArmMeasurement, boosting: boolean, params: GestureParams): boolean {
+  const depth = boosting ? params.boostExitDepthRatio : params.boostEnterDepthRatio
+  return (
+    arms.sweepDepthRatio >= depth &&
+    arms.pitchRatio <= params.boostMaxPitchRatio &&
+    arms.meanVisibility >= params.boostMinVisibility
+  )
 }
 
 export function interpretPose(
@@ -294,12 +346,44 @@ export function interpretPose(
   if (!arms) {
     const gate = updateGate(false, state, tMs, params)
     return {
-      input: { roll: 0, pitch: 0, active: gate.active, confidence: 0, source: 'pose' },
-      state: { ...state, ...gate },
+      input: {
+        roll: 0,
+        pitch: 0,
+        active: gate.active,
+        boost: false,
+        confidence: 0,
+        source: 'pose',
+      },
+      state: { ...state, ...gate, boost: false, sweptSinceMs: null },
     }
   }
 
-  const gate = updateGate(arms.outstretched, state, tMs, params)
+  // The sweep only counts once flying (the gate already on), and it keeps the gate on: arms swept
+  // back fail the outstretched check (the span collapses), but the player hasn't left.
+  const swept = state.active && isSwept(arms, state.boost, params)
+  const gate = updateGate(arms.outstretched || swept, state, tMs, params)
+  const sweptSinceMs = swept ? (state.sweptSinceMs ?? tMs) : null
+  const boost =
+    gate.active &&
+    sweptSinceMs !== null &&
+    (state.boost || tMs - sweptSinceMs >= params.boostEngageMs)
+  const confidence = clamp(arms.meanVisibility, 0, 1)
+
+  if (swept) {
+    // Wrists behind and below the shoulders would read as a dive: tucked wings fly straight. The
+    // filters restart when the arms come back out, so neither they nor the prediction carry the
+    // pre-sweep attitude through the boost.
+    return {
+      input: { roll: 0, pitch: 0, active: gate.active, boost, confidence, source: 'pose' },
+      state: {
+        ...gate,
+        boost,
+        sweptSinceMs,
+        rollFilter: DEFAULT_GESTURE_STATE.rollFilter,
+        pitchFilter: DEFAULT_GESTURE_STATE.pitchFilter,
+      },
+    }
+  }
 
   const { value: rollDeg, state: rollFilter } = oneEuroFilter(
     arms.rollDeg,
@@ -317,13 +401,7 @@ export function interpretPose(
   const { roll, pitch } = mapControl(rollDeg, pitchRatio, calibration, params, scratchAxes)
 
   return {
-    input: {
-      roll,
-      pitch,
-      active: gate.active,
-      confidence: clamp(arms.meanVisibility, 0, 1),
-      source: 'pose',
-    },
-    state: { ...gate, rollFilter, pitchFilter },
+    input: { roll, pitch, active: gate.active, boost, confidence, source: 'pose' },
+    state: { ...gate, boost, sweptSinceMs, rollFilter, pitchFilter },
   }
 }
