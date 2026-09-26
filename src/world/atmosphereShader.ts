@@ -40,8 +40,6 @@ const vec3 ATMO_SUN_DIR = ${glslVec3(SUN_DIRECTION)};
 const float ATMO_COOL_SHIFT = ${glslFloat(config.hazeCoolShift)};
 const float ATMO_HAZE_DENSITY = ${glslFloat(config.hazeDensity)};
 const float ATMO_HAZE_WARM_MAX = ${glslFloat(config.hazeWarmMax)};
-const float ATMO_FADE_START = ${glslFloat(config.hazeFadeStart)};
-const float ATMO_FADE_END = ${glslFloat(config.hazeFadeEnd)};
 
 // linearToOutputTexel() is defined by three.js per render target: sRGB encoding for the canvas,
 // identity for the post-processing buffer. The comparison folds to a constant when compiled.
@@ -94,8 +92,12 @@ const fogVertex = /* glsl */ `
 #endif
 `
 
+// The far fade runs from the scene fog's `near` to its `far`: three.js uploads both to every
+// fog material, so the governor can move the fade with the view distance without recompiling.
 const fogParsFragment = /* glsl */ `
 #ifdef USE_FOG
+  uniform float fogNear;
+  uniform float fogFar;
   varying vec3 vAtmosphereView;
   ${ATMOSPHERE_GLSL}
 #endif
@@ -110,7 +112,7 @@ const fogFragment = /* glsl */ `
     // and the transpose of the view rotation is its inverse).
     vec3 atmoDir = normalize((vec4(vAtmosphereView, 0.0) * viewMatrix).xyz);
     float atmoNear = ATMO_HAZE_WARM_MAX * (1.0 - exp(-atmoDistance * ATMO_HAZE_DENSITY));
-    float atmoFar = smoothstep(ATMO_FADE_START, ATMO_FADE_END, atmoDistance);
+    float atmoFar = smoothstep(fogNear, fogFar, atmoDistance);
     vec3 atmoColor = atmosphereToDisplay(gl_FragColor.rgb);
     atmoColor = mix(atmoColor, ATMO_HAZE_WARM, atmoNear);
     atmoColor = mix(atmoColor, atmosphereSky(atmoDir), atmoFar);

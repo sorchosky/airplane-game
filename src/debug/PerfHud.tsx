@@ -1,13 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePoseStore } from '../pose/poseStore'
+import { useQualityStore, type QualityChange } from '../render/qualityStore'
 import { color, space, type } from '../styles/tokens'
 import { usePerfStore } from './perfStore'
 
 const TOGGLE_KEYS = new Set(['f', 'F'])
 
+/** `↓ post medium 12s ago`, or `steady` before the governor has moved. */
+function formatChange(change: QualityChange | null, nowMs: number): string {
+  if (!change) return 'steady'
+  const arrow = change.direction === 'down' ? '↓' : '↑'
+  return `${arrow} ${change.label} ${((nowMs - change.atMs) / 1000).toFixed(0)}s ago`
+}
+
 /**
  * Perf HUD, top right: fps with 1 % low, frame time with p95 and p99, draw calls, triangles,
- * terrain tiles, DPR, quality tier, pose rate and inference time, and the gesture-to-visible-bank
+ * terrain tiles, DPR, quality tier, the governor's rung and last change, pose rate and inference
+ * time, and the gesture-to-visible-bank
  * latency hops. Starts visible with `?debug`, and `F` toggles it either way. Text is written
  * straight into the DOM from an animation frame loop, so it never re-renders React (CLAUDE.md:
  * no React state at frame rate).
@@ -30,6 +39,7 @@ export function PerfHud({ initiallyVisible }: { initiallyVisible: boolean }) {
     const tick = () => {
       const perf = usePerfStore.getState()
       const pose = usePoseStore.getState()
+      const quality = useQualityStore.getState()
       const { p50, p95, count, cameraStampReal } = perf.latency
       if (textRef.current) {
         const hops =
@@ -45,7 +55,10 @@ export function PerfHud({ initiallyVisible }: { initiallyVisible: boolean }) {
           `${perf.fps.toFixed(0)} fps  1% low ${perf.onePercentLowFps.toFixed(0)}\n` +
           `${perf.frameMs.toFixed(1)} ms  p95 ${perf.p95Ms.toFixed(1)}  p99 ${perf.p99Ms.toFixed(1)}\n` +
           `${perf.drawCalls} draws  ${(perf.triangles / 1000).toFixed(0)}k tris  ${perf.terrainTiles} tiles\n` +
-          `dpr ${perf.dpr.toFixed(2)}  ${perf.tier}\n` +
+          `dpr ${perf.dpr.toFixed(2)}  ${perf.tier}  view ${quality.appliedViewDistance / 1000} km\n` +
+          (quality.pinned
+            ? 'rung pinned by ?fx\n'
+            : `rung ${quality.rung + 1}/${quality.rungCount}  ${formatChange(quality.lastChange, performance.now())}\n`) +
           `pose ${pose.hz.toFixed(1)} Hz  ${pose.inferenceMs.toFixed(1)} ms\n` +
           hops
       }

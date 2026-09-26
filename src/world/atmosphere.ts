@@ -47,8 +47,13 @@ export function nearHazeAmount(distance: number, config: TerrainConfig): number 
 }
 
 /** 0..1, how much of the sky colour behind it covers a pixel `distance` m away. */
-export function farHazeAmount(distance: number, config: TerrainConfig): number {
-  return smoothstep(config.hazeFadeStart, config.hazeFadeEnd, distance)
+export function farHazeAmount(
+  distance: number,
+  config: TerrainConfig,
+  viewDistance: number = config.viewDistance,
+): number {
+  const { start, end } = hazeForViewDistance(viewDistance, config)
+  return smoothstep(start, end, distance)
 }
 
 /**
@@ -56,8 +61,24 @@ export function farHazeAmount(distance: number, config: TerrainConfig): number {
  * from the centre of the plane's chunk (see `selectTiles`), and the plane can sit up to half a
  * chunk diagonal away from that centre.
  */
-export function nearestTerrainEdge(config: TerrainConfig): number {
-  return config.viewDistance - config.chunkSize * Math.SQRT1_2
+export function nearestTerrainEdge(
+  config: TerrainConfig,
+  viewDistance: number = config.viewDistance,
+): number {
+  return viewDistance - config.chunkSize * Math.SQRT1_2
+}
+
+/**
+ * The far-haze fade for a given terrain build distance: `hazeFadeStart` and `hazeFadeEnd` scaled
+ * with it, so a shorter view distance (the governor's last rung, #65) closes the haze in and the
+ * terrain edge stays fully hazed. The shader reads these as the scene fog's near and far.
+ */
+export function hazeForViewDistance(
+  viewDistance: number,
+  config: TerrainConfig,
+): { start: number; end: number } {
+  const scale = viewDistance / config.viewDistance
+  return { start: config.hazeFadeStart * scale, end: config.hazeFadeEnd * scale }
 }
 
 export interface CloudConfig {
