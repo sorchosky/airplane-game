@@ -1,3 +1,5 @@
+import { Color } from 'three'
+import { TOON_BAND_LEVELS } from '../render/toon'
 import {
   color,
   DEFAULT_LIGHTING_PRESET,
@@ -75,7 +77,23 @@ const TYPE_ROWS: Array<{
   { label: 'tv-caption', token: 'tvCaption', size: type.tvCaption, font: type.fontBody },
 ]
 
-function Swatch({ label, token, value }: { label: string; token: string; value: string }) {
+/** `grass-light` at each toon band's lit level, scaled in linear light like the shader does. */
+const RAMP_BANDS = TOON_BAND_LEVELS.map((level) =>
+  new Color(color.grassLight).multiplyScalar(level).getStyle(),
+)
+
+/** `path` is where the value lives in `tokens.ts`; `color.<token>` when omitted. */
+function Swatch({
+  label,
+  token,
+  value,
+  path,
+}: {
+  label: string
+  token: string
+  value: string
+  path?: string
+}) {
   // The label sits on the fixed dark `surfaceHud` panel below the swatch, never on the swatch
   // color itself, so it always uses the light UI text color regardless of how light or dark the
   // swatch is.
@@ -87,7 +105,7 @@ function Swatch({ label, token, value }: { label: string; token: string; value: 
       <div style={{ padding: space.sm, background: color.surfaceHud, color: color.textPrimary }}>
         <div style={{ fontFamily: type.fontBody, fontWeight: type.weightButton }}>{label}</div>
         <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', opacity: 0.85 }}>
-          color.{token}
+          {path ?? `color.${token}`}
         </div>
         <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', opacity: 0.85 }}>{value}</div>
       </div>
@@ -200,15 +218,19 @@ export function Swatches() {
             {toonRamp.thresholds.map((t) => t.toFixed(2)).join(' and ')} (N·L), edge softness{' '}
             {toonRamp.edgeSoftness}.
           </p>
+          <p style={{ fontSize: type.tvCaption, maxWidth: '60ch' }}>
+            Shown on <code>grass-light</code>, lit at {TOON_BAND_LEVELS.join(' / ')} of the sun (
+            <code>TOON_BAND_LEVELS</code>); in the world the sky fill adds on top.
+          </p>
           <div style={{ display: 'flex', height: 48, borderRadius: space.xs, overflow: 'hidden' }}>
-            <div style={{ flex: toonRamp.thresholds[0], background: color.grassShadow }} />
+            <div style={{ flex: toonRamp.thresholds[0], background: RAMP_BANDS[0] }} />
             <div
               style={{
                 flex: toonRamp.thresholds[1] - toonRamp.thresholds[0],
-                background: color.foliage,
+                background: RAMP_BANDS[1],
               }}
             />
-            <div style={{ flex: 1 - toonRamp.thresholds[1], background: color.grassLight }} />
+            <div style={{ flex: 1 - toonRamp.thresholds[1], background: RAMP_BANDS[2] }} />
           </div>
         </Section>
 
@@ -232,7 +254,8 @@ export function Swatches() {
                     <Swatch
                       key={role.key}
                       label={role.label}
-                      token={`${name}.${role.key}`}
+                      token={role.key}
+                      path={`lightingPresets.${name}.${role.key}`}
                       value={String(preset[role.key])}
                     />
                   ))}
