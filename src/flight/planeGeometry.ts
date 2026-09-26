@@ -42,8 +42,16 @@ export interface Hinge {
   axis: Vector3
 }
 
+/** Linear RGB multiplier, per channel, applied to a mesh's base colour through a `color` attribute. */
+export type Shade = readonly [number, number, number]
+
+const UNSHADED: Shade = [1, 1, 1]
+
 export interface PlaneGeometry {
-  /** Cream: fuselage, wing, tail, wheel pants, cargo pod. Static. */
+  /**
+   * Cream: fuselage, wing, tail, wheel pants, cargo pod. Static. Its `color` attribute is 1 except
+   * on the wheel pants, which carry the trim shade passed to `buildPlaneGeometry`.
+   */
   body: BufferGeometry
   /** Terracotta: cheatlines, spinner and every control surface (see the `surface` attribute). */
   stripe: BufferGeometry
@@ -407,6 +415,15 @@ function tube(
 // Assembly helpers.
 
 /** Adds the `surface` attribute (0 unless given) and drops UVs so every part merges cleanly. */
+/** Sets a flat per-vertex `color` attribute, for meshes drawn with vertex colours. */
+function shade(geometry: BufferGeometry, [r, g, b]: Shade): BufferGeometry {
+  const count = geometry.getAttribute('position').count
+  const colors = new Float32Array(count * 3)
+  for (let i = 0; i < count; i++) colors.set([r, g, b], i * 3)
+  geometry.setAttribute('color', new Float32BufferAttribute(colors, 3))
+  return geometry
+}
+
 function tag(geometry: BufferGeometry, surface: ControlSurface | null = null): BufferGeometry {
   const id = surface ? surfaceId(surface) : 0
   const count = geometry.getAttribute('position').count
@@ -545,7 +562,7 @@ function tire({ center, radius, tube: tubeRadius }: typeof MAIN_WHEEL): BufferGe
     .translate(center.x, center.y, center.z)
 }
 
-function buildBody(): BufferGeometry {
+function buildBody(trimShade: Shade): BufferGeometry {
   const wingSpanAxis = X_AXIS
   const stabSpanAxis = X_AXIS
   const finSpanAxis = Y_AXIS
@@ -564,18 +581,20 @@ function buildBody(): BufferGeometry {
       0,
       ELEVATOR_HINGE_U,
     ]),
-    wheelPant(MAIN_WHEEL.center, 1),
-  ].map((g) => tag(g))
+  ].map((g) => shade(tag(g), UNSHADED))
+  const trim = (g: BufferGeometry) => shade(tag(g), trimShade)
 
   return merge([
-    tag(ellipseLoft(FUSELAGE, 16)),
-    ...bothSides(rightSide),
-    tag(surfacePanel(surfaceSpan(FIN, finSpanAxis, 0.35, rudLow), FIN_AXES)),
-    tag(
+    ...[
+      ellipseLoft(FUSELAGE, 16),
+      surfacePanel(surfaceSpan(FIN, finSpanAxis, 0.35, rudLow), FIN_AXES),
       surfacePanel(surfaceSpan(FIN, finSpanAxis, rudLow, rudHigh), FIN_AXES, [0, RUDDER_HINGE_U]),
-    ),
-    tag(wheelPant(NOSE_WHEEL.center, 0.8)),
-    tag(ellipseLoft(CARGO_POD, 12)),
+      ellipseLoft(CARGO_POD, 12),
+    ].map((g) => shade(tag(g), UNSHADED)),
+    ...bothSides(rightSide),
+    // Wheel pants in a darker trim, so the undercarriage separates from the wing in silhouette.
+    ...bothSides([trim(wheelPant(MAIN_WHEEL.center, 1))]),
+    trim(wheelPant(NOSE_WHEEL.center, 0.8)),
   ])
 }
 
@@ -657,7 +676,11 @@ function buildBlades(): BufferGeometry {
   return merge([tag(blade), tag(other)])
 }
 
-export function buildPlaneGeometry(): PlaneGeometry {
+/**
+ * Builds every mesh of the plane. `trimShade` is the wheel pants' colour relative to the body's,
+ * per linear channel (see `PlaneGeometry.body`); 1s leaves them body-coloured.
+ */
+export function buildPlaneGeometry(trimShade: Shade = UNSHADED): PlaneGeometry {
   const hinges: Record<ControlSurface, Hinge> = {
     // Right-hand rule about an axis pointing -X lifts a trailing edge: outboard → inboard on the
     // right wing, inboard → outboard on the left.
@@ -674,7 +697,7 @@ export function buildPlaneGeometry(): PlaneGeometry {
   }
 
   const geometry: Omit<PlaneGeometry, 'dispose'> = {
-    body: buildBody(),
+    body: buildBody(trimShade),
     stripe: buildStripe(),
     metal: buildMetal(),
     glass: buildGlass(),

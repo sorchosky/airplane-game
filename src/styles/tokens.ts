@@ -31,12 +31,17 @@ export const color = {
   // Cel-shading linework: a cool near-black, so outlines read as ink rather than brown.
   outline: '#1f2a33',
 
-  // Plane livery: warm white body, safety-orange stripe, warm grey metal.
+  // Plane livery: warm white body, safety-orange stripe, warm grey metal. The wheel pants take a
+  // step darker trim and the struts a darker metal so the undercarriage separates from the wing
+  // and body in silhouette (#71).
   planeBody: '#f4efe3',
   planeStripe: '#d8562b',
-  planeMetal: '#9c948a',
+  planeTrim: '#d6cfc1',
+  planeMetal: '#857e75',
   // Cabin window band and tires: a cool, dark slate tint.
   planeGlass: '#35414d',
+  // Wingtip vortex vapour: a cool near-white, like the snow, tinted by the material's alpha.
+  vapor: '#eef3f7',
 
   // Gesture-control state (muted teal-cyan, not neon, so it reads as a
   // deliberate system color against the warm palette rather than clashing).

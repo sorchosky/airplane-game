@@ -24,8 +24,9 @@ export interface PlaneRigParams {
 const degToRad = (degrees: number): number => (degrees * Math.PI) / 180
 
 export const PLANE_RIG_PARAMS: PlaneRigParams = {
-  aileronMax: degToRad(20),
-  elevatorMax: degToRad(18),
+  // Past a real 172's travel so the deflection reads from the chase camera on a TV (#71).
+  aileronMax: degToRad(26),
+  elevatorMax: degToRad(24),
   rudderMax: degToRad(12),
   // About the turn rate at a 45° bank at cruise (g · tan 45° / 45 m/s).
   rudderFullTurnRate: 0.22,
