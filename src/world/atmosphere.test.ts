@@ -4,6 +4,7 @@ import {
   SUN_DIRECTION,
   cloudLayout,
   farHazeAmount,
+  hazeForViewDistance,
   nearHazeAmount,
   nearestTerrainEdge,
   wrapAround,
@@ -91,5 +92,20 @@ describe('wrapAround', () => {
 
   it('moves a value that crosses one edge to the opposite edge', () => {
     expect(wrapAround(9501, 0, 19000)).toBeCloseTo(-9499, 9)
+  })
+})
+
+describe('hazeForViewDistance', () => {
+  it('is the configured fade at the full view distance', () => {
+    expect(hazeForViewDistance(config.viewDistance, config)).toEqual({
+      start: config.hazeFadeStart,
+      end: config.hazeFadeEnd,
+    })
+  })
+
+  it.each([10_000, 7000])('hides the terrain edge at a %i m view distance', (viewDistance) => {
+    const { end } = hazeForViewDistance(viewDistance, config)
+    expect(end).toBeLessThan(nearestTerrainEdge(config, viewDistance))
+    expect(farHazeAmount(nearestTerrainEdge(config, viewDistance), config, viewDistance)).toBe(1)
   })
 })
