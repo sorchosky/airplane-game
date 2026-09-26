@@ -6,6 +6,12 @@
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
 import { latencyProbe } from '../debug/latencyProbe'
 import {
+  detectionIntervalMs,
+  INITIAL_DETECTION_RATE,
+  stepDetectionRate,
+  type DetectionRateState,
+} from './detectionRate'
+import {
   createDetectionStats,
   pace,
   recordDetection,
@@ -30,6 +36,8 @@ let video: HTMLVideoElement | null = null
 let cancelScheduled: () => void = () => undefined
 let busy = false
 let dueMs = 0
+/** Steps the detection rate down when inference is slow (#65). */
+let rate: DetectionRateState = INITIAL_DETECTION_RATE
 let lastTimestampMs = -1
 let lastVideoTime = -1
 let stats: DetectionStats = createDetectionStats()
@@ -84,7 +92,7 @@ function detect(): void {
   if (el.currentTime === lastVideoTime) return
 
   const now = performance.now()
-  const paced = pace(now, dueMs)
+  const paced = pace(now, dueMs, detectionIntervalMs(rate))
   dueMs = paced.dueMs
   if (!paced.run) return
 
@@ -99,6 +107,7 @@ function detect(): void {
     const endMs = performance.now()
     const inferenceMs = endMs - now
     stats = recordDetection(stats, now, inferenceMs)
+    rate = stepDetectionRate(rate, stats.inferenceMs, endMs)
     latencyProbe.markDetect(now, endMs)
 
     usePoseStore.setState({
@@ -169,6 +178,7 @@ export async function startPoseService(el: HTMLVideoElement): Promise<void> {
   if (startedGeneration !== generation) return
 
   dueMs = 0
+  rate = INITIAL_DETECTION_RATE
   lastVideoTime = -1
   stats = createDetectionStats()
   scheduleNext()
