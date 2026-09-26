@@ -8,7 +8,11 @@ import { TERRAIN_CONFIG } from './terrainConfig'
 //
 // Three.js applies fog as the very last step of every built-in material, after tone mapping and
 // the sRGB conversion, so the colours below are plain sRGB (straight from the token hex) and the
-// sky shader writes them out untouched. That keeps the sky and the haze on the same footing.
+// haze mixes in that display space. That keeps the sky and the haze on the same footing.
+//
+// With post-processing on (#26), the scene renders into a linear buffer instead of the canvas.
+// `atmosphereToDisplay`/`atmosphereFromDisplay` convert around the haze mix and the sky output
+// for that case, and are no-ops when drawing straight to the canvas.
 
 function glslVec3(values: readonly number[]): string {
   return `vec3(${values.map((v) => v.toFixed(5)).join(', ')})`
@@ -38,6 +42,22 @@ const float ATMO_HAZE_DENSITY = ${glslFloat(config.hazeDensity)};
 const float ATMO_HAZE_WARM_MAX = ${glslFloat(config.hazeWarmMax)};
 const float ATMO_FADE_START = ${glslFloat(config.hazeFadeStart)};
 const float ATMO_FADE_END = ${glslFloat(config.hazeFadeEnd)};
+
+// linearToOutputTexel() is defined by three.js per render target: sRGB encoding for the canvas,
+// identity for the post-processing buffer. The comparison folds to a constant when compiled.
+bool atmosphereOutputIsLinear() {
+  return linearToOutputTexel(vec4(0.5)).r < 0.6;
+}
+
+/** A fragment colour as written for the current target, to display sRGB. */
+vec3 atmosphereToDisplay(vec3 value) {
+  return atmosphereOutputIsLinear() ? sRGBTransferOETF(vec4(value, 1.0)).rgb : value;
+}
+
+/** Display sRGB to the colour space the current target expects. */
+vec3 atmosphereFromDisplay(vec3 value) {
+  return atmosphereOutputIsLinear() ? sRGBTransferEOTF(vec4(value, 1.0)).rgb : value;
+}
 
 vec3 atmosphereSky(vec3 dir) {
   // Below the horizon the sky is the horizon colour, so terrain fading at the edge meets it.
@@ -91,8 +111,10 @@ const fogFragment = /* glsl */ `
     vec3 atmoDir = normalize((vec4(vAtmosphereView, 0.0) * viewMatrix).xyz);
     float atmoNear = ATMO_HAZE_WARM_MAX * (1.0 - exp(-atmoDistance * ATMO_HAZE_DENSITY));
     float atmoFar = smoothstep(ATMO_FADE_START, ATMO_FADE_END, atmoDistance);
-    gl_FragColor.rgb = mix(gl_FragColor.rgb, ATMO_HAZE_WARM, atmoNear);
-    gl_FragColor.rgb = mix(gl_FragColor.rgb, atmosphereSky(atmoDir), atmoFar);
+    vec3 atmoColor = atmosphereToDisplay(gl_FragColor.rgb);
+    atmoColor = mix(atmoColor, ATMO_HAZE_WARM, atmoNear);
+    atmoColor = mix(atmoColor, atmosphereSky(atmoDir), atmoFar);
+    gl_FragColor.rgb = atmosphereFromDisplay(atmoColor);
   }
 #endif
 `
