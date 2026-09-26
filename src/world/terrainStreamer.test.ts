@@ -130,4 +130,37 @@ describe('TerrainStreamer', () => {
     expect(minX).toBeGreaterThan(10 * config.chunkSize - config.viewDistance - 2 * config.chunkSize)
     expect(workers.every((worker) => worker.requests.length === 0)).toBe(true)
   })
+
+  it('takes a new view distance only on the next chunk crossing, and reports it once shown', () => {
+    const { streamer, flush } = setup()
+    streamer.update(100, 100)
+    flush()
+    const fullCount = streamer.tileCount
+
+    streamer.setViewDistance(700)
+    streamer.update(200, 200) // same chunk: nothing happens
+    flush()
+    expect(streamer.tileCount).toBe(fullCount)
+    expect(streamer.viewDistance).toBe(1500)
+
+    streamer.update(100 + config.chunkSize, 100) // crossing
+    flush()
+    expect(streamer.tileCount).toBeLessThan(fullCount)
+    expect(streamer.viewDistance).toBe(700)
+  })
+
+  it('keeps the old distance on screen until the larger layout has loaded', () => {
+    const { streamer, workers, flush } = setup()
+    streamer.setViewDistance(700)
+    streamer.update(100, 100)
+    flush()
+    expect(streamer.viewDistance).toBe(700)
+
+    streamer.setViewDistance(1500)
+    streamer.update(100 + config.chunkSize, 100)
+    workers[0]?.respond()
+    expect(streamer.viewDistance).toBe(700)
+    flush()
+    expect(streamer.viewDistance).toBe(1500)
+  })
 })

@@ -4,7 +4,10 @@ import type { PoseLandmark, PoseLandmarks } from './types'
 // Pure helpers for the pose service: result conversion, detection pacing and stats. No DOM or
 // MediaPipe runtime imports, so they unit test without a camera or WASM.
 
-/** Constant detection rate. Leaves headroom for rendering and screen mirroring on a phone. */
+/**
+ * Top detection rate. Leaves headroom for rendering and screen mirroring on a phone;
+ * `detectionRate.ts` steps it down when inference is slow.
+ */
 export const DETECTION_HZ = 20
 export const DETECTION_INTERVAL_MS = 1000 / DETECTION_HZ
 
