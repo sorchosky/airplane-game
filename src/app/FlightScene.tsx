@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { useMemo } from 'react'
-import { FpsCounter } from '../debug/FpsCounter'
+import { PerfHud } from '../debug/PerfHud'
 import { PerfProbe } from '../debug/PerfProbe'
 import { ChaseCamera } from '../flight/ChaseCamera'
 import { Plane } from '../flight/Plane'
@@ -30,7 +30,7 @@ export function FlightScene() {
         <PerfProbe />
         <PostFX />
       </Canvas>
-      <FpsCounter initiallyVisible={debug} />
+      <PerfHud initiallyVisible={debug} />
     </>
   )
 }
