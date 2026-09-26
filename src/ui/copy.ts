@@ -5,6 +5,16 @@ export const copy = {
   title: {
     name: 'Driftwing',
     start: 'Start',
+    tagline: 'Fly with your arms. Cast to a TV.',
+    // Screen-reader text for the looping pose demonstration under Start.
+    demoLabel: 'Arms out to fly, lean to turn, raise your arms to climb',
+  },
+
+  // Storyboard frame 01: shown while the browser's camera prompt is open, and again if it's denied.
+  cameraAsk: {
+    body: 'We need your camera to see you fly. Nothing leaves your phone.',
+    denied: 'Allow the camera in your browser settings',
+    retry: 'Try again',
   },
 
   calibrate: {
@@ -14,10 +24,14 @@ export const copy = {
     modelRetry: 'Try again',
     keyboardFallback: 'Fly with the keyboard instead',
     cameraLost: 'Lost the camera. Reconnecting…',
-    stepBack: 'Step back until your head and hips are in view',
-    comeCloser: 'Come a little closer',
+    // One line per failing check (storyboard frame 02); the target silhouette does the rest.
+    stepIntoView: 'Step into view',
+    stepBack: 'Step back',
+    comeCloser: 'Come closer',
     spreadArms: 'Spread your arms like wings',
-    holdSteady: 'Hold steady…',
+    holdSteady: 'Hold…',
+    // Caption for the lock-in chime, when captions are on.
+    lockedCaption: 'Locked',
   },
 
   hud: {

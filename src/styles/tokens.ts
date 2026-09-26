@@ -51,6 +51,10 @@ export const color = {
   textPrimary: '#f3e8d8',
   textMuted: '#cdbca6',
   accent: '#5cb8bd',
+  // Hairline chrome and the calibration target silhouette (`docs/art-bible.md` UI tokens).
+  line: 'rgba(247, 244, 236, 0.55)',
+  // The one white flash of the skeleton at calibration lock-in (#63).
+  lockFlash: '#ffffff',
 
   // Title screen (Figma "Driftwing" storyboard). The sky colors are the Figma "Golden hour
   // cirrus" shader's palette pre-mixed at the title's time-of-day, so `TitleSky` only blends
@@ -204,8 +208,10 @@ export const radius = {
 // HUD element sizing, relative to viewport so it scales with the TV.
 export const size = {
   cameraPreviewWidth: '20vw',
-  // Larger preview while calibrating, so the player can line themselves up from ~2 m.
-  cameraPreviewWidthLarge: '44vw',
-  // Calibration silhouette and progress ring.
-  calibrationFigure: 'clamp(160px, 18vw, 240px)',
+  // The calibrate preview's frame (#63): a cool edge the player can find from ~2 m.
+  calibrateFrame: '12px',
+  // Title pose demonstration (arms out, tilt, arms up) under Start.
+  poseDemoFigure: 'clamp(72px, 8vw, 120px)',
+  // Calibration hold-progress ring, beside the one line of guidance.
+  holdRing: 'clamp(40px, 4vw, 56px)',
 } as const

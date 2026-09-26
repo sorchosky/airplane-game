@@ -2,6 +2,7 @@ import { type CSSProperties, useCallback, useLayoutEffect, useRef, useState } fr
 import { resumeAudioEngine } from '../../audio/audioEngine'
 import { color, radius, space, type } from '../../styles/tokens'
 import { copy } from '../../ui/copy'
+import { PoseDemoFigure } from '../../ui/PoseDemoFigure'
 import { TitleSky } from '../../ui/TitleSky'
 import { useGameStore } from '../gameStore'
 import { tryLockLandscape } from '../orientation'
@@ -59,7 +60,7 @@ export function TitleScreen() {
   const [playIntro] = useState(() => shouldPlayIntro(introPlayed, prefersReducedMotion()))
   const revealRef = useRef<HTMLDivElement>(null)
   const bandRef = useRef<HTMLDivElement>(null)
-  const startRef = useRef<HTMLButtonElement>(null)
+  const startRef = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
     const reveal = revealRef.current
@@ -143,20 +144,23 @@ export function TitleScreen() {
         </div>
       </div>
       {/* Frame 07: the title sits dead center and Start hangs below it, rather than the two being
-        centered as a group. */}
+        centered as a group. The tagline and pose demonstration (#63) hang below Start and settle
+        in with it. */}
       <div
+        ref={startRef}
         style={{
           position: 'absolute',
           top: '50%',
           left: 0,
           right: 0,
           display: 'flex',
-          justifyContent: 'center',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: space.lg,
           paddingTop: `calc(${type.tvHero} / 2 + ${space.lg})`,
         }}
       >
         <button
-          ref={startRef}
           type="button"
           onClick={handleStart}
           style={{
@@ -180,6 +184,19 @@ export function TitleScreen() {
             {copy.title.start}
           </span>
         </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: space.md }}>
+          <PoseDemoFigure />
+          <p
+            style={{
+              margin: 0,
+              fontFamily: type.fontBody,
+              fontSize: type.tvBody,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {copy.title.tagline}
+          </p>
+        </div>
       </div>
       {playIntro && (
         <div
