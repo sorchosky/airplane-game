@@ -24,6 +24,8 @@ import { useGameStore } from './gameStore'
 import { CalibrateScreen } from './screens/CalibrateScreen'
 import { ErrorScreen } from './screens/ErrorScreen'
 import { PausedOverlay } from './screens/PausedOverlay'
+import { TitleHandoff } from './screens/TitleHandoff'
+import { useTitleHandoffStore } from './screens/titleHandoff'
 import { TitleScreen } from './screens/TitleScreen'
 import { isMaterialsSceneMode, isReplayInputMode, isSwatchesMode } from './urlFlags'
 import { setupWakeLockReacquire } from './wakeLock'
@@ -38,6 +40,7 @@ function FlightControl({ hud }: { hud: boolean }) {
 export function App() {
   const state = useGameStore((s) => s.state)
   const permissionDenied = useGameStore((s) => s.permissionDenied)
+  const titleHandoff = useTitleHandoffStore((s) => s.still !== null)
 
   useEffect(() => setupWakeLockReacquire(), [])
   useEffect(() => setupCameraLifecycle(), [])
@@ -89,6 +92,7 @@ export function App() {
       {state === 'paused' && <PausedOverlay />}
       {inFlight && <FlightControl hud={!shot} />}
       <InputSource enableTouchControls={state === 'flying' && !shot} />
+      {titleHandoff && <TitleHandoff />}
       {showPoseDebug && <PoseDebug />}
       <OrientationPrompt />
     </div>

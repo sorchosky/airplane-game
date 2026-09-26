@@ -63,6 +63,12 @@ export const color = {
   titleText: '#e4e9f6',
   titleTextShadow: '#2c4781',
   titleStartBorder: 'rgba(228, 233, 246, 0.7)',
+  // #73: the warm white the intro fades up from, and the contrast assist that keeps the wordmark
+  // and Start at AA without a plate: a feathered darkening band across the wordmark's row and a
+  // soft glow in the same deep blue.
+  titleFade: '#fff4e6',
+  titleScrim: 'rgba(27, 39, 72, 0.4)',
+  titleGlow: 'rgba(27, 39, 72, 0.6)',
 } as const
 
 // 8pt spacing scale.
