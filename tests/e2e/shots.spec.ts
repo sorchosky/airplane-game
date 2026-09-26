@@ -10,12 +10,14 @@ import { SHOT_BOOKMARKS } from '../../src/debug/shots'
 //                              which Playwright wipes at the start of every run)
 //   SHOTS_TAG=<name>           subfolder, e.g. the PR or palette being compared (default current)
 //   SHOTS_ONLY=<a,b,...>       capture only these bookmarks (comma-separated)
+//   SHOTS_QUERY=<k=v&...>      extra URL flags, e.g. tod=golden for the golden-hour preset
 // Each capture also writes <name>.json with the renderer's draw call and triangle counts.
 const enabled = Boolean(process.env.SHOTS)
 const tier = process.env.SHOTS_FX ?? 'high'
 const outRoot = process.env.SHOTS_DIR ?? 'shots'
 const tag = process.env.SHOTS_TAG ?? 'current'
 const only = process.env.SHOTS_ONLY?.split(',').map((name) => name.trim())
+const extraQuery = process.env.SHOTS_QUERY ? `&${process.env.SHOTS_QUERY}` : ''
 
 test.describe('camera bookmarks', () => {
   test.skip(!enabled, 'Set SHOTS=1 to capture the ?shot= bookmarks')
@@ -28,7 +30,7 @@ test.describe('camera bookmarks', () => {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(String(error)))
 
-      await page.goto(`/?input=keyboard&fx=${tier}&shot=${shot.name}`)
+      await page.goto(`/?input=keyboard&fx=${tier}&shot=${shot.name}${extraQuery}`)
       await page.getByRole('button', { name: 'Start' }).click()
 
       const ready = page.getByTestId('shot-ready')

@@ -1,10 +1,14 @@
 # Art direction
 
-Visual target: *The Legend of Zelda: Breath of the Wild*, at golden hour — a
-warm, low-contrast sunset rather than a bright midday palette. Every M3+
-ticket pulls colors, type and lighting constants from
-`src/styles/tokens.ts` / `tokens.css` so the look stays consistent across the
-scene and the UI. Review all tokens live at `?swatches`.
+Visual target: *The Legend of Zelda: Breath of the Wild*, on a clear morning:
+green ground, a cerulean sky fading to a pale horizon, cool aerial
+perspective and cream clouds, with golden hour kept as a lighting preset
+rather than the only look (#64, owner's pick of palette B on #88). The
+reasoning, references and the golden path live in `docs/art-bible.md`; this
+file is the working reference for the tokens. Every ticket pulls colors, type
+and lighting constants from `src/styles/tokens.ts` / `tokens.css` so the look
+stays consistent across the scene and the UI. Review all tokens live at
+`?swatches`, which shows both lighting presets.
 
 ## Principles
 
@@ -12,94 +16,119 @@ scene and the UI. Review all tokens live at `?swatches`.
   their arms out, not leaning in to squint. Silhouettes, colors and text all
   have to work from a couch.
 - **Silhouette first.** Shapes (plane, terrain, landmarks) should be
-  identifiable from their outline alone before detail or color is added —
-  outlines exist to serve that, not to decorate.
-- **Warm, soft, low-contrast — not cartoony.** The palette is a muted sunset:
-  dusty golds, terracotta and warm teal, closer together in value than a
-  bright noon scene. Nothing should read as a saturated primary color except
-  `accent`, and even that's a muted teal-cyan rather than a neon one — one
-  deliberately distinct color reserved for gesture feedback and interactive
-  UI so it stays meaningful instead of clashing with the environment art.
+  identifiable from their outline alone before detail or color is added.
+  Outlines exist to serve that, not to decorate.
+- **Albedo is not lighting.** Surface colors (`color` in `tokens.ts`) say what
+  a thing is. The time of day (`lightingPresets`) says how it is lit. A grass
+  token never carries sunset orange; the sun and haze do that.
+- **Soft, painterly, not cartoony.** Hues sit near BotW's: sage and olive
+  greens, warm grey rock, teal water. Nothing reads as a saturated primary
+  except the plane's stripe and `accent`, which is reserved for gesture
+  feedback and interactive UI so it stays meaningful.
 
 ## Palette
 
-All values live in `src/styles/tokens.ts` (`color`) and `src/styles/tokens.css`
-(`--color-*`), generated from the same source and kept in sync by
-`tokens.test.ts`.
+Albedo and UI colors live in `src/styles/tokens.ts` (`color`) and
+`src/styles/tokens.css` (`--color-*`), kept in sync by `tokens.test.ts`.
 
 | Token | Value | Role |
 |---|---|---|
-| `sky-zenith` | `#5c5b74` | Top of the sky gradient, dusky blue-violet |
-| `sky-horizon` | `#e7a878` | Bottom of the sky gradient, warm peach-orange |
-| `fog` | `#e3bd9a` | Distance fog / atmospheric perspective fade, warm haze |
-| `sun` | `#f8b968` | Sun disc and warm key-light tint |
-| `grass-light` | `#b7a35e` | Grassland, lit face — sun-baked gold-olive |
-| `grass-shadow` | `#6d5a3a` | Grassland, shadow face — muted umber |
-| `sand` | `#cdb48a` | Beaches and riverbanks at the waterline, pale warm sand |
-| `rock` | `#a3907b` | Cliffs and mountains, warm taupe |
-| `snow` | `#f6ead9` | Snowcaps, warm cream catching the sunset glow |
-| `water-shallow` | `#7fa79c` | Water, shallow/lit — dusty muted teal |
-| `water-deep` | `#39525a` | Water, deep/shadow — muted teal-slate |
-| `foliage` | `#5f6b41` | Trees and bushes, olive |
-| `outline` | `#2a2219` | Cel-shading linework (warm near-black, not pure black) |
-| `plane-body` | `#f1e7d4` | Plane fuselage, warm cream |
-| `plane-stripe` | `#c2572f` | Plane accent stripe, muted terracotta |
-| `plane-metal` | `#a99b89` | Plane prop/struts, warm taupe-metal |
-| `plane-glass` | `#3a4248` | Plane cabin window band and tires, dark cool slate |
+| `grass-light` | `#93b352` | Grassland, lit face: sage-lime |
+| `grass-shadow` | `#567c3b` | Grassland, shadow face: deep olive-green |
+| `sand` | `#d9c89c` | Beaches and riverbanks at the waterline |
+| `rock` | `#9b9486` | Cliffs and mountains, warm grey |
+| `rock-shadow` | `#6e685e` | Steep rock faces and crevices |
+| `snow` | `#f5f6f8` | Snowcaps, near-white |
+| `water-shallow` | `#6fc0c8` | Water, shallow/lit: bright teal |
+| `water-deep` | `#2f6d8c` | Water, deep: blue-teal |
+| `foliage` | `#3f7d46` | Tree canopies (read by A3) |
+| `foliage-light` | `#6da356` | Lit canopy tops (read by A3) |
+| `bark` | `#6b5442` | Trunks (read by A3) |
+| `outline` | `#1f2a33` | Cel-shading linework, cool near-black |
+| `plane-body` | `#f4efe3` | Plane fuselage, warm white |
+| `plane-stripe` | `#d8562b` | Plane stripe, safety orange |
+| `plane-metal` | `#9c948a` | Prop and struts, warm grey metal |
+| `plane-glass` | `#35414d` | Cabin window band and tires, dark slate |
 | `control-active` | `#5cb8bd` | Gesture control engaged (arms-out gate) |
 | `control-inactive` | `#8a7c6c` | Gesture control disengaged / autopilot |
-| `surface-hud` | `rgba(36, 27, 21, 0.8)` | Translucent warm-dark HUD panel background |
-| `surface-scrim` | `#241b15` | Opaque `surface-hud` for full-screen blockers (orientation prompt) |
+| `surface-hud` | `rgba(36, 27, 21, 0.8)` | Translucent dark HUD panel background |
+| `surface-scrim` | `#241b15` | Opaque `surface-hud` for full-screen blockers |
 | `text-primary` | `#f3e8d8` | Primary UI text (on `surface-hud` or the sky) |
-| `text-muted` | `#cdbca6` | Secondary/de-emphasized UI text |
+| `text-muted` | `#cdbca6` | Secondary UI text |
 | `accent` | `#5cb8bd` | Muted teal-cyan: buttons, focus, active state |
+
+The `title-*` tokens belong to the title screen's own shader sky and are
+documented with it.
+
+### Lighting presets
+
+`lightingPresets` in `tokens.ts`. `morning` is the default; `?tod=golden`
+picks golden hour for the page load. The sky, haze, sun glow, sun disc and
+sun light reach every material through shared uniforms
+(`src/world/atmosphereUniforms.ts`), so a preset change is one write and no
+shader recompile. The day cycle (#92) will blend presets through the same
+uniforms.
+
+| Role | `morning` | `goldenHour` | What it drives |
+|---|---|---|---|
+| `skyZenith` | `#3f7fc4` | `#566a9c` | Top of the sky |
+| `skyHorizon` | `#d5e6f0` | `#f3c08f` | Horizon toward the sun (away from it, it leans toward the zenith) |
+| `sunGlow` | `#ffe6bd` | `#ffc27a` | Halo around the sun, separate so the sky stays pale |
+| `fog` | `#bfd3e2` | `#e8cdb0` | Near haze: cool by day, warm at golden hour |
+| `sun` | `#fff2d2` | `#ffd48a` | Key light, rim light, water glints, the post warm lift |
+| `ambientSky` | `#8fb4de` | `#8a8fb8` | Hemisphere fill from above (sky-lit shadows) |
+| `ambientGround` | `#6b7a52` | `#7a6a4a` | Hemisphere fill from below (grass bounce) |
+| `cloudLight` | `#fbfaf5` | `#fff1dc` | Cloud lit side |
+| `cloudShadow` | `#b9c3d6` | `#b8a4bd` | Cloud shadow side |
+| `sunDirection` | `[0.6, 0.52, 0.49]` (~34°) | `[0.85, 0.28, 0.35]` (~15°) | Direction the sun shines from |
+| `sunIntensity` | `2.4` | `2.2` | Directional light |
+| `hemisphereIntensity` | `0.9` | `1.0` | Hemisphere light |
 
 ### Plane livery
 
-Warm cream body (`plane-body`) with a muted terracotta stripe (`plane-stripe`)
-along the fuselage — an adventurous bush-plane look rather than a corporate
-livery, toned to sit inside the sunset palette instead of popping out of it.
-**Alternatives for the owner to consider:** a two-tone cream/olive-green (more
-"ranger plane", pulls from `foliage`), or swapping the stripe for `sun`
-gold-orange (blends further into the sky, less separation from terrain at
-distance). Cream + terracotta was kept as the default because it still reads
-clearly in silhouette against both the sky and the ground without being as
-saturated as the original red-orange.
+Warm white body (`plane-body`) with a safety-orange stripe (`plane-stripe`)
+and a cool dark outline. Against a pale morning horizon the body itself is
+close in value to the sky (about 1.1:1), so the plane reads through its
+outline and stripe, not its fill: `tokens.test.ts` holds the outline at 3:1
+or better against the sky and the grass, and the stripe at 3:1 against the
+horizon. The body carries the contrast against the ground and water
+(`grass-shadow`, `water-deep`).
 
 ## Lighting model
 
 - **Toon ramp:** 3 flat lighting bands (shadow / mid / highlight), split by
   two N·L thresholds at `0.3` and `0.65` (`toonRamp.thresholds`), with a
-  `0.05` smoothstep at each edge so the band boundary anti-aliases instead of
-  jaggies. Thresholds sit a little higher and the edge a little softer than a
-  high-contrast comic ramp, keeping the shading gentle. Defined in
-  `tokens.ts` as `toonRamp`; #21 wires it into the material shader.
-- **Sun direction:** low on the horizon for a golden-hour mood —
-  `lighting.sunDirection = [0.85, 0.28, 0.35]` (world-space, mostly
-  horizontal with a shallow rise; #22 normalizes and can animate it further
-  for a day/dusk cycle later).
-- **Rim light:** a soft rim (`lighting.rimStrength = 0.4`) on the shadow side
-  of geometry — stronger than a noon scene's, since raking low-angle light is
-  doing a lot of the silhouette-separation work at golden hour, on top of the
-  outlines.
+  `0.05` smoothstep at each edge so the boundary anti-aliases. The bands light
+  at `0.62 / 0.86 / 1.0` of the sun (`TOON_BAND_LEVELS` in
+  `src/render/toon.ts`): a soft terminator, not comic ink.
+- **Sky fill:** the hemisphere light (`ambientSky` over `ambientGround`) adds
+  to every band, so shadowed faces pick up the sky's blue instead of going
+  grey-brown.
+- **Sun:** direction, color and intensity come from the active preset. The
+  disc is drawn at 3x in the linear post buffer so bloom (threshold `0.9`)
+  catches the sun and water glints, never the pale sky.
+- **Rim light:** a soft fresnel rim (`lighting.rimStrength = 0.4`) on the
+  plane, tinted with the preset's sun color.
 
 ## Outline rules
 
-- Outlines use `outline` (`#2a2219`), never pure black — keeps the linework
-  soft and consistent with a painterly, not comic-ink, look.
+- Outlines use `outline` (`#1f2a33`), never pure black, so the linework
+  reads as ink against both a pale sky and green ground.
 - Outline weight scales with screen-space size so distant geometry doesn't
-  turn into a solid dark smudge (#21 owns the exact falloff curve).
-- No outlines on particles, water surface ripples, or the sky — only on solid
+  turn into a solid dark smudge.
+- No outlines on particles, water surface ripples, or the sky, only on solid
   terrain, foliage, landmarks and the plane.
 
 ## Fog and atmosphere
 
-- Distance fog uses `fog` (`#e3bd9a`), blended in gradually starting well
-  before the terrain draw distance so the horizon fades to a warm haze rather
-  than popping.
-- Fog density and the sky gradient (`sky-zenith` → `sky-horizon`) are picked
-  to meet at a similar hue at the horizon line, so distant terrain dissolves
-  into the sunset sky instead of silhouetting against a mismatched color.
+- The sky and the distance haze share one function (`atmosphereSky` in
+  `src/world/atmosphereShader.ts`), so far terrain dissolves into exactly the
+  sky color behind it and the 10 km edge never shows.
+- Near haze uses the preset's `fog`. By day it is cool and pale, so distance
+  reads as blue and desaturated (aerial perspective); at golden hour it turns
+  warm.
+- The horizon is warm only toward the sun; facing away from it the horizon
+  leans toward the zenith color.
 
 ## UI style
 
@@ -166,9 +195,9 @@ case; any other backdrop only improves the ratio):
 
 | Pair | Ratio | WCAG AA |
 |---|---|---|
-| `text-primary` on `surface-hud` (over `snow`) | 7.83:1 | Pass (4.5:1 text) |
-| `text-muted` on `surface-hud` (over `snow`) | 5.12:1 | Pass (4.5:1 text) |
-| `accent` border on `surface-hud` (over `snow`) | 4.08:1 | Pass (3:1 UI component) |
+| `text-primary` on `surface-hud` (over `snow`) | 7.53:1 | Pass (4.5:1 text) |
+| `text-muted` on `surface-hud` (over `snow`) | 4.92:1 | Pass (4.5:1 text) |
+| `accent` border on `surface-hud` (over `snow`) | 3.93:1 | Pass (3:1 UI component) |
 
 Enforced by `tokens.test.ts` so a future palette change can't silently drop
 below AA. Full contrast math and the alpha-compositing assumption are in that
