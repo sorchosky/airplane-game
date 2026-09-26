@@ -26,6 +26,8 @@ export interface FlightParams {
   maxPitchAngle: number // radians, target pitch angle at full pitch input (~25°)
   bankSmoothTime: number // seconds, critically-damped spring time constant for bank chasing its target
   pitchSmoothTime: number // seconds, critically-damped spring time constant for pitch chasing its target
+  maxBankRate: number // rad/s, fastest the bank may change: the plane's weight, so the spring can be quick
+  maxPitchRate: number // rad/s, fastest the pitch may change
   turnGravity: number // m/s^2, "g" in the coordinated-turn formula yawRate = g * tan(bank) / speed
   ceiling: number // m, hard altitude ceiling (~600 m)
   ceilingSoftening: number // m, band below the ceiling over which climb rate eases to zero
@@ -44,8 +46,12 @@ export const DEFAULT_FLIGHT_PARAMS: FlightParams = {
   speedResponseTime: 1.5,
   maxBankAngle: degToRad(50),
   maxPitchAngle: degToRad(25),
-  bankSmoothTime: 0.35,
-  pitchSmoothTime: 0.45,
+  // Quick springs with a rate cap (#66): a small tilt shows almost at once, a big one builds at the
+  // capped rate, so the weight comes from the cap rather than from lag. See docs/decisions.md.
+  bankSmoothTime: 0.2,
+  pitchSmoothTime: 0.25,
+  maxBankRate: degToRad(120),
+  maxPitchRate: degToRad(60),
   turnGravity: 9.81,
   ceiling: 600,
   ceilingSoftening: 120,
@@ -91,16 +97,22 @@ function smoothDamp(
   target: number,
   velocity: number,
   smoothTime: number,
+  maxRate: number,
   dt: number,
   out: SpringResult,
 ): SpringResult {
   const omega = 2 / Math.max(0.0001, smoothTime)
   const x = omega * dt
   const exp = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x)
-  const change = current - target
+  // Rate cap (Unity's SmoothDamp maxSpeed): the spring chases a target at most
+  // `maxRate * smoothTime` away, so a big input moves at the capped rate while a small one still
+  // gets the spring's full quickness.
+  const maxChange = maxRate * smoothTime
+  const change = clamp(current - target, -maxChange, maxChange)
+  const cappedTarget = current - change
   const temp = (velocity + omega * change) * dt
   let nextVelocity = (velocity - omega * temp) * exp
-  let nextValue = target + (change + temp) * exp
+  let nextValue = cappedTarget + (change + temp) * exp
 
   const approachingFromBelow = target - current > 0
   if (approachingFromBelow === nextValue > target) {
@@ -150,12 +162,21 @@ function integrate(
     params.maxPitchAngle,
   )
 
-  smoothDamp(state.bank, targetBank, state.bankRate, params.bankSmoothTime, dt, bankSpring)
+  smoothDamp(
+    state.bank,
+    targetBank,
+    state.bankRate,
+    params.bankSmoothTime,
+    params.maxBankRate,
+    dt,
+    bankSpring,
+  )
   smoothDamp(
     state.pitchAngle,
     targetPitch,
     state.pitchRate,
     params.pitchSmoothTime,
+    params.maxPitchRate,
     dt,
     pitchSpring,
   )

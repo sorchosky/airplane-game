@@ -9,10 +9,15 @@ export interface OneEuroParams {
   dCutoff: number
 }
 
+/**
+ * Tuned against synthetic signals (#66, `oneEuro.test.ts`): roll noise of σ 1° at rest filters to
+ * under 0.5° at 30 Hz, and a 60°/s tilt lags by about 7 ms. `dCutoff` 0.5 (was 1) keeps noise from
+ * opening the filter at rest; `minCutoff` 0.7 (was 1) smooths a held pose a little more.
+ */
 export const DEFAULT_ONE_EURO_PARAMS: OneEuroParams = {
-  minCutoff: 1,
+  minCutoff: 0.7,
   beta: 0.3,
-  dCutoff: 1,
+  dCutoff: 0.5,
 }
 
 export interface OneEuroState {
