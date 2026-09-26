@@ -32,6 +32,11 @@ export class TerrainStreamer {
   private readonly indices = new Map<number, BufferAttribute>()
   private chunkX = Number.NaN
   private chunkZ = Number.NaN
+  /** View distance the governor asked for; taken up on the next chunk crossing. */
+  private requestedViewDistance: number
+  /** View distance of the layout being built, and of the layout on screen. */
+  private plannedViewDistance: number
+  private committedViewDistance: number
 
   constructor(
     readonly group: Group,
@@ -40,6 +45,9 @@ export class TerrainStreamer {
     createWorker: () => Worker,
     workerCount: number,
   ) {
+    this.requestedViewDistance = config.viewDistance
+    this.plannedViewDistance = config.viewDistance
+    this.committedViewDistance = config.viewDistance
     for (let i = 0; i < workerCount; i++) {
       const worker = createWorker()
       worker.onmessage = (event: MessageEvent<TileResult>) => this.onResult(worker, event.data)
@@ -55,7 +63,12 @@ export class TerrainStreamer {
     this.chunkX = cx
     this.chunkZ = cz
 
-    this.desired = new Map(selectTiles(cx, cz, this.config).map((spec) => [spec.key, spec]))
+    this.plannedViewDistance = this.requestedViewDistance
+    const config =
+      this.plannedViewDistance === this.config.viewDistance
+        ? this.config
+        : { ...this.config, viewDistance: this.plannedViewDistance }
+    this.desired = new Map(selectTiles(cx, cz, config).map((spec) => [spec.key, spec]))
 
     for (const [key, tile] of this.staged) {
       if (!this.desired.has(key)) {
@@ -83,6 +96,19 @@ export class TerrainStreamer {
     )
     this.pump()
     this.commitIfReady()
+  }
+
+  /**
+   * Asks for a different build distance (the quality governor's last rung). It's taken up on the
+   * next chunk crossing, never mid-chunk, and shows once that layout has fully loaded.
+   */
+  setViewDistance(viewDistance: number): void {
+    this.requestedViewDistance = viewDistance
+  }
+
+  /** View distance of the layout on screen. The far haze follows this. */
+  get viewDistance(): number {
+    return this.committedViewDistance
   }
 
   /** Tiles currently drawn. For the debug HUD. */
@@ -158,6 +184,7 @@ export class TerrainStreamer {
       this.active.set(key, tile)
     }
     this.staged.clear()
+    this.committedViewDistance = this.plannedViewDistance
   }
 
   private acquire(quads: number): Mesh {

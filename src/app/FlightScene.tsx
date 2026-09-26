@@ -9,6 +9,7 @@ import { Plane } from '../flight/Plane'
 import { useFlightStore } from '../flight/flightStore'
 import { hasDebugFlag } from '../input/source'
 import { PostFX } from '../render/PostFX'
+import { QualityGovernor } from '../render/QualityGovernor'
 import { Atmosphere } from '../world/Atmosphere'
 import { Terrain } from '../world/Terrain'
 import { Water } from '../world/Water'
@@ -39,6 +40,7 @@ export function FlightScene() {
         <Terrain />
         <Water />
         <PerfProbe />
+        <QualityGovernor />
         <PostFX />
       </Canvas>
       <PerfHud initiallyVisible={debug} />

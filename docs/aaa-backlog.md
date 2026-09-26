@@ -13,9 +13,9 @@ golden path → final polish.
 
 ## Gate
 
-Art slices (A1 onward) wait for the owner's sign-off on `docs/art-bible.md`
-and a palette pick from the contact sheets in `docs/art-bible.md` §3. Engineering and
-experience slices do not.
+Art slices (A1 onward) waited for the owner's palette pick from the contact
+sheets in `docs/art-bible.md` §3. The owner picked **B, Hyrule morning, as the
+default** on 2026-09-26 (#88), so A1 can start.
 
 ## Slices
 
@@ -37,6 +37,7 @@ experience slices do not.
 | A7 | #72 | Post and grade: painterly grade, god rays on `high`, honest `medium` and `low` | S | A1 #64 | review:visual |
 | A8 | #73 | Title cinematic: fade from white, animated parallax cirrus, longer eased sweep with breathing blur, light shift, per-letter reveal, audio swell, contrast fix, hand-off into the live world | M | A1 #64 | review:visual |
 | A9 | #79 | UI reskin: thin-line chrome, glow instead of panels, blurred pause and countdown, camera preview frame | M | A8 #73 | review:visual |
+| A10 | #92 | Day cycle: a 5-minute loop through day, afternoon, dusk, night (stars, moon, blinking nav lights) and morning, blended through uniforms | M (upper end) | A1 #64, A4 #70, A7 #72 | review:visual |
 | F1 | #68 | Flight feel: energy (dive speed carried into climbs), roll-to-yaw lag, optional arms-back boost behind the gesture gate, soft-floor pull-up burst, one tunables object with tests | M | E2 #60 | agent-ready |
 | F2 | #77 | Camera and VFX: FOV punch and shake at speed, wind streaks, spray and dust on low passes, birds | M | F1 #68, A5 #71 | review:visual |
 | F3 | #78 | Audio: layered engine tied to RPM, wind by speed and bank, doppler past landmarks and through clouds, ambient bed with stems that swell on low passes, captions hook | M | F1 #68 | agent-ready |

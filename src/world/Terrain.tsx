@@ -3,9 +3,16 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Group } from 'three'
 import { usePerfStore } from '../debug/perfStore'
 import { useFlightStore } from '../flight/flightStore'
+import { useQualityStore } from '../render/qualityStore'
 import { TERRAIN_CONFIG } from './terrainConfig'
 import { createTerrainMaterial } from './terrainMaterial'
 import { TerrainStreamer } from './terrainStreamer'
+
+/**
+ * ms a shorter view distance waits before the streamer may take it: long enough for the far haze
+ * (`Atmosphere`) to close in first, so the tiles it drops are already fully hazed.
+ */
+const SHRINK_DELAY_MS = 2500
 
 function createTerrainWorker(): Worker {
   return new Worker(new URL('./terrain.worker.ts', import.meta.url), { type: 'module' })
@@ -28,6 +35,7 @@ export function Terrain() {
   const group = useMemo(() => new Group(), [])
   const material = useMemo(() => createTerrainMaterial(TERRAIN_CONFIG), [])
   const streamerRef = useRef<TerrainStreamer | null>(null)
+  const pendingView = useRef({ distance: TERRAIN_CONFIG.viewDistance, sinceMs: 0 })
 
   useEffect(() => {
     const streamer = new TerrainStreamer(
@@ -49,8 +57,25 @@ export function Terrain() {
   useFrame(() => {
     const streamer = streamerRef.current
     if (!streamer) return
+    // The governor's view distance: longer goes to the streamer at once (it still waits for a
+    // chunk crossing and a full load), shorter only once the haze has had time to close in.
+    const quality = useQualityStore.getState()
+    const pending = pendingView.current
+    const nowMs = performance.now()
+    if (quality.viewDistance !== pending.distance) {
+      pending.distance = quality.viewDistance
+      pending.sinceMs = nowMs
+    }
+    const shrinking = pending.distance < streamer.viewDistance
+    if (!shrinking || nowMs - pending.sinceMs >= SHRINK_DELAY_MS) {
+      streamer.setViewDistance(pending.distance)
+    }
+
     const { position } = useFlightStore.getState().state
     streamer.update(position.x, position.z)
+    if (quality.appliedViewDistance !== streamer.viewDistance) {
+      useQualityStore.setState({ appliedViewDistance: streamer.viewDistance })
+    }
     const perf = usePerfStore.getState()
     if (perf.terrainTiles !== streamer.tileCount || perf.terrainReady !== streamer.ready) {
       usePerfStore.setState({ terrainTiles: streamer.tileCount, terrainReady: streamer.ready })

@@ -1,9 +1,12 @@
 # Driftwing art bible
 
 The visual brief for the AAA polish pass. It replaces the palette section of
-`docs/art-direction.md` once the owner signs off (that file's type, spacing and
-contrast rules still stand). Nothing under "Palette" is built until the owner
-picks a direction from the rendered options in `docs/screenshots/aaa/`.
+`docs/art-direction.md` (that file's type, spacing and contrast rules still
+stand).
+
+**Status: palette B, Hyrule morning, is the default.** The owner picked it on
+2026-09-26 (#88). Golden hour stays as a preset, and a full day cycle is a
+follow-up (#92, §4).
 
 The target is *The Legend of Zelda: Breath of the Wild* seen from the air. The
 test for every frame: would it hold up next to a BotW screenshot at thumbnail
@@ -198,12 +201,17 @@ What the sheets show, and what they don't:
 
 ## 4. Time of day
 
-Two presets ship: `morning` (default, title and first flight) and
-`golden-hour` (golden path finale, and a `?tod=golden` flag). The preset drives
-sun direction, sun colour and intensity, sky gradient, haze colours, hemisphere
-colours, cloud tints and a grade tint. A slow drift between the two over the
-golden path's last minute is a stretch goal; a snap switch is not acceptable in
-play.
+A1 (#64) ships two presets: `morning`, the default for the title and first
+flight, and `golden-hour`, behind `?tod=golden`. A preset drives the sun
+direction, sun colour and intensity, sky gradient, haze colours, hemisphere
+colours, cloud tints and a grade tint.
+
+The owner has asked for time to pass in play: a 5-minute loop through day,
+afternoon, dusk, night and morning, back to day (#92). Night is cool navy with
+stars and the plane's navigation lights blinking. A1 lays the groundwork for it.
+Every lighting value it adds is a token in a preset and reaches the shaders as
+a uniform, never a compiled constant, so #92 can blend presets per frame
+without recompiling. A snap switch is never acceptable in play.
 
 ## 5. Shading model
 

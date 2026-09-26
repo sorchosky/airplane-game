@@ -146,10 +146,36 @@ Six independent `requestAnimationFrame` loops run beside R3F's. They are cheap
 individually; E2 folds the per-frame ones that touch flight or input into one
 tick so ordering is deterministic.
 
-## Quality tiers today
+## Quality tiers and the adaptive governor (E3, #89)
 
-Picked once at load (`qualityStore`): `high` on a fine pointer, `medium` on a
-coarse one, `?fx=` overrides. No adaptation. E3 adds the governor.
+The starting tier is picked at load (`qualityStore`): `high` on a fine pointer,
+`medium` on a coarse one. From there the frame-time governor
+(`src/render/adaptiveQuality.ts`) walks a ladder built from that starting
+point, one change per rung, skipping any step that changes nothing:
+
+| Order | What drops | Steps |
+|---|---|---|
+| 1 | Pixel ratio, capped at the screen's own | 1.5 → 1.25 → 1 → 0.75 |
+| 2 | Post tier | `high` → `medium` → `low` |
+| 3 | Foliage density (read by A3) | 100 % → 60 % → 30 % |
+| 4 | View distance, with the far haze closing in first | 10 km → 7 km |
+
+Budgets and timing:
+
+- The target is a frame-time p95 of 16.7 ms (60 fps), measured over a rolling
+  3 s window and sampled twice a second. `?budget=<ms>` overrides it for testing.
+- Over budget for 3 s steps down one rung. Under 70 % of budget for 10 s steps
+  up one rung.
+- A rung that fails within 15 s of being climbed is blocked for 30 s, doubling
+  each time it fails again, so the governor settles instead of oscillating.
+- It waits 3 s after the scene mounts and 1 s after each change before
+  measuring. Frames over 1 s are one-off stalls and aren't counted.
+- `?fx=` pins the tier and turns the governor off. The `?shot=` captures always
+  pin it.
+- Pose detection steps 20 → 15 → 12 Hz when inference stays over 40 ms for
+  2 s, and recovers after 10 s under 25 ms (`src/pose/detectionRate.ts`).
+- The `?debug` HUD shows the rung, the last change and the view distance on
+  screen.
 
 ## Measuring
 
