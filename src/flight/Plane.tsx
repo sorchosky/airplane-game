@@ -4,15 +4,20 @@ import type { Group } from 'three'
 import { useInputStore } from '../input/inputStore'
 import { surfaceHeightAt } from '../world/heightfield'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
+import { ContactShadow } from './ContactShadow'
 import { useFlightStore } from './flightStore'
 import { PlaneModel } from './PlaneModel'
+import { WingtipVortices } from './WingtipVortices'
 
 interface PlaneProps {
   /** Freezes the simulation while the game is paused. */
   paused: boolean
 }
 
-/** Steps the flight model each frame and places the plane model at the result. */
+/**
+ * Steps the flight model each frame and places the plane model at the result. The contact shadow
+ * and wingtip vortices live in world space beside it, not under the moving group.
+ */
 export function Plane({ paused }: PlaneProps) {
   const groupRef = useRef<Group>(null)
 
@@ -34,8 +39,12 @@ export function Plane({ paused }: PlaneProps) {
   })
 
   return (
-    <group ref={groupRef}>
-      <PlaneModel paused={paused} />
-    </group>
+    <>
+      <group ref={groupRef}>
+        <PlaneModel paused={paused} />
+      </group>
+      <ContactShadow />
+      <WingtipVortices paused={paused} />
+    </>
   )
 }

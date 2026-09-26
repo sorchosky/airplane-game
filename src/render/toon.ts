@@ -86,35 +86,83 @@ export function getToonGradientMap(): DataTexture {
   return texture
 }
 
+/**
+ * Stepped specular highlight (#71): a hard-edged Blinn-Phong glint off the key light, for glossy
+ * surfaces like the canopy. A threshold on N·H rather than a power curve, so it reads as a
+ * painted highlight, anti-aliased by `softness`.
+ */
+export const TOON_SPECULAR = {
+  /** N·H at which the highlight switches on. About 20° of half-vector cone. */
+  threshold: 0.94,
+  /** Half-width of the edge blend, in N·H. */
+  softness: 0.012,
+  /** Fraction of the key light's colour added inside the highlight. */
+  strength: 0.7,
+} as const
+
 export interface ToonMaterialOptions {
   color: ColorRepresentation
   /** Soft fresnel rim light tinted with the lighting preset's sun colour. Off by default. */
   rim?: boolean
+  /** Stepped specular glint off the key light (`TOON_SPECULAR`). Off by default. */
+  specular?: boolean
+  /** Multiplies `color` by the geometry's `color` attribute, for shading parts of one mesh. */
+  vertexColors?: boolean
 }
 
 /** Cache key for a toon material. Colors are normalized so `'#fff'` and `0xffffff` share one. */
-export function toonMaterialKey({ color, rim = false }: ToonMaterialOptions): string {
-  return `${new Color(color).getHexString()}|rim:${rim ? 1 : 0}`
+export function toonMaterialKey({
+  color,
+  rim = false,
+  specular = false,
+  vertexColors = false,
+}: ToonMaterialOptions): string {
+  const flags = `rim:${rim ? 1 : 0}|spec:${specular ? 1 : 0}|vc:${vertexColors ? 1 : 0}`
+  return `${new Color(color).getHexString()}|${flags}`
 }
 
 const RIM_FRAGMENT = /* glsl */ `
   float toonRimFacing = 1.0 - saturate( dot( normal, normalize( vViewPosition ) ) );
-  outgoingLight += toonRimColor * toonRimStrength * smoothstep( 0.55, 0.85, toonRimFacing );
-  #include <opaque_fragment>`
+  outgoingLight += toonRimColor * toonRimStrength * smoothstep( 0.55, 0.85, toonRimFacing );`
 
-function addRimLight(material: MeshToonMaterial): void {
+// The first directional light is the sun (`Atmosphere`). `vViewPosition` points from the fragment
+// to the camera in view space, the same space as the light's direction.
+const SPECULAR_FRAGMENT = /* glsl */ `
+  #if NUM_DIR_LIGHTS > 0
+    vec3 toonHalf = normalize( directionalLights[ 0 ].direction + normalize( vViewPosition ) );
+    float toonNdotH = dot( normal, toonHalf );
+    float toonGlint = smoothstep(
+      toonSpecular.x - toonSpecular.y, toonSpecular.x + toonSpecular.y, toonNdotH );
+    outgoingLight += directionalLights[ 0 ].color * toonGlint * toonSpecular.z;
+  #endif`
+
+/**
+ * Patches the toon shader with the optional rim and specular terms, both added to the lit colour
+ * just before it's written out.
+ */
+function addShaderTerms(material: MeshToonMaterial, rim: boolean, specular: boolean): void {
   material.onBeforeCompile = (shader) => {
-    // Shared with the lighting preset, so the rim follows the sun's colour.
-    shader.uniforms.toonRimColor = atmosphereUniforms.atmoSunLight
-    shader.uniforms.toonRimStrength = { value: lighting.rimStrength }
+    const uniforms: string[] = []
+    let terms = ''
+    if (rim) {
+      // Shared with the lighting preset, so the rim follows the sun's colour.
+      shader.uniforms.toonRimColor = atmosphereUniforms.atmoSunLight
+      shader.uniforms.toonRimStrength = { value: lighting.rimStrength }
+      uniforms.push('uniform vec3 toonRimColor;', 'uniform float toonRimStrength;')
+      terms += RIM_FRAGMENT
+    }
+    if (specular) {
+      const { threshold, softness, strength } = TOON_SPECULAR
+      shader.uniforms.toonSpecular = { value: [threshold, softness, strength] }
+      uniforms.push('uniform vec3 toonSpecular;')
+      terms += SPECULAR_FRAGMENT
+    }
     shader.fragmentShader = shader.fragmentShader
-      .replace(
-        'void main() {',
-        'uniform vec3 toonRimColor;\nuniform float toonRimStrength;\nvoid main() {',
-      )
-      .replace('#include <opaque_fragment>', RIM_FRAGMENT)
+      .replace('void main() {', `${uniforms.join('\n')}\nvoid main() {`)
+      .replace('#include <opaque_fragment>', `${terms}\n  #include <opaque_fragment>`)
   }
-  material.customProgramCacheKey = () => 'toon-rim'
+  const key = `toon${rim ? '-rim' : ''}${specular ? '-spec' : ''}`
+  material.customProgramCacheKey = () => key
 }
 
 const toonMaterials = new Map<string, MeshToonMaterial>()
@@ -131,8 +179,11 @@ export function createToonMaterial(options: ToonMaterialOptions): MeshToonMateri
   const material = new MeshToonMaterial({
     color: options.color,
     gradientMap: getToonGradientMap(),
+    vertexColors: options.vertexColors ?? false,
   })
-  if (options.rim) addRimLight(material)
+  if (options.rim || options.specular) {
+    addShaderTerms(material, options.rim ?? false, options.specular ?? false)
+  }
   toonMaterials.set(key, material)
   return material
 }
