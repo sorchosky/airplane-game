@@ -25,6 +25,16 @@ describe('applyLighting', () => {
     applyLighting(lightingPresets.morning)
   })
 
+  it('writes the cloud tints as linear (#70)', () => {
+    const preset = lightingPresets.goldenHour
+    applyLighting(preset)
+    const top = new Color(preset.cloudLight)
+    const shade = new Color(preset.cloudShadow)
+    expect(atmosphereUniforms.atmoCloudTop.value[0]).toBeCloseTo(top.r, 5)
+    expect(atmosphereUniforms.atmoCloudShade.value[2]).toBeCloseTo(shade.b, 5)
+    applyLighting(lightingPresets.morning)
+  })
+
   it('writes a unit sun direction', () => {
     applyLighting(lightingPresets.morning)
     const [x, y, z] = atmosphereUniforms.atmoSunDir.value

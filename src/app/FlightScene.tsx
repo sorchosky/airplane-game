@@ -10,6 +10,7 @@ import { useFlightStore } from '../flight/flightStore'
 import { hasDebugFlag } from '../input/source'
 import { PostFX } from '../render/PostFX'
 import { QualityGovernor } from '../render/QualityGovernor'
+import { CloudVeil } from '../ui/CloudVeil'
 import { Atmosphere } from '../world/Atmosphere'
 import { Terrain } from '../world/Terrain'
 import { Water } from '../world/Water'
@@ -63,6 +64,7 @@ export function FlightScene() {
         <QualityGovernor />
         <PostFX />
       </Canvas>
+      <CloudVeil />
       <PerfHud initiallyVisible={debug} />
       {shot && <ShotReady />}
     </>

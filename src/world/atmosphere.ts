@@ -1,9 +1,8 @@
-import type { LightingPreset } from '../styles/tokens'
 import { activeLighting } from './lightingPreset'
 import type { TerrainConfig } from './terrainConfig'
 
-// Pure sky, haze and cloud-layout math. No React or Three. The GLSL twin of the haze functions
-// lives in `atmosphereShader.ts` and must stay in step with these.
+// Pure sky and haze math (cloud shapes and layout live in `cloudMath.ts`). No React or Three.
+// The GLSL twin of the haze functions lives in `atmosphereShader.ts` and must stay in step.
 //
 // How the haze works, in plain terms:
 // - Real air scatters light, so the further away something is, the more of the air's own colour
@@ -77,59 +76,8 @@ export function hazeForViewDistance(
   return { start: config.hazeFadeStart * scale, end: config.hazeFadeEnd * scale }
 }
 
-export interface CloudConfig {
-  seed: number
-  /** Number of cloud clusters */
-  clusters: number
-  /** Puffs (spheres) per cluster, inclusive range */
-  puffsMin: number
-  puffsMax: number
-  /** m, cluster base altitude range. Puffs sit up to 0.4 × radius above it. */
-  altitudeMin: number
-  altitudeMax: number
-  /** m, puff radius range */
-  puffRadiusMin: number
-  puffRadiusMax: number
-  /** m, how far puffs spread horizontally from their cluster centre */
-  clusterSpread: number
-  /**
-   * m, edge of the square of sky the clusters live in, centred on the player. Clusters that
-   * drift or get left past one edge reappear at the opposite one. Half of it must be past
-   * `hazeFadeEnd` so the jump happens where clouds are already fully hazed into the sky.
-   */
-  fieldSize: number
-  /** m/s, world-space wind on x and z */
-  windX: number
-  windZ: number
-}
-
-export const CLOUD_CONFIG: CloudConfig = {
-  seed: 22,
-  clusters: 56,
-  puffsMin: 4,
-  puffsMax: 8,
-  altitudeMin: 320,
-  altitudeMax: 460,
-  puffRadiusMin: 35,
-  puffRadiusMax: 90,
-  clusterSpread: 160,
-  fieldSize: 19000,
-  windX: 6,
-  windZ: 2.5,
-}
-
-export interface CloudPuff {
-  /** m, cluster centre in the un-wrapped world at time 0 */
-  clusterX: number
-  clusterZ: number
-  /** m, puff centre relative to its cluster centre, plus the cluster altitude in `y` */
-  offsetX: number
-  y: number
-  offsetZ: number
-  radius: number
-}
-
-function mulberry32(seed: number): () => number {
+/** Small, fast seeded PRNG: the same seed always gives the same sequence. */
+export function mulberry32(seed: number): () => number {
   let a = seed >>> 0
   return () => {
     a = (a + 0x6d2b79f5) >>> 0
@@ -138,40 +86,6 @@ function mulberry32(seed: number): () => number {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
-}
-
-/**
- * Deterministic cloud puffs. Each cluster is a flat-bottomed heap: puffs spread wide and low,
- * the biggest near the middle, so it reads as a cumulus rather than a ball.
- */
-export function cloudLayout(config: CloudConfig): CloudPuff[] {
-  const random = mulberry32(config.seed)
-  const between = (min: number, max: number) => min + (max - min) * random()
-  const puffs: CloudPuff[] = []
-  for (let c = 0; c < config.clusters; c++) {
-    const clusterX = between(-0.5, 0.5) * config.fieldSize
-    const clusterZ = between(-0.5, 0.5) * config.fieldSize
-    const altitude = between(config.altitudeMin, config.altitudeMax)
-    const count = Math.floor(between(config.puffsMin, config.puffsMax + 1))
-    for (let p = 0; p < count; p++) {
-      const angle = between(0, Math.PI * 2)
-      const reach = Math.sqrt(random()) * config.clusterSpread
-      // Puffs near the centre are bigger, so the heap tapers toward its edges.
-      const centrality = 1 - reach / config.clusterSpread
-      const radius =
-        config.puffRadiusMin + (config.puffRadiusMax - config.puffRadiusMin) * centrality
-      puffs.push({
-        clusterX,
-        clusterZ,
-        offsetX: Math.cos(angle) * reach,
-        // Sit each puff so its bottom is near the cluster base: flat undersides read as cumulus.
-        y: altitude + radius * 0.4,
-        offsetZ: Math.sin(angle) * reach,
-        radius,
-      })
-    }
-  }
-  return puffs
 }
 
 /** Wraps `value` into the window `center ± size / 2`. */
@@ -187,45 +101,4 @@ export function hexToLinear(hex: string): [number, number, number] {
     return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
   }
   return [channel(1), channel(3), channel(5)]
-}
-
-/**
- * Sunlit cloud faces land on this multiple of the preset's `cloudLight` (linear, before tone
- * mapping). ACES maps 1.3 to about 0.8: near-white on screen, and under the bloom threshold, so
- * clouds never bloom.
- */
-export const CLOUD_LIT_GAIN = 1.3
-
-export interface CloudShading {
-  /** Linear Lambert colour, 0..1 per channel. */
-  albedo: Vec3
-  /** Linear emissive colour, at intensity 1. */
-  emissive: Vec3
-}
-
-/**
- * Lambert colour and emissive (#64) that put a cloud's shadowed side on the preset's
- * `cloudShadow` and its sunlit side on `cloudLight` × `CLOUD_LIT_GAIN`, whatever the preset's sun
- * and sky fill. three's Lambert gives `albedo / π × (sun × N·L + hemisphere) + emissive`; for a
- * side-facing puff (hemisphere halfway between sky and ground), N·L = 0 and N·L = 1 are two
- * equations for the two unknowns. Tops pick up a little more sky blue, undersides a little ground.
- */
-export function cloudShading(preset: LightingPreset): CloudShading {
-  const lit = hexToLinear(preset.cloudLight)
-  const shadow = hexToLinear(preset.cloudShadow)
-  const sun = hexToLinear(preset.sun)
-  const sky = hexToLinear(preset.ambientSky)
-  const ground = hexToLinear(preset.ambientGround)
-  const albedo: [number, number, number] = [0, 0, 0]
-  const emissive: [number, number, number] = [0, 0, 0]
-  for (let i = 0; i < 3; i++) {
-    const sunLight = (sun[i] ?? 0) * preset.sunIntensity
-    const skyFill =
-      (0.5 * ((sky[i] ?? 0) + (ground[i] ?? 0)) * preset.hemisphereIntensity) / Math.PI
-    const target = (lit[i] ?? 0) * CLOUD_LIT_GAIN - (shadow[i] ?? 0)
-    const a = sunLight > 0 ? Math.min(1, Math.max(0, (target * Math.PI) / sunLight)) : 1
-    albedo[i] = a
-    emissive[i] = Math.max(0, (shadow[i] ?? 0) - a * skyFill)
-  }
-  return { albedo, emissive }
 }
