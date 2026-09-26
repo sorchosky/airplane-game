@@ -77,3 +77,43 @@ test('replay: calibrates, engages the gate, banks with the tilt, climbs and dive
   expect(pitched[peak]).toBeGreaterThan((pitched[0] ?? Infinity) + 2)
   expect(Math.min(...pitched.slice(peak))).toBeLessThan((pitched[peak] ?? -Infinity) - 2)
 })
+
+// The boost fixture (#93): calibrate, fly level, sweep both arms back and hold, then spread them
+// again. The sweep asks for a boost; flight gives a burst and the speed climbs above cruise.
+test('replay: arms swept back boost the plane, and it flies on after', async ({ page }) => {
+  test.setTimeout(120_000)
+  await page.goto('/?input=replay&replay=boost&fx=low')
+  await page.getByRole('button', { name: 'Start' }).click()
+
+  await page.evaluate(() => {
+    const samples: DriftwingSnapshot[] = []
+    ;(window as SampledWindow).__samples = samples
+    const tick = () => {
+      const s = window.__driftwing?.snapshot()
+      if (s) samples.push(s)
+      requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  })
+
+  await expect.poll(async () => (await snapshot(page))?.game, { timeout: 30_000 }).toBe('flying')
+  await expect
+    .poll(async () => (await snapshot(page))?.replay.label, { timeout: 60_000 })
+    .toBe('level-out')
+
+  const samples = await page.evaluate(() => (window as SampledWindow).__samples ?? [])
+  writeFileSync('test-results/93-boost-samples.json', JSON.stringify(samples))
+
+  const level = between(samples, 'level', 'boost-sweep')
+  const sweep = between(samples, 'boost-sweep', 'boost-release')
+  expect(level.length, 'level sampled').toBeGreaterThan(0)
+  expect(sweep.length, 'sweep sampled').toBeGreaterThan(0)
+  expect(level.some((s) => s.input.boost)).toBe(false)
+  expect(sweep.some((s) => s.input.boost && s.flight.boosting)).toBe(true)
+  // The gate holds through the sweep: the plane is flown, not handed to the autopilot.
+  expect(sweep.every((s) => s.input.active)).toBe(true)
+
+  const speeds = sweep.map((s) => s.flight.speed)
+  const cruise = level.at(-1)?.flight.speed ?? Infinity
+  expect(Math.max(...speeds)).toBeGreaterThan(cruise + 5)
+})

@@ -44,6 +44,22 @@ export function onFloorContact(listener: FloorContactListener): () => void {
   return () => floorContactListeners.delete(listener)
 }
 
+/** `end` carries how long the burst ran (s): cut short by the player, or the full `boostDuration`. */
+export type BoostEvent = { type: 'start' } | { type: 'end'; duration: number }
+
+type BoostListener = (event: BoostEvent) => void
+const boostListeners = new Set<BoostListener>()
+const BOOST_START: BoostEvent = { type: 'start' }
+
+/**
+ * Boost payoff hook (#93): called when an arms-back boost burst starts and when it ends. For VFX
+ * and audio (F2, F3); the live flag is `state.boosting`. Returns the unsubscribe function.
+ */
+export function onBoost(listener: BoostListener): () => void {
+  boostListeners.add(listener)
+  return () => boostListeners.delete(listener)
+}
+
 interface FlightStore {
   state: FlightState
   params: FlightParams
@@ -65,9 +81,17 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
   params: DEFAULT_FLIGHT_PARAMS,
   tick: (input, dt, groundHeight) => {
     const { state, params } = get()
+    const wasBoosting = state.boosting
+    const boostTime = state.boostTime
     step(state, input, dt, params, groundHeight, state)
     const event = trackFloorContact(floorContact, state.floorContact)
     if (event) for (const listener of floorContactListeners) listener(event)
+    if (state.boosting !== wasBoosting) {
+      const boostEvent: BoostEvent = state.boosting
+        ? BOOST_START
+        : { type: 'end', duration: boostTime }
+      for (const listener of boostListeners) listener(boostEvent)
+    }
   },
   reset: () => set({ state: createInitialFlightState(get().params, spawnPosition()) }),
 }))
