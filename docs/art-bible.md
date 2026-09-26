@@ -231,13 +231,16 @@ play.
 - **Terrain, painterly, no textures.** In the shader, on top of the existing
   height and slope bands:
   - Macro variation: 400 m noise shifts grass hue ±6° and value ±6%.
-  - Brush breakup: 35 m noise, value ±4%, anisotropic along the slope so it
-    reads as strokes, not static.
-  - Rock strata: world-Y sine bands, 4–7 m period, ±6% value, only where the
-    rock weight is above 0.5, jittered by the macro noise so bands wander.
+  - Brush breakup: 35 m noise, value ±4%, streaked down the fall line so it
+    reads as strokes, not static. Gone by 1.5 km.
+  - Rock strata: world-Y sine bands 10–16 m apart, ±6% value, only where the
+    rock weight is above 0.5, jittered by the macro noise so bands wander. A
+    screen-space fade removes bands narrower than a few pixels. (Planned at
+    4–7 m; from flight height those read as pinstripes, A2 #69.)
   - Sun response: grass tint shifts toward `grass-light` on faces within 30° of
-    the sun and toward a blue-green (`grass-shadow` mixed 20% with
-    `ambient-sky`) on faces away from it.
+    the sun and toward a blue-green on faces away from it: `grass-shadow`
+    leaning 35% toward `ambient-sky`'s hue at `grass-shadow`'s own brightness,
+    so shaded slopes cool without lightening.
   - Snow line and sand line keep their jitter.
 - **Foliage and plane: outlined toon with rim.** Inverted hull as today.
 - **Clouds: two-band toon plus soft fresnel edge**, tinted `cloud-top` and
