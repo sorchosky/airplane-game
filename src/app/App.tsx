@@ -28,12 +28,14 @@ import { TitleHandoff } from './screens/TitleHandoff'
 import { useTitleHandoffStore } from './screens/titleHandoff'
 import { TitleScreen } from './screens/TitleScreen'
 import { isMaterialsSceneMode, isReplayInputMode, isSwatchesMode } from './urlFlags'
+import { useGameClock } from './useGameClock'
 import { setupWakeLockReacquire } from './wakeLock'
 
-/** Control-state machine plus its HUD, mounted for the life of one flight (flying ⇄ paused). */
+/** Control-state machine, audio and in-game clock plus the HUD, mounted for the life of one flight (flying ⇄ paused). */
 function FlightControl({ hud }: { hud: boolean }) {
   useControlStateDriver()
   useAudioEngine()
+  useGameClock()
   return hud ? <Hud /> : null
 }
 

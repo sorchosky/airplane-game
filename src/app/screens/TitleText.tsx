@@ -1,6 +1,7 @@
 import { type CSSProperties, type ReactNode, type Ref } from 'react'
 import { color, radius, space, type } from '../../styles/tokens'
 import { copy } from '../../ui/copy'
+import { PoseDemoFigure } from '../../ui/PoseDemoFigure'
 
 // The title's text layers, shared by `TitleScreen` and the Start hand-off (`TitleHandoff`), which
 // lifts a copy of them away over the next screen.
@@ -25,21 +26,50 @@ export function WordmarkRow({ children }: { children: ReactNode }) {
   )
 }
 
-/** Start hangs below the centered wordmark. */
-export function StartRow({ children }: { children: ReactNode }) {
+/**
+ * Start hangs below the centered wordmark, with the tagline and pose demonstration (#63) below it.
+ * The ref lets the intro settle the whole group in together.
+ */
+export function StartRow({ children, ref }: { children: ReactNode; ref?: Ref<HTMLDivElement> }) {
   return (
     <div
+      ref={ref}
       style={{
         position: 'absolute',
         top: '50%',
         left: 0,
         right: 0,
         display: 'flex',
-        justifyContent: 'center',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: space.lg,
         paddingTop: `calc(${type.tvHero} / 2 + ${space.lg})`,
       }}
     >
       {children}
+    </div>
+  )
+}
+
+/** The one-line tagline beside the looping pose demonstration (#63), under Start. */
+export function StartTagline({ decorative = false }: { decorative?: boolean }) {
+  return (
+    <div
+      aria-hidden={decorative || undefined}
+      style={{ display: 'flex', alignItems: 'center', gap: space.md }}
+    >
+      <PoseDemoFigure />
+      <p
+        style={{
+          margin: 0,
+          fontFamily: type.fontBody,
+          fontSize: type.tvBody,
+          whiteSpace: 'nowrap',
+          textShadow: TEXT_GLOW,
+        }}
+      >
+        {copy.title.tagline}
+      </p>
     </div>
   )
 }

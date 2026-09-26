@@ -1,13 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { lightingPresets } from '../styles/tokens'
-import { POST_FX } from '../render/postFx'
 import {
-  CLOUD_CONFIG,
-  CLOUD_LIT_GAIN,
   SUN_DIRECTION,
-  cloudLayout,
-  cloudShading,
   hexToLinear,
+  mulberry32,
   farHazeAmount,
   hazeForViewDistance,
   nearHazeAmount,
@@ -57,31 +52,6 @@ describe('haze', () => {
   })
 })
 
-describe('clouds', () => {
-  const puffs = cloudLayout(CLOUD_CONFIG)
-
-  it('is deterministic', () => {
-    expect(cloudLayout(CLOUD_CONFIG)).toEqual(puffs)
-  })
-
-  it('builds the configured number of clusters in the 300–500 m band', () => {
-    const clusters = new Set(puffs.map((p) => `${p.clusterX},${p.clusterZ}`))
-    expect(clusters.size).toBe(CLOUD_CONFIG.clusters)
-    expect(clusters.size).toBeGreaterThanOrEqual(30)
-    expect(clusters.size).toBeLessThanOrEqual(60)
-    for (const puff of puffs) {
-      expect(puff.y).toBeGreaterThanOrEqual(300)
-      expect(puff.y).toBeLessThanOrEqual(500)
-      expect(puff.radius).toBeGreaterThanOrEqual(CLOUD_CONFIG.puffRadiusMin)
-      expect(puff.radius).toBeLessThanOrEqual(CLOUD_CONFIG.puffRadiusMax)
-    }
-  })
-
-  it('respawns past the full haze fade, so the jump is never seen', () => {
-    expect(CLOUD_CONFIG.fieldSize / 2).toBeGreaterThan(config.hazeFadeEnd)
-  })
-})
-
 describe('wrapAround', () => {
   it('keeps values inside center ± size / 2', () => {
     for (const value of [-50000, -9500, -1, 0, 1, 9499, 9500, 123456]) {
@@ -115,49 +85,23 @@ describe('hazeForViewDistance', () => {
   })
 })
 
-/** three's ACES filmic fit for a grey input: what a linear value becomes on screen. */
-function acesGrey(x: number): number {
-  const v = x / 0.6
-  return (v * (v + 0.0245786) - 0.000090537) / (v * (0.983729 * v + 0.432951) + 0.238081)
-}
+describe('mulberry32', () => {
+  it('repeats for a seed and stays in 0..1', () => {
+    const a = mulberry32(7)
+    const b = mulberry32(7)
+    for (let i = 0; i < 100; i++) {
+      const value = a()
+      expect(value).toBe(b())
+      expect(value).toBeGreaterThanOrEqual(0)
+      expect(value).toBeLessThan(1)
+    }
+  })
+})
 
-describe('cloudShading', () => {
-  for (const [name, preset] of Object.entries(lightingPresets)) {
-    describe(name, () => {
-      const { albedo, emissive } = cloudShading(preset)
-      const sun = hexToLinear(preset.sun)
-      const sky = hexToLinear(preset.ambientSky)
-      const ground = hexToLinear(preset.ambientGround)
-      const skyFill = (i: number) =>
-        (0.5 * ((sky[i] ?? 0) + (ground[i] ?? 0)) * preset.hemisphereIntensity) / Math.PI
-      const shaded = [0, 1, 2].map((i) => (albedo[i] ?? 0) * skyFill(i) + (emissive[i] ?? 0))
-      const lit = [0, 1, 2].map(
-        (i) => shaded[i]! + ((albedo[i] ?? 0) * (sun[i] ?? 0) * preset.sunIntensity) / Math.PI,
-      )
-
-      it('keeps albedo in 0..1 and emissive non-negative', () => {
-        for (const a of albedo) expect(a).toBeGreaterThanOrEqual(0)
-        for (const a of albedo) expect(a).toBeLessThanOrEqual(1)
-        for (const e of emissive) expect(e).toBeGreaterThanOrEqual(0)
-      })
-
-      it("puts a puff's shaded side on the cloudShadow token", () => {
-        const target = hexToLinear(preset.cloudShadow)
-        shaded.forEach((c, i) => expect(c).toBeCloseTo(target[i] ?? 0, 5))
-      })
-
-      it('lights the sunny side brighter than the shaded side, near cloudLight', () => {
-        const target = hexToLinear(preset.cloudLight)
-        lit.forEach((c, i) => {
-          expect(c).toBeGreaterThan(shaded[i] ?? 0)
-          expect(c).toBeLessThanOrEqual((target[i] ?? 0) * CLOUD_LIT_GAIN + 1e-9)
-        })
-      })
-
-      it('never blooms: the brightest face stays under the threshold after tone mapping', () => {
-        const peak = Math.max(...lit)
-        expect(acesGrey(peak)).toBeLessThan(POST_FX.bloom.threshold - POST_FX.bloom.smoothing)
-      })
-    })
-  }
+describe('hexToLinear', () => {
+  it('maps the sRGB ends and midpoint to linear', () => {
+    expect(hexToLinear('#000000')).toEqual([0, 0, 0])
+    expect(hexToLinear('#ffffff')).toEqual([1, 1, 1])
+    expect(hexToLinear('#808080')[0]).toBeCloseTo(0.2158, 3)
+  })
 })

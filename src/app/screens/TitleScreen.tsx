@@ -23,7 +23,14 @@ import {
   BAND_WIDTH_VW,
 } from './titleIntro'
 import { useTitleHandoffStore } from './titleHandoff'
-import { StartButton, StartRow, TitleScrim, TitleWordmark, WordmarkRow } from './TitleText'
+import {
+  StartButton,
+  StartRow,
+  StartTagline,
+  TitleScrim,
+  TitleWordmark,
+  WordmarkRow,
+} from './TitleText'
 
 /** Module scope, so the intro plays once per page load (see `shouldPlayIntro`). */
 let introPlayed = false
@@ -69,7 +76,7 @@ export function TitleScreen() {
   const fadeRef = useRef<HTMLDivElement>(null)
   const revealRef = useRef<HTMLDivElement>(null)
   const bandRef = useRef<HTMLDivElement>(null)
-  const startRef = useRef<HTMLButtonElement>(null)
+  const startRef = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
     const fade = fadeRef.current
@@ -137,8 +144,9 @@ export function TitleScreen() {
           <TitleWordmark />
         </div>
       </WordmarkRow>
-      <StartRow>
-        <StartButton ref={startRef} onClick={handleStart} />
+      <StartRow ref={startRef}>
+        <StartButton onClick={handleStart} />
+        <StartTagline />
       </StartRow>
       {playIntro && (
         <>

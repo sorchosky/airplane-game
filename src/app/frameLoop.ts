@@ -24,6 +24,8 @@ export const FRAME_PRIORITY = {
   input: 0,
   control: 10,
   audio: 20,
+  /** The in-game clock only needs the game state, so it runs last. */
+  clock: 30,
 } as const
 
 export interface FrameScheduler {

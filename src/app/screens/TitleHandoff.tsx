@@ -10,7 +10,14 @@ import {
   handoffWordmarkKeyframes,
 } from './titleIntro'
 import { useTitleHandoffStore } from './titleHandoff'
-import { StartButton, StartRow, TitleScrim, TitleWordmark, WordmarkRow } from './TitleText'
+import {
+  StartButton,
+  StartRow,
+  StartTagline,
+  TitleScrim,
+  TitleWordmark,
+  WordmarkRow,
+} from './TitleText'
 
 const HANDOFF_SKY_MASK = 'linear-gradient(180deg, #000 70%, transparent 100%)'
 
@@ -98,6 +105,7 @@ export function TitleHandoff() {
         </WordmarkRow>
         <StartRow>
           <StartButton decorative />
+          <StartTagline decorative />
         </StartRow>
       </div>
       <div
