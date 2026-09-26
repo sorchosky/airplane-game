@@ -1,18 +1,26 @@
-import { color, lighting, space, toonRamp, type } from '../styles/tokens'
+import {
+  color,
+  DEFAULT_LIGHTING_PRESET,
+  lighting,
+  lightingPresets,
+  space,
+  toonRamp,
+  type,
+  type LightingPreset,
+} from '../styles/tokens'
 
 const COLOR_ROWS: Array<{ label: string; token: string; value: string }> = [
-  { label: 'sky-zenith', token: 'skyZenith', value: color.skyZenith },
-  { label: 'sky-horizon', token: 'skyHorizon', value: color.skyHorizon },
-  { label: 'fog', token: 'fog', value: color.fog },
-  { label: 'sun', token: 'sun', value: color.sun },
   { label: 'grass-light', token: 'grassLight', value: color.grassLight },
   { label: 'grass-shadow', token: 'grassShadow', value: color.grassShadow },
   { label: 'sand', token: 'sand', value: color.sand },
   { label: 'rock', token: 'rock', value: color.rock },
+  { label: 'rock-shadow', token: 'rockShadow', value: color.rockShadow },
   { label: 'snow', token: 'snow', value: color.snow },
   { label: 'water-shallow', token: 'waterShallow', value: color.waterShallow },
   { label: 'water-deep', token: 'waterDeep', value: color.waterDeep },
   { label: 'foliage', token: 'foliage', value: color.foliage },
+  { label: 'foliage-light', token: 'foliageLight', value: color.foliageLight },
+  { label: 'bark', token: 'bark', value: color.bark },
   { label: 'outline', token: 'outline', value: color.outline },
   { label: 'plane-body', token: 'planeBody', value: color.planeBody },
   { label: 'plane-stripe', token: 'planeStripe', value: color.planeStripe },
@@ -25,6 +33,24 @@ const COLOR_ROWS: Array<{ label: string; token: string; value: string }> = [
   { label: 'text-muted', token: 'textMuted', value: color.textMuted },
   { label: 'accent', token: 'accent', value: color.accent },
 ]
+
+/** The colour roles of a lighting preset, in the order the swatch rows show them. */
+const LIGHTING_ROLES: Array<{ label: string; key: keyof LightingPreset }> = [
+  { label: 'sky-zenith', key: 'skyZenith' },
+  { label: 'sky-horizon', key: 'skyHorizon' },
+  { label: 'sun-glow', key: 'sunGlow' },
+  { label: 'fog', key: 'fog' },
+  { label: 'sun', key: 'sun' },
+  { label: 'ambient-sky', key: 'ambientSky' },
+  { label: 'ambient-ground', key: 'ambientGround' },
+  { label: 'cloud-light', key: 'cloudLight' },
+  { label: 'cloud-shadow', key: 'cloudShadow' },
+]
+
+const PRESET_LABELS: Record<keyof typeof lightingPresets, string> = {
+  morning: 'Morning (default)',
+  goldenHour: 'Golden hour (?tod=golden)',
+}
 
 // `tv-display` is the only size that gets the uppercase/wide-tracking main-title
 // treatment — it's reserved for the logo. `tv-title` uses the display font only for
@@ -104,7 +130,7 @@ export function Swatches() {
       style={{
         minHeight: '100%',
         padding: space.xl,
-        background: `linear-gradient(180deg, ${color.skyZenith}, ${color.skyHorizon})`,
+        background: `linear-gradient(180deg, ${lightingPresets[DEFAULT_LIGHTING_PRESET].skyZenith}, ${lightingPresets[DEFAULT_LIGHTING_PRESET].skyHorizon})`,
       }}
     >
       <div
@@ -186,10 +212,35 @@ export function Swatches() {
           </div>
         </Section>
 
-        <Section title="Lighting">
-          <p style={{ fontSize: type.tvCaption }}>
-            Sun direction [{lighting.sunDirection.join(', ')}] · rim strength {lighting.rimStrength}
-          </p>
+        <Section title="Lighting presets">
+          {(Object.keys(lightingPresets) as Array<keyof typeof lightingPresets>).map((name) => {
+            const preset: LightingPreset = lightingPresets[name]
+            return (
+              <div key={name} style={{ marginBottom: space.xl }}>
+                <p style={{ fontSize: type.tvCaption, margin: `0 0 ${space.sm}` }}>
+                  {PRESET_LABELS[name]} · sun [{preset.sunDirection.join(', ')}] ×
+                  {preset.sunIntensity} · sky fill ×{preset.hemisphereIntensity}
+                </p>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                    gap: space.md,
+                  }}
+                >
+                  {LIGHTING_ROLES.map((role) => (
+                    <Swatch
+                      key={role.key}
+                      label={role.label}
+                      token={`${name}.${role.key}`}
+                      value={String(preset[role.key])}
+                    />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+          <p style={{ fontSize: type.tvCaption }}>Rim strength {lighting.rimStrength}</p>
         </Section>
 
         <Section title="Gesture control state">

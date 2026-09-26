@@ -4,30 +4,32 @@
 @import url('https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600&family=Work+Sans:wght@400;500;600&display=swap');
 
 :root {
-  /* Sky and atmosphere */
-  --color-sky-zenith: #5c5b74;
-  --color-sky-horizon: #e7a878;
-  --color-fog: #e3bd9a;
-  --color-sun: #f8b968;
+  /* Default lighting preset (`lightingPresets.morning`): the page behind the canvas before it
+     draws. The full presets live in tokens.ts only; the shaders read them as uniforms. */
+  --lighting-sky-zenith: #3f7fc4;
+  --lighting-sky-horizon: #d5e6f0;
 
-  /* Terrain */
-  --color-grass-light: #b7a35e;
-  --color-grass-shadow: #6d5a3a;
-  --color-sand: #cdb48a;
-  --color-rock: #a3907b;
-  --color-snow: #f6ead9;
-  --color-water-shallow: #7fa79c;
-  --color-water-deep: #39525a;
-  --color-foliage: #5f6b41;
+  /* Terrain albedo */
+  --color-grass-light: #93b352;
+  --color-grass-shadow: #567c3b;
+  --color-sand: #d9c89c;
+  --color-rock: #9b9486;
+  --color-rock-shadow: #6e685e;
+  --color-snow: #f5f6f8;
+  --color-water-shallow: #6fc0c8;
+  --color-water-deep: #2f6d8c;
+  --color-foliage: #3f7d46;
+  --color-foliage-light: #6da356;
+  --color-bark: #6b5442;
 
   /* Cel-shading linework */
-  --color-outline: #2a2219;
+  --color-outline: #1f2a33;
 
   /* Plane livery */
-  --color-plane-body: #f1e7d4;
-  --color-plane-stripe: #c2572f;
-  --color-plane-metal: #a99b89;
-  --color-plane-glass: #3a4248;
+  --color-plane-body: #f4efe3;
+  --color-plane-stripe: #d8562b;
+  --color-plane-metal: #9c948a;
+  --color-plane-glass: #35414d;
 
   /* Gesture-control state */
   --color-control-active: #5cb8bd;
@@ -93,7 +95,7 @@ body,
 }
 
 body {
-  background: var(--color-sky-zenith);
+  background: var(--lighting-sky-zenith);
   color: var(--color-text-primary);
   font-family: var(--font-body);
   overscroll-behavior: none;

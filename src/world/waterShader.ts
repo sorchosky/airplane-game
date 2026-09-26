@@ -1,6 +1,6 @@
 import { ShaderMaterial, UniformsLib, UniformsUtils } from 'three'
 import { color } from '../styles/tokens'
-import { SUN_DIRECTION } from './atmosphere'
+import { atmosphereUniforms } from './atmosphereUniforms'
 import { linearRgb, type Rgb } from './terrainColor'
 
 // Stylized water: one flat, slightly see-through surface with soft, slow color movement.
@@ -47,12 +47,16 @@ const fragmentShader = /* glsl */ `
 #include <fog_pars_fragment>
 #include <logdepthbuf_pars_fragment>
 uniform float uWaterTime;
+// The glint takes the lighting preset's sun colour and direction (#64). The direction is declared
+// by the haze chunk when fog is on.
+uniform vec3 atmoSunLight;
+#ifndef USE_FOG
+uniform vec3 atmoSunDir;
+#endif
 varying vec3 vWaterWorld;
 
 const vec3 WATER_SHALLOW = ${vec3(linearRgb(color.waterShallow))};
 const vec3 WATER_DEEP = ${vec3(linearRgb(color.waterDeep))};
-const vec3 WATER_GLINT = ${vec3(linearRgb(color.sun))};
-const vec3 WATER_SUN_DIR = vec3(${SUN_DIRECTION.map((v) => v.toFixed(5)).join(', ')});
 
 float waterHash(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -95,8 +99,8 @@ void main() {
   vec3 water = mix(WATER_DEEP, WATER_SHALLOW, 0.35 + 0.45 * facing + 0.12 * r * detail);
 
   // Cel-style sun glint: a soft-edged band, not a sharp highlight.
-  float glint = smoothstep(0.93, 0.97, dot(reflect(-viewDir, normal), WATER_SUN_DIR));
-  water = mix(water, WATER_GLINT, glint * 0.45 * detail);
+  float glint = smoothstep(0.93, 0.97, dot(reflect(-viewDir, normal), atmoSunDir));
+  water = mix(water, atmoSunLight, glint * 0.45 * detail);
 
   float alpha = mix(0.92, 0.6, facing);
   gl_FragColor = vec4(water, alpha);
@@ -108,8 +112,13 @@ void main() {
 
 export function createWaterMaterial(): ShaderMaterial {
   return new ShaderMaterial({
-    // The fog uniforms are cloned per material; the clock is shared, so it's attached as is.
-    uniforms: { ...UniformsUtils.clone(UniformsLib.fog), uWaterTime: waterTimeUniform },
+    // The fog uniforms are cloned per material; the clock and the lighting preset are shared, so
+    // they're attached as is.
+    uniforms: {
+      ...UniformsUtils.clone(UniformsLib.fog),
+      ...atmosphereUniforms,
+      uWaterTime: waterTimeUniform,
+    },
     vertexShader,
     fragmentShader,
     transparent: true,

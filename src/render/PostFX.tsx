@@ -8,7 +8,7 @@ import {
 } from '@react-three/postprocessing'
 import { useEffect } from 'react'
 import type { Camera, Scene } from 'three'
-import { color } from '../styles/tokens'
+import { activeLighting } from '../world/lightingPreset'
 import { DisplayRenderPass } from './DisplayRenderPass'
 import { POST_FX, postFxConfig } from './postFx'
 import { useQualityStore } from './qualityStore'
@@ -42,7 +42,7 @@ export function PostFX() {
           radius={POST_FX.bloom.radius}
           resolutionScale={config.bloomResolutionScale}
         />
-        {config.grade && <WarmLift tint={color.sun} lift={POST_FX.grade.lift} />}
+        {config.grade && <WarmLift tint={activeLighting().sun} lift={POST_FX.grade.lift} />}
         {config.grade && <HueSaturation saturation={POST_FX.grade.saturation} />}
         {config.vignette && (
           <Vignette offset={POST_FX.vignette.offset} darkness={POST_FX.vignette.darkness} />

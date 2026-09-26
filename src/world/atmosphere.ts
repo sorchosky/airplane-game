@@ -1,4 +1,4 @@
-import { lighting } from '../styles/tokens'
+import { activeLighting } from './lightingPreset'
 import type { TerrainConfig } from './terrainConfig'
 
 // Pure sky, haze and cloud-layout math. No React or Three. The GLSL twin of the haze functions
@@ -8,14 +8,15 @@ import type { TerrainConfig } from './terrainConfig'
 // - Real air scatters light, so the further away something is, the more of the air's own colour
 //   you see instead of the object's. Games fake this with "fog": each pixel is blended toward a
 //   haze colour by an amount that grows with its distance from the camera.
-// - Here there are two layers. The near layer is a warm dusty haze (`fog` token) that builds up
+// - Here there are two layers. The near layer is the preset's `fog` colour (cool and pale by day,
+//   warm and dusty at golden hour, #64) that builds up
 //   gradually (exponential: quick at first, then levelling off at `hazeWarmMax`). The far layer
 //   blends toward whatever the sky looks like in that exact direction, reaching 100% at
 //   `hazeFadeEnd`. Because a fully hazed hill is *exactly* the sky colour behind it, the terrain
 //   edge at 10 km, and the line where land meets sky, can never be seen.
-// - The horizon facing the sun is warm peach; the horizon facing away from it shifts toward the
-//   dusky blue-violet zenith. So distant land away from the sun fades to blue, the way hills do
-//   at sunset.
+// - The horizon facing the sun takes the preset's horizon colour; the horizon facing away from it
+//   shifts toward the zenith colour. So distant land away from the sun fades to blue, the way
+//   hills do.
 
 type Vec3 = readonly [number, number, number]
 
@@ -28,13 +29,7 @@ function normalize([x, y, z]: Vec3): Vec3 {
  * Unit vector pointing from the world *toward* the sun. The one source for the sky's sun disc,
  * the haze glow and the directional light.
  */
-export const SUN_DIRECTION: Vec3 = normalize(lighting.sunDirection)
-
-/** Light intensities for the sun and its sky/ground fill. Tuned by eye against the tokens. */
-export const LIGHT_INTENSITY = {
-  sun: 2.2,
-  hemisphere: 1.1,
-} as const
+export const SUN_DIRECTION: Vec3 = normalize(activeLighting().sunDirection)
 
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1)

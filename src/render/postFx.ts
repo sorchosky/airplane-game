@@ -7,14 +7,13 @@ import type { QualityTier } from './qualityStore'
 export const POST_FX = {
   bloom: {
     /**
-     * Linear luminance where bloom starts. Measured in-game: the sun disc is ~0.84 and the sky
-     * glow around the sun ~0.45–0.50, which clear this; the rest of the sky (~0.38), sunlit
-     * terrain and the plane (~0.25) do not, and outlines (~0.01) never get close, so the
-     * linework stays crisp.
+     * Linear luminance where bloom starts (#64). The morning sky is pale: its horizon is about
+     * 0.8 and the glow around the sun about 0.85, so the threshold sits above both. Only the sun
+     * disc, which the sky draws at 3x white in this buffer (`Sky.tsx`), clears it.
      */
-    threshold: 0.42,
+    threshold: 0.9,
     /** Soft knee above the threshold, so highlights fade in rather than pop */
-    smoothing: 0.08,
+    smoothing: 0.06,
     intensity: 0.6,
     /** Mipmap blur spread, 0..1 */
     radius: 0.6,
