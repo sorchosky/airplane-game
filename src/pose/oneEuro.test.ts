@@ -53,3 +53,62 @@ describe('oneEuroFilter', () => {
     expect(Number.isFinite(value)).toBe(true)
   })
 })
+
+// The #66 tuning targets, on synthetic roll signals in degrees at the detection rate.
+describe('DEFAULT_ONE_EURO_PARAMS', () => {
+  /** Seeded standard normal samples, so the numbers never drift between runs. */
+  function normal(seed: number): () => number {
+    let a = seed >>> 0
+    const uniform = () => {
+      a = (a + 0x6d2b79f5) >>> 0
+      let t = a
+      t = Math.imul(t ^ (t >>> 15), t | 1)
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+    return () => Math.sqrt(-2 * Math.log(uniform() || 1e-9)) * Math.cos(2 * Math.PI * uniform())
+  }
+
+  /** Output standard deviation for a player holding still under σ 1° of landmark noise. */
+  function jitterAtRest(hz: number): number {
+    const noise = normal(7)
+    let state = createOneEuroState()
+    const out: number[] = []
+    for (let i = 0; i < hz * 20; i++) {
+      const r = oneEuroFilter(noise(), (i * 1000) / hz, state)
+      state = r.state
+      if (i > hz * 2) out.push(r.value)
+    }
+    const mean = out.reduce((a, b) => a + b, 0) / out.length
+    return Math.sqrt(out.reduce((a, b) => a + (b - mean) ** 2, 0) / out.length)
+  }
+
+  /** Steady-state ms the output trails a tilt at `degPerSecond`. */
+  function rampLagMs(hz: number, degPerSecond: number): number {
+    let state = createOneEuroState()
+    let x = 0
+    let y = 0
+    for (let i = 0; i < hz * 2; i++) {
+      x = (degPerSecond * i) / hz
+      const r = oneEuroFilter(x, (i * 1000) / hz, state)
+      state = r.state
+      y = r.value
+    }
+    return ((x - y) / degPerSecond) * 1000
+  }
+
+  it('holds a still pose to under 0.5° of jitter at 30 Hz', () => {
+    expect(jitterAtRest(30)).toBeLessThan(0.5)
+  })
+
+  it('jitters less than the pre-#66 tuning at every detection rate', () => {
+    // Pre-#66 values with the same noise: 0.57° at 30 Hz, 0.65° at 20 Hz, 0.68° at 15 Hz.
+    expect(jitterAtRest(20)).toBeLessThan(0.6)
+    expect(jitterAtRest(15)).toBeLessThan(0.62)
+  })
+
+  it('trails a 60°/s tilt by under 20 ms', () => {
+    expect(rampLagMs(30, 60)).toBeLessThan(20)
+    expect(rampLagMs(20, 60)).toBeLessThan(20)
+  })
+})
