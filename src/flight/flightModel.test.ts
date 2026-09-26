@@ -165,11 +165,17 @@ describe('soft floor', () => {
 
   it('pulls the nose up by itself when diving into the ground', () => {
     let state = startAt(ground + 60)
+    let peakPitch = -Infinity
     for (let i = 0; i < 600; i++) {
       state = step(state, input({ pitch: -1 }), FIXED_DT, params, ground)
+      peakPitch = Math.max(peakPitch, state.pitchAngle)
     }
-    // Pilot is still holding full dive, but the floor bias wins: nose up, climbing back out.
-    expect(state.pitchAngle).toBeGreaterThan(0)
+    // Pilot is still holding full dive, but the floor bias pulls the nose up, then cancels the
+    // dive exactly: the plane levels off inside the clearance band instead of flying into the hill.
+    expect(peakPitch).toBeGreaterThan(0)
+    expect(state.pitchAngle).toBeGreaterThan(-1e-6)
+    expect(state.position.y).toBeGreaterThan(ground + params.floorMinAltitude)
+    expect(state.position.y).toBeLessThan(ground + params.floorClearance)
   })
 
   it('ramps the pitch-up bias with depth into the clearance band', () => {
@@ -276,5 +282,45 @@ describe('flight feel', () => {
     expect(clear.floorContact).toBe(0)
     expect(shallow.floorContact).toBeGreaterThan(FLIGHT_FEEL.floorContactEnter)
     expect(deep.floorContact).toBeGreaterThan(shallow.floorContact)
+  })
+})
+
+// #66: quick springs, with the weight coming from a rate cap.
+describe('bank and pitch rate caps', () => {
+  const HIGH = new Vector3(0, 400, 0)
+  const toDeg = (rad: number) => (rad * 180) / Math.PI
+
+  it('never banks faster than maxBankRate, even on a full roll', () => {
+    let state = createInitialFlightState(params, HIGH)
+    let fastest = 0
+    for (let i = 0; i < 120; i++) {
+      const next = step(state, input({ roll: 1 }), FIXED_DT, params)
+      fastest = Math.max(fastest, Math.abs(next.bank - state.bank) / FIXED_DT)
+      state = next
+    }
+    expect(toDeg(fastest)).toBeLessThanOrEqual(toDeg(params.maxBankRate) + 1e-6)
+    expect(toDeg(state.bank)).toBeCloseTo(toDeg(params.maxBankAngle), 0)
+  })
+
+  it('never pitches faster than maxPitchRate', () => {
+    let state = createInitialFlightState(params, HIGH)
+    let fastest = 0
+    for (let i = 0; i < 120; i++) {
+      const next = step(state, input({ pitch: -1 }), FIXED_DT, params)
+      fastest = Math.max(fastest, Math.abs(next.pitchAngle - state.pitchAngle) / FIXED_DT)
+      state = next
+    }
+    expect(toDeg(fastest)).toBeLessThanOrEqual(toDeg(params.maxPitchRate) + 1e-6)
+  })
+
+  it('still answers a small roll quickly: the cap only bites on big inputs', () => {
+    const uncapped = { ...params, maxBankRate: Infinity }
+    let capped = createInitialFlightState(params, HIGH)
+    let free = createInitialFlightState(uncapped, HIGH)
+    for (let i = 0; i < 12; i++) {
+      capped = step(capped, input({ roll: 0.2 }), FIXED_DT, params)
+      free = step(free, input({ roll: 0.2 }), FIXED_DT, uncapped)
+    }
+    expect(capped.bank).toBeCloseTo(free.bank, 10)
   })
 })

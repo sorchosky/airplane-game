@@ -6,9 +6,14 @@ import { NEUTRAL_INPUT, type ControlInput } from './types'
 interface InputStore {
   current: ControlInput
   setInput: (input: ControlInput) => void
+  /**
+   * Moves only the axes, between pose detections (the pose source's prediction, #66). Not a new
+   * input for the latency probe: that sample armed when the detection behind it was written.
+   */
+  setPredictedAxes: (roll: number, pitch: number) => void
 }
 
-export const useInputStore = create<InputStore>((set) => ({
+export const useInputStore = create<InputStore>((set, get) => ({
   current: NEUTRAL_INPUT,
   setInput: (input) => {
     const roll = clampAxis(input.roll)
@@ -22,5 +27,8 @@ export const useInputStore = create<InputStore>((set) => ({
         confidence: clampConfidence(input.confidence),
       },
     })
+  },
+  setPredictedAxes: (roll, pitch) => {
+    set({ current: { ...get().current, roll: clampAxis(roll), pitch: clampAxis(pitch) } })
   },
 }))

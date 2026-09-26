@@ -118,8 +118,8 @@ describe('LatencyProbe', () => {
   })
 
   it('measures the real flight model: a 0.1 roll step becomes a visible bank in ~60 ms', () => {
-    // Simulated 60 Hz chain, keyboard input, current spring constants. This is the "respond"
-    // hop of docs/perf.md, independent of hardware.
+    // Simulated 60 Hz chain, keyboard input, the default spring constants. This is the "respond"
+    // hop of docs/perf.md, independent of hardware. `latencyChain.test.ts` covers the whole chain.
     const probe = new LatencyProbe()
     let flight = createInitialFlightState(DEFAULT_FLIGHT_PARAMS, new Vector3(0, 120, 0))
     const dt = 1 / 60
@@ -141,7 +141,7 @@ describe('LatencyProbe', () => {
     }
     const s = probe.summarize(createLatencySummary())
     expect(s.count).toBe(1)
-    // 5° commanded, critically damped 0.35 s spring: 0.5° takes a handful of frames.
+    // 5° commanded, critically damped spring: 0.5° takes a handful of frames.
     expect(frames).toBeGreaterThanOrEqual(3)
     expect(frames).toBeLessThanOrEqual(6)
     expect(s.p50.respond).toBeCloseTo(frames * (1000 / 60), 3)

@@ -39,6 +39,18 @@ export interface GestureParams {
   pitchDeadzoneRatio: number
   /** Ratio (past the deadzone) that maps to full pitch. */
   pitchFullScaleRatio: number
+  /**
+   * Share of the One Euro derivative used to extrapolate between detections (`predictControl`).
+   * Below 1 because the filtered derivative outlives the movement: full gain overshoots a tilt that
+   * has just stopped.
+   */
+  predictionGain: number
+  /**
+   * Furthest (ms) the prediction looks past the last detection: one interval at the nominal 20 Hz.
+   * Fixed rather than following the live rate, so a detector stepped down under load holds its
+   * last value instead of extrapolating further.
+   */
+  predictionMaxAheadMs: number
   oneEuro: OneEuroParams
 }
 
@@ -53,6 +65,8 @@ export const DEFAULT_GESTURE_PARAMS: GestureParams = {
   rollResponseExponent: 1.4,
   pitchDeadzoneRatio: 0.05,
   pitchFullScaleRatio: 0.6,
+  predictionGain: 0.5,
+  predictionMaxAheadMs: 50,
   oneEuro: DEFAULT_ONE_EURO_PARAMS,
 }
 
@@ -130,6 +144,67 @@ function mapAxisLinear(raw: number, deadzone: number, fullScale: number): number
   const span = Math.max(1e-6, fullScale - deadzone)
   const scaled = Math.min(1, (magnitude - deadzone) / span)
   return Math.sign(raw) * scaled
+}
+
+export interface ControlAxes {
+  roll: number
+  pitch: number
+}
+
+const scratchAxes: ControlAxes = { roll: 0, pitch: 0 }
+
+/**
+ * Filtered wrist-line angle and arm height to control axes: subtract the calibrated neutral, apply
+ * the deadzone and full scale, then the roll response curve. Shared by the interpreter and by
+ * `predictControl`, so a predicted value is mapped exactly like a measured one. Writes into `out`.
+ */
+export function mapControl(
+  rollDeg: number,
+  pitchRatio: number,
+  calibration: Calibration,
+  params: GestureParams,
+  out: ControlAxes,
+): ControlAxes {
+  const rollLinear = mapAxisLinear(
+    rollDeg - calibration.neutralRollDeg,
+    params.rollDeadzoneDeg,
+    params.rollFullScaleDeg,
+  )
+  const roll = Math.sign(rollLinear) * Math.pow(Math.abs(rollLinear), params.rollResponseExponent)
+  const pitch = mapAxisLinear(
+    pitchRatio - calibration.neutralPitch,
+    params.pitchDeadzoneRatio,
+    params.pitchFullScaleRatio,
+  )
+  out.roll = clampAxis(roll)
+  out.pitch = clampAxis(pitch)
+  return out
+}
+
+/**
+ * Where the controls will be `aheadMs` after the last detection, extrapolated from the One Euro
+ * filters' own value and derivative (#66). The look-ahead is capped at `predictionMaxAheadMs`, so
+ * a stalled detector never runs away. Returns false (and leaves `out` alone) when there is
+ * nothing to extrapolate: no filtered sample yet, or the gate is off.
+ */
+export function predictControl(
+  state: GestureState,
+  calibration: Calibration,
+  aheadMs: number,
+  params: GestureParams,
+  out: ControlAxes,
+): boolean {
+  if (!state.active || !state.rollFilter.initialized || !state.pitchFilter.initialized) return false
+  const ahead =
+    (Math.min(Math.max(aheadMs, 0), params.predictionMaxAheadMs) / 1000) * params.predictionGain
+  mapControl(
+    state.rollFilter.xPrev + state.rollFilter.dxPrev * ahead,
+    state.pitchFilter.xPrev + state.pitchFilter.dxPrev * ahead,
+    calibration,
+    params,
+    out,
+  )
+  return true
 }
 
 function updateGate(
@@ -239,23 +314,12 @@ export function interpretPose(
     params.oneEuro,
   )
 
-  const rollLinear = mapAxisLinear(
-    rollDeg - calibration.neutralRollDeg,
-    params.rollDeadzoneDeg,
-    params.rollFullScaleDeg,
-  )
-  const roll = Math.sign(rollLinear) * Math.pow(Math.abs(rollLinear), params.rollResponseExponent)
-
-  const pitch = mapAxisLinear(
-    pitchRatio - calibration.neutralPitch,
-    params.pitchDeadzoneRatio,
-    params.pitchFullScaleRatio,
-  )
+  const { roll, pitch } = mapControl(rollDeg, pitchRatio, calibration, params, scratchAxes)
 
   return {
     input: {
-      roll: clampAxis(roll),
-      pitch: clampAxis(pitch),
+      roll,
+      pitch,
       active: gate.active,
       confidence: clamp(arms.meanVisibility, 0, 1),
       source: 'pose',

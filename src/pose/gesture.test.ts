@@ -7,8 +7,16 @@ import oneArmDown from '../../tests/fixtures/poses/one-arm-down.json'
 import tiltLeft from '../../tests/fixtures/poses/tilt-left.json'
 import tiltRight from '../../tests/fixtures/poses/tilt-right.json'
 import tposeLevel from '../../tests/fixtures/poses/tpose-level.json'
+import firstRun from '../../tests/fixtures/replays/first-run.json'
+import { parseReplayFixture } from '../input/replayFixture'
 import { DEFAULT_CALIBRATION, type Calibration } from './calibration'
-import { DEFAULT_GESTURE_STATE, interpretPose, type GestureState } from './gesture'
+import {
+  DEFAULT_GESTURE_PARAMS,
+  DEFAULT_GESTURE_STATE,
+  interpretPose,
+  predictControl,
+  type GestureState,
+} from './gesture'
 import type { PoseLandmarks } from './types'
 
 const FRAME_MS = 33 // ~30fps, comfortably finer than the 300/500ms hysteresis windows
@@ -169,5 +177,68 @@ describe('interpretPose: output shape', () => {
 
   it('handles a null landmark array without throwing', () => {
     expect(() => interpretPose(null, DEFAULT_CALIBRATION, DEFAULT_GESTURE_STATE, 0)).not.toThrow()
+  })
+})
+
+describe('predictControl (#66)', () => {
+  const calibration = DEFAULT_CALIBRATION
+  const params = DEFAULT_GESTURE_PARAMS
+
+  /** Interprets `poses` at `hz`, returning the state after the last one. */
+  function run(poses: PoseLandmarks[], hz: number): { state: GestureState; tMs: number } {
+    let state = DEFAULT_GESTURE_STATE
+    let tMs = 0
+    for (const pose of poses) {
+      state = interpretPose(pose, calibration, state, tMs).state
+      tMs += 1000 / hz
+    }
+    return { state, tMs: tMs - 1000 / hz }
+  }
+
+  it('has nothing to extrapolate before the gate engages', () => {
+    const out = { roll: 0, pitch: 0 }
+    const { state } = run([tposeLevel as PoseLandmarks], 20)
+    expect(predictControl(state, calibration, 25, params, out)).toBe(false)
+  })
+
+  it('leans ahead in the direction the arms are moving, capped at one interval', () => {
+    const level = Array.from({ length: 20 }, () => tposeLevel as PoseLandmarks)
+    const tilting = [...level, tiltRight as PoseLandmarks]
+    const { state } = run(tilting, 20)
+    const measured = { roll: 0, pitch: 0 }
+    const ahead = { roll: 0, pitch: 0 }
+    const capped = { roll: 0, pitch: 0 }
+    predictControl(state, calibration, 0, params, measured)
+    predictControl(state, calibration, 50, params, ahead)
+    predictControl(state, calibration, 500, params, capped)
+    expect(ahead.roll).toBeGreaterThan(measured.roll)
+    expect(capped.roll).toBeCloseTo(ahead.roll, 10)
+  })
+
+  // The recorded first-run fixture played at 60 Hz render frames: between two detections the
+  // prediction may run ahead of the last measurement, but never far past both neighbours.
+  it('never overshoots the recorded fixture by more than 0.05 of full roll', () => {
+    const fixture = parseReplayFixture(firstRun)
+    let state = DEFAULT_GESTURE_STATE
+    let prevRoll = 0
+    let worst = 0
+    const predicted = { roll: 0, pitch: 0 }
+    const frames = fixture.frames
+    for (let i = 0; i < frames.length - 1; i++) {
+      const frame = frames[i]
+      const next = frames[i + 1]
+      if (!frame || !next) break
+      const result = interpretPose(frame.landmarks, calibration, state, frame.tMs)
+      state = result.state
+      const nextRoll = interpretPose(next.landmarks, calibration, state, next.tMs).input.roll
+      for (let t = frame.tMs; t < next.tMs; t += 1000 / 60) {
+        if (!predictControl(state, calibration, t - frame.tMs, params, predicted)) continue
+        const hi = Math.max(prevRoll, result.input.roll, nextRoll)
+        const lo = Math.min(prevRoll, result.input.roll, nextRoll)
+        worst = Math.max(worst, predicted.roll - hi, lo - predicted.roll)
+      }
+      prevRoll = result.input.roll
+    }
+    expect(worst).toBeLessThan(0.05)
   })
 })
