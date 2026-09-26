@@ -1,15 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getVideo, setupCameraLifecycle, start, stop, useCameraStore } from './cameraService'
+import {
+  getVideo,
+  restart,
+  setupCameraLifecycle,
+  start,
+  stop,
+  useCameraStore,
+} from './cameraService'
 
-function fakeStream(): MediaStream & { track: { stop: ReturnType<typeof vi.fn> } } {
-  const track = {
-    stop: vi.fn(),
-    kind: 'video',
-  }
+type FakeTrack = EventTarget & { stop: ReturnType<typeof vi.fn>; kind: string }
+
+function fakeStream(): MediaStream & { track: FakeTrack } {
+  const track: FakeTrack = Object.assign(new EventTarget(), { stop: vi.fn(), kind: 'video' })
   return {
     getTracks: () => [track as unknown as MediaStreamTrack],
+    getVideoTracks: () => [track as unknown as MediaStreamTrack],
     track,
-  } as unknown as MediaStream & { track: { stop: ReturnType<typeof vi.fn> } }
+  } as unknown as MediaStream & { track: FakeTrack }
 }
 
 describe('cameraService', () => {
@@ -108,5 +115,104 @@ describe('cameraService', () => {
     expect(useCameraStore.getState().status).toBe('idle')
 
     teardown()
+  })
+
+  describe('losing the stream', () => {
+    it.each(['ended', 'mute'])('goes lost when the live track fires %s', async (event) => {
+      const stream = fakeStream()
+      vi.stubGlobal('navigator', {
+        mediaDevices: { getUserMedia: vi.fn().mockResolvedValue(stream) },
+      })
+      await start()
+      stream.track.dispatchEvent(new Event(event))
+      expect(useCameraStore.getState().status).toBe('lost')
+    })
+
+    it('stays lost when the track ends while play() is still pending', async () => {
+      const stream = fakeStream()
+      vi.stubGlobal('navigator', {
+        mediaDevices: { getUserMedia: vi.fn().mockResolvedValue(stream) },
+      })
+      let resolvePlay: () => void = () => undefined
+      vi.mocked(HTMLMediaElement.prototype.play).mockImplementationOnce(
+        () => new Promise<void>((r) => (resolvePlay = r)),
+      )
+      const pending = start()
+      await vi.waitFor(() => expect(getVideo().srcObject).toBe(stream))
+      stream.track.dispatchEvent(new Event('ended'))
+      resolvePlay()
+      await pending
+      expect(useCameraStore.getState().status).toBe('lost')
+    })
+
+    it('comes back live on unmute', async () => {
+      const stream = fakeStream()
+      vi.stubGlobal('navigator', {
+        mediaDevices: { getUserMedia: vi.fn().mockResolvedValue(stream) },
+      })
+      await start()
+      stream.track.dispatchEvent(new Event('mute'))
+      stream.track.dispatchEvent(new Event('unmute'))
+      expect(useCameraStore.getState().status).toBe('live')
+    })
+
+    it('restart stops the dead stream and goes live on a new one', async () => {
+      const first = fakeStream()
+      const second = fakeStream()
+      const getUserMedia = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(second)
+      vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } })
+      await start()
+      first.track.dispatchEvent(new Event('ended'))
+
+      await restart()
+
+      expect(first.track.stop).toHaveBeenCalled()
+      expect(getVideo().srcObject).toBe(second)
+      expect(useCameraStore.getState().status).toBe('live')
+      // The old track is no longer watched.
+      first.track.dispatchEvent(new Event('ended'))
+      expect(useCameraStore.getState().status).toBe('live')
+    })
+
+    it('restart stays lost and rejects while the camera is unavailable', async () => {
+      const getUserMedia = vi
+        .fn()
+        .mockResolvedValueOnce(fakeStream())
+        .mockRejectedValueOnce(new DOMException('busy', 'NotReadableError'))
+      vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } })
+      await start()
+      useCameraStore.setState({ status: 'lost' })
+
+      await expect(restart()).rejects.toThrow()
+      expect(useCameraStore.getState().status).toBe('lost')
+    })
+
+    it('restart does nothing unless the camera is lost', async () => {
+      const getUserMedia = vi.fn().mockResolvedValue(fakeStream())
+      vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } })
+      await start()
+      await restart()
+      expect(getUserMedia).toHaveBeenCalledTimes(1)
+    })
+
+    it('a stop during restart releases the new stream and stays idle', async () => {
+      const second = fakeStream()
+      let resolve: (s: MediaStream) => void = () => undefined
+      const getUserMedia = vi
+        .fn()
+        .mockResolvedValueOnce(fakeStream())
+        .mockImplementationOnce(() => new Promise<MediaStream>((r) => (resolve = r)))
+      vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } })
+      await start()
+      useCameraStore.setState({ status: 'lost' })
+
+      const pending = restart()
+      stop()
+      resolve(second)
+      await pending
+
+      expect(second.track.stop).toHaveBeenCalled()
+      expect(useCameraStore.getState().status).toBe('idle')
+    })
   })
 })

@@ -37,10 +37,13 @@ default** on 2026-09-26 (#88), so A1 can start.
 | A7 | #72 | Post and grade: painterly grade, god rays on `high`, honest `medium` and `low` | S | A1 #64 | review:visual |
 | A8 | #73 | Title cinematic: fade from white, animated parallax cirrus, longer eased sweep with breathing blur, light shift, per-letter reveal, audio swell, contrast fix, hand-off into the live world | M | A1 #64 | review:visual |
 | A9 | #79 | UI reskin: thin-line chrome, glow instead of panels, blurred pause and countdown, camera preview frame | M | A8 #73 | review:visual |
-| A10 | #92 | Day cycle: a 5-minute loop through day, afternoon, dusk, night (stars, moon, blinking nav lights) and morning, blended through uniforms | M (upper end) | A1 #64, A4 #70, A7 #72 | review:visual |
-| F1 | #68 | Flight feel: energy (dive speed carried into climbs), roll-to-yaw lag, optional arms-back boost behind the gesture gate, soft-floor pull-up burst, one tunables object with tests | M | E2 #60 | agent-ready |
+| A10 | #92 | Day cycle: the in-game clock's time drives a gradual loop through morning, day, afternoon, dusk and night (stars, moon, blinking nav lights), blended through uniforms, no forced phase | M (upper end) | A1 #64, A11 #94, A4 #70, A7 #72 | review:visual |
+| A11 | #94 | In-game clock: 24 hours in 5 real minutes, HUD readout in half-hour steps, continuous time drives the day cycle, carries on between flights | M | A1 #64 | agent-ready |
+| F1 | #68 | Flight feel: energy (dive speed carried into climbs), roll-to-yaw lag, soft-floor pull-up burst, one tunables object with tests (the boost moved to F4) | M | E2 #60 | agent-ready |
 | F2 | #77 | Camera and VFX: FOV punch and shake at speed, wind streaks, spray and dust on low passes, birds | M | F1 #68, A5 #71 | review:visual |
 | F3 | #78 | Audio: layered engine tied to RPM, wind by speed and bank, doppler past landmarks and through clouds, ambient bed with stems that swell on low passes, captions hook | M | F1 #68 | agent-ready |
+| F4 | #93 | Arms-back boost: both wrists behind the shoulders for 300 ms, gated on no false triggers across the replay fixtures; adds `boost` to `ControlInput` | M | F1 #68 | agent-ready |
+| F5 | #95 | Music instead of the synth drone and noise: a calm generative score on the master bus, not time-specific yet; F3 is re-scoped after it | M | none | agent-ready |
 | X1 | #63 | Pose demonstration and calibration you can see: title silhouette loop, camera ask frame, skeleton overlay, target silhouette, failing-limb highlight, lock-in flourish | M | none | review:visual |
 | X2 | #74 | Wings practice: slow glide after calibration, three prompts with ticks, speed ramps to cruise, first-run timing spec | M | X1 #63, E7 #62 | agent-ready |
 | X3 | #80 | In-flight readout and pause teaching: horizon line with wing marks, pause ring on first arms-drop, menu gesture loop on first open | S | X2 #74 | review:visual |

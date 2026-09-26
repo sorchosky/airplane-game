@@ -6,8 +6,10 @@ import {
   type CalibrationPhase,
 } from '../../pose/calibrationFlow'
 import { useCalibrationStore } from '../../pose/calibrationStore'
+import { getVideo, useCameraStore } from '../../pose/cameraService'
+import { startPoseService } from '../../pose/poseService'
 import { usePoseStore, type PoseModelStatus } from '../../pose/poseStore'
-import { color, space, type } from '../../styles/tokens'
+import { color, radius, space, type } from '../../styles/tokens'
 import { CalibrationFigure, RING_CIRCUMFERENCE } from '../../ui/CalibrationFigure'
 import { CameraPreview } from '../../ui/CameraPreview'
 import { copy } from '../../ui/copy'
@@ -15,7 +17,72 @@ import { useGameStore } from '../gameStore'
 
 const MODEL_STATUS_COPY: Partial<Record<PoseModelStatus, string>> = {
   loading: copy.calibrate.modelLoading,
-  error: copy.calibrate.modelError,
+}
+
+/** A mouse or trackpad: a computer, where the keyboard is a real way to fly. */
+function hasFinePointer(): boolean {
+  return window.matchMedia('(pointer: fine)').matches
+}
+
+/**
+ * The model failed to download or initialize. The player is usually still near the phone (the
+ * model loads right after Start), so this one state may take a tap: Try again re-runs the load on
+ * the live camera; on a computer, a link offers the keyboard instead.
+ */
+function ModelErrorState() {
+  const [retrying, setRetrying] = useState(false)
+  const keyboardFallback = useState(hasFinePointer)[0]
+
+  const retry = () => {
+    setRetrying(true)
+    startPoseService(getVideo()).then(
+      () => setRetrying(false),
+      () => setRetrying(false),
+    )
+  }
+
+  const buttonStyle = {
+    padding: `${space.md} ${space.xl}`,
+    border: `2px solid ${color.textPrimary}`,
+    borderRadius: radius.sharp,
+    background: 'transparent',
+    color: color.textPrimary,
+    fontFamily: type.fontBody,
+    fontSize: type.tvBody,
+    cursor: 'pointer',
+  } as const
+
+  return (
+    <div
+      role="alert"
+      data-testid="pose-model-error"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: space.lg,
+        // Same column as the calibration guidance, so the preview doesn't jump.
+        width: '18ch',
+        fontSize: type.tvTitle,
+        textAlign: 'center',
+      }}
+    >
+      <h2 style={{ margin: 0, fontSize: 'inherit', fontWeight: 'normal' }}>
+        {copy.calibrate.modelErrorTitle}
+      </h2>
+      <p style={{ margin: 0, fontSize: type.tvBody, color: color.textMuted }}>
+        {copy.calibrate.modelErrorBody}
+      </p>
+      <button type="button" onClick={retry} disabled={retrying} style={buttonStyle}>
+        {copy.calibrate.modelRetry}
+      </button>
+      {keyboardFallback && (
+        <a href="?input=keyboard" style={{ fontSize: type.tvBody, color: color.textMuted }}>
+          {copy.calibrate.keyboardFallback}
+        </a>
+      )}
+    </div>
+  )
 }
 
 const GUIDANCE_COPY: Record<CalibrationPhase, string> = {
@@ -35,6 +102,7 @@ const GUIDANCE_COPY: Record<CalibrationPhase, string> = {
  */
 export function CalibrateScreen() {
   const modelStatus = usePoseStore((s) => s.modelStatus)
+  const cameraLost = useCameraStore((s) => s.status === 'lost')
   const statusCopy = MODEL_STATUS_COPY[modelStatus]
   const [phase, setPhase] = useState<CalibrationPhase>(INITIAL_CALIBRATION_FLOW.phase)
   const ringRef = useRef<SVGCircleElement>(null)
@@ -89,42 +157,46 @@ export function CalibrateScreen() {
       }}
     >
       <CameraPreview variant="calibrate" controlState={armsOut ? 'active' : 'inactive'} />
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: space.lg,
-          textAlign: 'center',
-          // Fixed width so the preview doesn't shift as the guidance copy changes length.
-          fontSize: type.tvTitle,
-          width: '18ch',
-        }}
-      >
-        <CalibrationFigure
-          armsOut={armsOut || phase === 'armsNotOut'}
-          holding={armsOut}
-          ringRef={ringRef}
-        />
-        <p
-          role="status"
-          aria-live="polite"
-          data-testid="calibration-guidance"
-          data-phase={phase}
-          style={{ margin: 0 }}
+      {modelStatus === 'error' ? (
+        <ModelErrorState />
+      ) : (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: space.lg,
+            textAlign: 'center',
+            // Fixed width so the preview doesn't shift as the guidance copy changes length.
+            fontSize: type.tvTitle,
+            width: '18ch',
+          }}
         >
-          {GUIDANCE_COPY[phase]}
-        </p>
-        {statusCopy && (
+          <CalibrationFigure
+            armsOut={armsOut || phase === 'armsNotOut'}
+            holding={armsOut}
+            ringRef={ringRef}
+          />
           <p
             role="status"
-            data-testid="pose-model-status"
-            style={{ fontSize: type.tvBody, margin: 0, color: color.textMuted }}
+            aria-live="polite"
+            data-testid="calibration-guidance"
+            data-phase={cameraLost ? 'cameraLost' : phase}
+            style={{ margin: 0 }}
           >
-            {statusCopy}
+            {cameraLost ? copy.calibrate.cameraLost : GUIDANCE_COPY[phase]}
           </p>
-        )}
-      </div>
+          {statusCopy && (
+            <p
+              role="status"
+              data-testid="pose-model-status"
+              style={{ fontSize: type.tvBody, margin: 0, color: color.textMuted }}
+            >
+              {statusCopy}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

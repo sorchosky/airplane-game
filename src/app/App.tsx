@@ -17,6 +17,7 @@ import { hasDebugFlag } from '../input/source'
 import { copy } from '../ui/copy'
 import { Hud } from '../ui/Hud'
 import { OrientationPrompt } from '../ui/OrientationPrompt'
+import { setupCameraRecovery } from './cameraRecovery'
 import { useControlStateDriver } from './controlStore'
 import { FlightScene } from './FlightScene'
 import { useGameStore } from './gameStore'
@@ -40,6 +41,7 @@ export function App() {
 
   useEffect(() => setupWakeLockReacquire(), [])
   useEffect(() => setupCameraLifecycle(), [])
+  useEffect(() => setupCameraRecovery(), [])
 
   // The camera and pose detection stay live from calibrate through flying
   // and paused (pose control needs them throughout) and only stop once the

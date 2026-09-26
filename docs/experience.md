@@ -99,8 +99,9 @@ elsewhere:
 2. A flock of birds crosses and leads toward the range.
 3. The cloud layer thickens; the plane breaks through into sun (fog burst,
    audio swell).
-4. Reveal: a valley with a waterfall and the stone arch landmark, light shifting
-   toward `golden-hour` over the last minute.
+4. Reveal: a valley with a waterfall and the stone arch landmark, in whatever
+   light the in-game clock is showing (#94). Nothing forces golden hour; the
+   day cycle (#92) always runs its full loop.
 5. Through the arch: title card *"Driftwing"* in the wordmark treatment, then
    *"Fly anywhere."* Free flight.
 
