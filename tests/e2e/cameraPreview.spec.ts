@@ -7,9 +7,7 @@ test('camera preview appears large, left and mirrored on the calibrate screen', 
   await page.getByRole('button', { name: 'Start' }).click()
 
   // The fake camera feed has no person in it.
-  await expect(page.getByTestId('calibration-guidance')).toHaveText(
-    'Step back until your head and hips are in view',
-  )
+  await expect(page.getByTestId('calibration-guidance')).toHaveText('Step into view')
 
   const video = page.locator('video')
   await expect(video).toBeVisible()

@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { titleTextBackdrops } from '../ui/titleSkyShader'
 import { color, lightingPresets, space, toonRamp, type, type LightingPreset } from './tokens'
 
 const HEX = /^#[0-9a-f]{6}$/i
@@ -46,11 +47,15 @@ function contrastRatio(hexA: string, hexB: string): number {
 
 /** Flattens `surfaceHud`'s alpha onto an opaque backdrop for a contrast check. */
 function compositeOverSurfaceHud(backdropHex: string): string {
-  const match = color.surfaceHud.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/)
-  if (!match) throw new Error('surfaceHud is not an rgba() string')
+  return compositeOver(color.surfaceHud, backdropHex)
+}
+
+/** Flattens an rgba() token onto an opaque backdrop for a contrast check. */
+function compositeOver(rgba: string, backdropHex: string): string {
+  const match = rgba.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/)
+  if (!match) throw new Error(`${rgba} is not an rgba() string`)
   const [wholeMatch, rStr, gStr, bStr, aStr] = match
-  if (!wholeMatch || !rStr || !gStr || !bStr || !aStr)
-    throw new Error('surfaceHud regex capture failed')
+  if (!wholeMatch || !rStr || !gStr || !bStr || !aStr) throw new Error('rgba regex capture failed')
   const alpha = Number(aStr)
   const composite = (fgChannel: string, backdropSlice: string) =>
     Math.round(Number(fgChannel) * alpha + Number.parseInt(backdropSlice, 16) * (1 - alpha))
@@ -94,6 +99,30 @@ describe('design tokens', () => {
     const compositedHud = compositeOverSurfaceHud(worstCaseBackdrop)
     expect(contrastRatio(color.textPrimary, compositedHud)).toBeGreaterThanOrEqual(4.5)
     expect(contrastRatio(color.textMuted, compositedHud)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  // #73: the wordmark (tv-hero) and Start (tv-body, 24 px minimum at 600) are both WCAG large
+  // text, so AA is 3:1. They stand on the sky with no plate, only the feathered `titleScrim` band
+  // (plus a `titleGlow` halo, not counted here), so this holds over every colour the animated sky
+  // can put behind them, including the band's travelling light at its peak.
+  it('keeps the title wordmark and Start at WCAG AA (3:1, large text) over the scrimmed sky', () => {
+    const backdrops = titleTextBackdrops()
+    expect(backdrops.length).toBeGreaterThan(100)
+    for (const backdrop of backdrops) {
+      const behindText = compositeOver(color.titleScrim, backdrop)
+      expect(contrastRatio(color.titleText, behindText), backdrop).toBeGreaterThanOrEqual(3)
+    }
+  })
+
+  it('records that the title text needs the scrim: the bare sky falls short of 3:1', () => {
+    const worst = Math.min(...titleTextBackdrops().map((b) => contrastRatio(color.titleText, b)))
+    expect(worst).toBeLessThan(3)
+  })
+
+  it('keeps the title scrim a light touch rather than a plate', () => {
+    const alpha = Number(color.titleScrim.match(/([\d.]+)\)$/)?.[1])
+    expect(alpha).toBeGreaterThan(0)
+    expect(alpha).toBeLessThanOrEqual(0.4)
   })
 
   it('defines a 3-band toon ramp with ascending thresholds inside (0, 1)', () => {

@@ -120,6 +120,48 @@ export const SHOT_BOOKMARKS: readonly ShotBookmark[] = [
     cameraOffset: [9, 3.5, 11],
     purpose: 'Three-quarter front view of the plane: livery, silhouette, outlines, canopy.',
   },
+  // Landmarks (#76), each seen from its approach. Positions come from `placeLandmarks` for the
+  // fixed seed; `shots.test.ts` checks each still frames its landmark if placement changes.
+  {
+    name: 'landmark-tower',
+    position: [2727, 185, 481],
+    heading: -0.278,
+    bank: 0,
+    pitchAngle: deg(-4),
+    purpose: 'The watchtower from the spawn side: spire, belfry and gallery against the sky.',
+  },
+  {
+    name: 'landmark-arch',
+    position: [513, 94, 763],
+    heading: 0.785,
+    bank: 0,
+    pitchAngle: 0,
+    purpose: 'Lined up to fly through the stone arch, as the player meets it heading out.',
+  },
+  {
+    name: 'landmark-waterfall',
+    position: [-3008, 122, 3514],
+    heading: 0.243,
+    bank: deg(-12),
+    pitchAngle: deg(-3),
+    purpose: 'Over the lake toward the waterfall: ribbon, cliff, mist at the plunge.',
+  },
+  {
+    name: 'landmark-tree',
+    position: [978, 269, 5344],
+    heading: -3.107,
+    bank: 0,
+    pitchAngle: deg(-4),
+    purpose: 'The lone giant tree on its rise: canopy clumps, limbs and trunk flare.',
+  },
+  {
+    name: 'landmark-ruins',
+    position: [3629, 134, 1934],
+    heading: -1.536,
+    bank: 0,
+    pitchAngle: deg(-8),
+    purpose: 'Descending on the ruins: broken keep, courtyard walls, colonnade and gateway.',
+  },
 ]
 
 export function findShot(name: string | null): ShotBookmark | null {

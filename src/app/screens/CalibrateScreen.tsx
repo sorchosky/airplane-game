@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { playLockInChime } from '../../audio/audioEngine'
 import {
   holdProgress,
   INITIAL_CALIBRATION_FLOW,
@@ -10,10 +11,15 @@ import { getVideo, useCameraStore } from '../../pose/cameraService'
 import { startPoseService } from '../../pose/poseService'
 import { usePoseStore, type PoseModelStatus } from '../../pose/poseStore'
 import { color, radius, space, type } from '../../styles/tokens'
-import { CalibrationFigure, RING_CIRCUMFERENCE } from '../../ui/CalibrationFigure'
+import { CameraAsk } from '../../ui/CameraAsk'
 import { CameraPreview } from '../../ui/CameraPreview'
 import { copy } from '../../ui/copy'
+import { HoldRing, RING_CIRCUMFERENCE } from '../../ui/HoldRing'
+import { LOCK_IN_FLASH_MS, recordLockIn } from '../../ui/lockIn'
+import { CalibrationOverlay, type CalibrationOverlayView } from '../../ui/PoseOverlay'
+import type { OverlayCheck } from '../../ui/poseOverlayMath'
 import { useGameStore } from '../gameStore'
+import { isReplayInputMode } from '../urlFlags'
 
 const MODEL_STATUS_COPY: Partial<Record<PoseModelStatus, string>> = {
   loading: copy.calibrate.modelLoading,
@@ -61,8 +67,10 @@ function ModelErrorState() {
         flexDirection: 'column',
         alignItems: 'center',
         gap: space.lg,
-        // Same column as the calibration guidance, so the preview doesn't jump.
         width: '18ch',
+        padding: space.xl,
+        borderRadius: space.md,
+        background: color.surfaceHud,
         fontSize: type.tvTitle,
         textAlign: 'center',
       }}
@@ -86,7 +94,7 @@ function ModelErrorState() {
 }
 
 const GUIDANCE_COPY: Record<CalibrationPhase, string> = {
-  noPerson: copy.calibrate.stepBack,
+  noPerson: copy.calibrate.stepIntoView,
   tooClose: copy.calibrate.stepBack,
   tooFar: copy.calibrate.comeCloser,
   armsNotOut: copy.calibrate.spreadArms,
@@ -94,42 +102,64 @@ const GUIDANCE_COPY: Record<CalibrationPhase, string> = {
   done: copy.calibrate.holdSteady,
 }
 
+function overlayCheck(phase: CalibrationPhase): OverlayCheck {
+  return phase === 'done' ? 'holding' : phase
+}
+
 /**
- * Hands-free calibration. Steps the pure calibration flow once per pose detection, shows the
- * matching guidance, and moves to `flying` once a steady T-pose has been captured (or a saved
- * calibration still matches). Guidance only re-renders React when the phase changes; the hold
- * ring is written straight to the SVG every animation frame.
+ * Hands-free calibration (storyboard frame 02). The mirrored preview fills the screen with the
+ * target T-pose and the player's skeleton over it, and one line of guidance for the failing check.
+ * Steps the pure calibration flow once per pose detection; guidance only re-renders React when the
+ * phase changes, while the overlay and the hold ring are written straight to the canvas and SVG
+ * every animation frame. On lock-in (frame 03) it chimes, flashes the skeleton white, and hands the
+ * preview's rectangle to the flight HUD, which contracts it into the corner.
  */
-export function CalibrateScreen() {
+function CalibrationView() {
   const modelStatus = usePoseStore((s) => s.modelStatus)
   const cameraLost = useCameraStore((s) => s.status === 'lost')
   const statusCopy = MODEL_STATUS_COPY[modelStatus]
   const [phase, setPhase] = useState<CalibrationPhase>(INITIAL_CALIBRATION_FLOW.phase)
   const ringRef = useRef<SVGCircleElement>(null)
+  const frameRef = useRef<HTMLDivElement>(null)
+  const viewRef = useRef<CalibrationOverlayView>({
+    check: overlayCheck(INITIAL_CALIBRATION_FLOW.phase),
+    flashing: false,
+  })
 
   useEffect(() => {
     const saved = useCalibrationStore.getState().calibration
     let flow = INITIAL_CALIBRATION_FLOW
     let lastDetectedAtMs = -1
+    let lockedAtMs: number | null = null
     let frame = 0
 
     const tick = () => {
+      const now = performance.now()
       const { frame: poseFrame, detectedAtMs } = usePoseStore.getState()
-      if (detectedAtMs > 0 && detectedAtMs !== lastDetectedAtMs) {
+      if (lockedAtMs === null && detectedAtMs > 0 && detectedAtMs !== lastDetectedAtMs) {
         lastDetectedAtMs = detectedAtMs
         flow = stepCalibration(flow, poseFrame?.landmarks ?? null, detectedAtMs, saved)
+        viewRef.current.check = overlayCheck(flow.phase)
         setPhase(flow.phase)
       }
 
       if (flow.phase === 'done' && flow.result) {
-        useCalibrationStore.getState().setCalibration(flow.result)
-        useGameStore.getState().calibrationComplete()
-        return
+        if (lockedAtMs === null) {
+          lockedAtMs = now
+          useCalibrationStore.getState().setCalibration(flow.result)
+          playLockInChime()
+          viewRef.current.flashing = true
+        } else if (now - lockedAtMs >= LOCK_IN_FLASH_MS) {
+          const rect = frameRef.current?.getBoundingClientRect()
+          if (rect) recordLockIn(rect, now)
+          useGameStore.getState().calibrationComplete()
+          return
+        }
       }
 
       const ring = ringRef.current
       if (ring) {
-        const progress = holdProgress(flow, performance.now(), saved)
+        const progress = holdProgress(flow, now, saved)
         ring.style.strokeDashoffset = String(RING_CIRCUMFERENCE * (1 - progress))
       }
 
@@ -140,7 +170,7 @@ export function CalibrateScreen() {
     return () => cancelAnimationFrame(frame)
   }, [])
 
-  const armsOut = phase === 'holding' || phase === 'done'
+  const holding = phase === 'holding' || phase === 'done'
 
   return (
     <div
@@ -148,55 +178,96 @@ export function CalibrateScreen() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: space.xxl,
         height: '100%',
         width: '100%',
-        padding: space.xl,
+        padding: space.lg,
         color: color.textPrimary,
-        background: color.surfaceHud,
+        background: color.surfaceScrim,
       }}
     >
-      <CameraPreview variant="calibrate" controlState={armsOut ? 'active' : 'inactive'} />
-      {modelStatus === 'error' ? (
-        <ModelErrorState />
-      ) : (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: space.lg,
-            textAlign: 'center',
-            // Fixed width so the preview doesn't shift as the guidance copy changes length.
-            fontSize: type.tvTitle,
-            width: '18ch',
-          }}
-        >
-          <CalibrationFigure
-            armsOut={armsOut || phase === 'armsNotOut'}
-            holding={armsOut}
-            ringRef={ringRef}
-          />
-          <p
-            role="status"
-            aria-live="polite"
-            data-testid="calibration-guidance"
-            data-phase={cameraLost ? 'cameraLost' : phase}
-            style={{ margin: 0 }}
+      <CameraPreview
+        variant="calibrate"
+        controlState={holding ? 'active' : 'inactive'}
+        overlay={<CalibrationOverlay viewRef={viewRef} />}
+        frameRef={frameRef}
+      >
+        {modelStatus === 'error' ? (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
-            {cameraLost ? copy.calibrate.cameraLost : GUIDANCE_COPY[phase]}
-          </p>
-          {statusCopy && (
-            <p
-              role="status"
-              data-testid="pose-model-status"
-              style={{ fontSize: type.tvBody, margin: 0, color: color.textMuted }}
+            <ModelErrorState />
+          </div>
+        ) : (
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: space.lg,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: space.sm,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: space.md,
+                padding: `${space.sm} ${space.lg}`,
+                borderRadius: space.md,
+                background: color.surfaceHud,
+                fontSize: type.tvTitle,
+                whiteSpace: 'nowrap',
+              }}
             >
-              {statusCopy}
-            </p>
-          )}
-        </div>
-      )}
+              {holding && !cameraLost && <HoldRing ringRef={ringRef} />}
+              <p
+                role="status"
+                aria-live="polite"
+                data-testid="calibration-guidance"
+                data-phase={cameraLost ? 'cameraLost' : phase}
+                style={{ margin: 0 }}
+              >
+                {cameraLost ? copy.calibrate.cameraLost : GUIDANCE_COPY[phase]}
+              </p>
+            </div>
+            {statusCopy && (
+              <p
+                role="status"
+                data-testid="pose-model-status"
+                style={{
+                  margin: 0,
+                  padding: `${space.xs} ${space.md}`,
+                  borderRadius: space.sm,
+                  background: color.surfaceHud,
+                  fontSize: type.tvBody,
+                  color: color.textMuted,
+                }}
+              >
+                {statusCopy}
+              </p>
+            )}
+          </div>
+        )}
+      </CameraPreview>
     </div>
   )
+}
+
+/**
+ * Calibrate state. Until the camera is live the player sees the camera-ask frame (storyboard frame
+ * 01) under the browser's prompt; a replay has no camera, so it goes straight to calibration.
+ */
+export function CalibrateScreen() {
+  const asking = useCameraStore((s) => s.status === 'idle' || s.status === 'starting')
+  if (asking && !isReplayInputMode()) return <CameraAsk />
+  return <CalibrationView />
 }
