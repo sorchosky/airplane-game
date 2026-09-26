@@ -39,6 +39,8 @@ describe('shotFlightState', () => {
     expect(state.speed).toBe(45)
     expect(state.bankRate).toBe(0)
     expect(state.pitchRate).toBe(0)
+    expect(state.yawBank).toBe(shot.bank)
+    expect(state.floorContact).toBe(0)
   })
 
   it('composes the orientation exactly like the flight model (YXZ euler, roll = -bank)', () => {
