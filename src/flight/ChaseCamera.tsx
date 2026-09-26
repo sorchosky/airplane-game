@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import type { PerspectiveCamera as ThreePerspectiveCamera } from 'three'
 import { Vector3 } from 'three'
+import { shotCameraPosition, type ShotBookmark } from '../debug/shots'
 import {
   CHASE_CAMERA_PARAMS,
   chaseCameraFov,
@@ -24,7 +25,12 @@ function prefersReducedMotion(): boolean {
  * (not React state) so this never triggers a re-render; it just reads `flightStore` each frame,
  * matching how `Plane` drives its own transform.
  */
-export function ChaseCamera() {
+interface ChaseCameraProps {
+  /** `?shot=` bookmark with a camera override: the camera parks at its offset and looks at the plane. */
+  shot?: ShotBookmark | null
+}
+
+export function ChaseCamera({ shot = null }: ChaseCameraProps) {
   const cameraRef = useRef<ThreePerspectiveCamera>(null)
   const smoothedPosition = useRef(new Vector3())
   const smoothedLookAt = useRef(new Vector3())
@@ -46,6 +52,11 @@ export function ChaseCamera() {
     if (!camera) return
 
     const { state } = useFlightStore.getState()
+    if (shot?.cameraOffset) {
+      camera.position.set(...shotCameraPosition(shot))
+      camera.lookAt(state.position)
+      return
+    }
     // Every vector below is a long-lived scratch written in place: a frame allocates nothing.
     const desired = desiredCameraPosition(
       state.position,

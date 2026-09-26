@@ -17,12 +17,14 @@ export function Plane({ paused }: PlaneProps) {
   const groupRef = useRef<Group>(null)
 
   useFrame((_frameState, delta) => {
-    // Paused freezes the sim: the flight step isn't called, so nothing accumulates.
-    if (paused) return
-    const input = useInputStore.getState().current
-    const { position } = useFlightStore.getState().state
-    const groundHeight = surfaceHeightAt(position.x, position.z, TERRAIN_CONFIG)
-    useFlightStore.getState().tick(input, delta, groundHeight)
+    // Paused freezes the sim: the flight step isn't called, so nothing accumulates. The model
+    // still follows the store, so a plane parked by `?shot=` (or reset) is placed on its first frame.
+    if (!paused) {
+      const input = useInputStore.getState().current
+      const { position } = useFlightStore.getState().state
+      const groundHeight = surfaceHeightAt(position.x, position.z, TERRAIN_CONFIG)
+      useFlightStore.getState().tick(input, delta, groundHeight)
+    }
 
     const group = groupRef.current
     if (!group) return
