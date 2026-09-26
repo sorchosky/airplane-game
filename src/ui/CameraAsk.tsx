@@ -38,7 +38,7 @@ export function CameraAsk({ denied = false, onRetry }: CameraAskProps) {
       data-denied={denied}
       style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden' }}
     >
-      <TitleSky />
+      <TitleSky introStart={null} />
       <div
         style={{
           position: 'absolute',
