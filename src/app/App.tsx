@@ -24,20 +24,25 @@ import { useGameStore } from './gameStore'
 import { CalibrateScreen } from './screens/CalibrateScreen'
 import { ErrorScreen } from './screens/ErrorScreen'
 import { PausedOverlay } from './screens/PausedOverlay'
+import { TitleHandoff } from './screens/TitleHandoff'
+import { useTitleHandoffStore } from './screens/titleHandoff'
 import { TitleScreen } from './screens/TitleScreen'
 import { isMaterialsSceneMode, isReplayInputMode, isSwatchesMode } from './urlFlags'
+import { useGameClock } from './useGameClock'
 import { setupWakeLockReacquire } from './wakeLock'
 
-/** Control-state machine plus its HUD, mounted for the life of one flight (flying ⇄ paused). */
+/** Control-state machine, audio and in-game clock plus the HUD, mounted for the life of one flight (flying ⇄ paused). */
 function FlightControl({ hud }: { hud: boolean }) {
   useControlStateDriver()
   useAudioEngine()
+  useGameClock()
   return hud ? <Hud /> : null
 }
 
 export function App() {
   const state = useGameStore((s) => s.state)
   const permissionDenied = useGameStore((s) => s.permissionDenied)
+  const titleHandoff = useTitleHandoffStore((s) => s.still !== null)
 
   useEffect(() => setupWakeLockReacquire(), [])
   useEffect(() => setupCameraLifecycle(), [])
@@ -89,6 +94,7 @@ export function App() {
       {state === 'paused' && <PausedOverlay />}
       {inFlight && <FlightControl hud={!shot} />}
       <InputSource enableTouchControls={state === 'flying' && !shot} />
+      {titleHandoff && <TitleHandoff />}
       {showPoseDebug && <PoseDebug />}
       <OrientationPrompt />
     </div>

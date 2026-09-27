@@ -20,6 +20,13 @@ export interface FlightState {
   // How deep the plane is in the soft floor band, 0 (clear) .. 1 (at the ground). Drives the
   // pull-up and, through `flightStore`'s floor-contact event, the low-pass VFX and audio.
   floorContact: number
+  // Arms-back boost (#93). `boosting` is on for one burst of at most `boostDuration`; after it the
+  // boost is out for `boostCooldown`, and `boostSpent` holds it out until the request is released,
+  // so holding the sweep can't chain bursts.
+  boosting: boolean
+  boostTime: number // s into the current burst
+  boostCooldown: number // s until the boost can fire again
+  boostSpent: boolean // the request that fired the last burst is still held
 }
 
 export interface FlightParams {
@@ -41,6 +48,9 @@ export interface FlightParams {
   floorClearance: number // m, height above ground where the soft floor starts pitching the nose up
   floorPitchBias: number // radians, pitch-up added to the target at full floor depth (at the ground)
   floorMinAltitude: number // m, hard minimum height above ground; the plane never goes lower
+  boostAcceleration: number // m/s^2, forward push while boosting level or diving; fades to 0 at full climb
+  boostDuration: number // s, longest one burst lasts, however long the request is held
+  boostCooldown: number // s, after a burst ends, before another can start
 }
 
 const degToRad = (degrees: number): number => (degrees * Math.PI) / 180
@@ -69,6 +79,17 @@ export const FLIGHT_FEEL = {
    */
   floorContactEnter: 0.05,
   floorContactExit: 0.02,
+  /**
+   * The arms-back boost's push (#93), in level flight or a dive. It fades as the nose rises and is
+   * gone at full climb, so a boost into a climb bleeds speed exactly as the energy model says. From
+   * cruise in level flight it settles toward cruise + 7 · speedDecayTime = 62.5 m/s and reaches
+   * about 57 in one full burst: a readable surge, not a second throttle.
+   */
+  boostAcceleration: 7,
+  /** One burst: long enough to feel on a straight, short enough that it can't replace the dive. */
+  boostDuration: 3,
+  /** Rest between bursts, counted from the end of the last one. */
+  boostCooldown: 4,
 } as const
 
 export const DEFAULT_FLIGHT_PARAMS: FlightParams = {
@@ -94,6 +115,9 @@ export const DEFAULT_FLIGHT_PARAMS: FlightParams = {
   // the ground: diving into a hill pulls up by itself.
   floorPitchBias: degToRad(50),
   floorMinAltitude: 2,
+  boostAcceleration: FLIGHT_FEEL.boostAcceleration,
+  boostDuration: FLIGHT_FEEL.boostDuration,
+  boostCooldown: FLIGHT_FEEL.boostCooldown,
 }
 
 /** 60 Hz simulation rate. `step` subdivides whatever `dt` it's given into chunks of this size. */
@@ -114,6 +138,10 @@ export function createInitialFlightState(
     pitchRate: 0,
     yawBank: 0,
     floorContact: 0,
+    boosting: false,
+    boostTime: 0,
+    boostCooldown: 0,
+    boostSpent: false,
   }
 }
 
@@ -229,12 +257,34 @@ function integrate(
   const yawRate = -(params.turnGravity * Math.tan(yawBank)) / state.speed
   const heading = state.heading + yawRate * dt
 
+  // Boost (#93): a request starts a burst when the cooldown is over and the last burst's request
+  // has been let go. The burst ends when the request does, the autopilot takes over, or it runs
+  // `boostDuration`; the cooldown starts then.
+  const requested = input.active && input.boost === true
+  let boosting = state.boosting
+  let boostTime = state.boostTime
+  let boostCooldown = Math.max(0, state.boostCooldown - dt)
+  let boostSpent = state.boostSpent && requested
+  if (boosting && (!requested || boostTime >= params.boostDuration)) {
+    boosting = false
+    boostCooldown = params.boostCooldown
+    boostSpent = requested
+  } else if (!boosting && requested && !boostSpent && boostCooldown === 0) {
+    boosting = true
+    boostTime = 0
+  }
+  if (boosting) boostTime += dt
+
   // Speed as energy: gravity along the path speeds a dive and slows a climb, and drag plus
   // throttle pull it back toward cruise. A dive's extra speed carries into the climb after it.
+  // The boost pushes on top, fading out as the nose rises toward full climb, so it never cancels
+  // what a climb spends.
   const pathAcceleration = -params.energyGain * Math.sin(pitchAngle)
   const decay = (params.cruiseSpeed - state.speed) / params.speedDecayTime
+  const climbShare = clamp(Math.sin(pitchAngle) / Math.sin(params.maxPitchAngle), 0, 1)
+  const boostAcceleration = boosting ? params.boostAcceleration * (1 - climbShare) : 0
   const speed = clamp(
-    state.speed + (pathAcceleration + decay) * dt,
+    state.speed + (pathAcceleration + decay + boostAcceleration) * dt,
     params.minSpeed,
     params.maxSpeed,
   )
@@ -270,6 +320,10 @@ function integrate(
   out.pitchRate = pitchSpring.velocity
   out.yawBank = yawBank
   out.floorContact = floorDepth
+  out.boosting = boosting
+  out.boostTime = boostTime
+  out.boostCooldown = boostCooldown
+  out.boostSpent = boostSpent
   return out
 }
 
@@ -316,5 +370,9 @@ export function copyFlightState(from: FlightState, to: FlightState): FlightState
   to.pitchRate = from.pitchRate
   to.yawBank = from.yawBank
   to.floorContact = from.floorContact
+  to.boosting = from.boosting
+  to.boostTime = from.boostTime
+  to.boostCooldown = from.boostCooldown
+  to.boostSpent = from.boostSpent
   return to
 }

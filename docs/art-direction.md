@@ -47,8 +47,10 @@ Albedo and UI colors live in `src/styles/tokens.ts` (`color`) and
 | `outline` | `#1f2a33` | Cel-shading linework, cool near-black |
 | `plane-body` | `#f4efe3` | Plane fuselage, warm white |
 | `plane-stripe` | `#d8562b` | Plane stripe, safety orange |
-| `plane-metal` | `#9c948a` | Prop and struts, warm grey metal |
-| `plane-glass` | `#35414d` | Cabin window band and tires, dark slate |
+| `plane-trim` | `#d6cfc1` | Wheel pants, a step darker than the body (#71) |
+| `plane-metal` | `#857e75` | Prop, struts and gear legs, warm grey metal, darkened in #71 |
+| `plane-glass` | `#35414d` | Cabin window band and tires, dark slate, stepped specular highlight (#71) |
+| `vapor` | `#eef3f7` | Wingtip vortex ribbons (#71) |
 | `control-active` | `#5cb8bd` | Gesture control engaged (arms-out gate) |
 | `control-inactive` | `#8a7c6c` | Gesture control disengaged / autopilot |
 | `surface-hud` | `rgba(36, 27, 21, 0.8)` | Translucent dark HUD panel background |

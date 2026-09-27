@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { targetPitch, targetRoll } from './keyboardSource'
+import { isBoosting, targetPitch, targetRoll } from './keyboardSource'
 
 describe('targetRoll', () => {
   it('is neutral with no keys pressed', () => {
@@ -38,5 +38,14 @@ describe('targetPitch', () => {
 
   it('cancels out when both directions are held', () => {
     expect(targetPitch(new Set(['w', 's']))).toBe(0)
+  })
+})
+
+describe('isBoosting', () => {
+  it('boosts while Shift is held, alone or with other keys', () => {
+    expect(isBoosting(new Set())).toBe(false)
+    expect(isBoosting(new Set(['Shift']))).toBe(true)
+    expect(isBoosting(new Set(['Shift', 'D']))).toBe(true)
+    expect(isBoosting(new Set(['d', ' ']))).toBe(false)
   })
 })

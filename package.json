@@ -12,11 +12,11 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
-    "lint": "eslint . && prettier --check .",
+    "lint": "eslint . && prettier --check --log-level warn .",
     "format": "prettier --write .",
     "test": "vitest run",
     "e2e": "playwright test",
-    "check": "npm run typecheck && npm run lint && npm run test"
+    "check": "npm run -s typecheck && npm run -s lint && npm run -s test"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",

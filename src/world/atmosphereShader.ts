@@ -106,6 +106,15 @@ const fogFragment = /* glsl */ `
     vec3 atmoDir = normalize((vec4(vAtmosphereView, 0.0) * viewMatrix).xyz);
     float atmoNear = ATMO_HAZE_WARM_MAX * (1.0 - exp(-atmoDistance * ATMO_HAZE_DENSITY));
     float atmoFar = smoothstep(fogNear, fogFar, atmoDistance);
+    #ifdef ATMO_FAR_CAP
+      // Landmarks (#76) cap the far layer so their silhouettes stay cutouts, then let go past the
+      // terrain's own full fade so they're gone before the far plane clips them.
+      atmoFar = mix(
+        min(atmoFar, ATMO_FAR_CAP),
+        1.0,
+        smoothstep(fogFar, fogFar * ATMO_FAR_RELEASE, atmoDistance)
+      );
+    #endif
     vec3 atmoColor = atmosphereToDisplay(gl_FragColor.rgb);
     atmoColor = mix(atmoColor, atmoHaze, atmoNear);
     atmoColor = mix(atmoColor, atmosphereSky(atmoDir), atmoFar);

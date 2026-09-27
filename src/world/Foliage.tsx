@@ -15,13 +15,13 @@ import { usePerfStore } from '../debug/perfStore'
 import { useFlightStore } from '../flight/flightStore'
 import { useQualityStore } from '../render/qualityStore'
 import { CellCache } from './cellCache'
-import { foliageExclusions, foliageExclusionVersion } from './foliageExclusions'
+import { allFoliageExclusions, foliageExclusionVersion } from './foliageExclusions'
 import {
   createFoliageBodyMaterial,
   createFoliageHullMaterial,
   foliageUniforms,
 } from './foliageMaterial'
-import { FOLIAGE_MODEL_BUILDERS } from './models/tree'
+import { FOLIAGE_MODEL_BUILDERS } from './models/foliage'
 import {
   cellsInRange,
   densityReach,
@@ -132,7 +132,7 @@ export function Foliage() {
   const cache = useMemo(
     () =>
       new CellCache<ChunkFoliage>(
-        (cell) => scatterChunk(cell.x, cell.z, TERRAIN_CONFIG, foliageExclusions()),
+        (cell) => scatterChunk(cell.x, cell.z, TERRAIN_CONFIG, allFoliageExclusions()),
         CACHE_LIMIT,
       ),
     [],

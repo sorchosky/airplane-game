@@ -11,6 +11,10 @@ export interface ToonMeshProps extends MeshProps {
   color: ColorRepresentation
   /** Soft fresnel rim light. See `createToonMaterial`. */
   rim?: boolean
+  /** Stepped specular glint. See `createToonMaterial`. */
+  specular?: boolean
+  /** Shade the color by the geometry's `color` attribute. See `createToonMaterial`. */
+  vertexColors?: boolean
   /** Inverted-hull outline. `true` uses the token color and default weight. */
   outline?: boolean | OutlineMaterialOptions
   /** The geometry element, e.g. `<boxGeometry args={[1, 1, 1]} />`. */
@@ -31,11 +35,13 @@ const noRaycast = () => undefined
 export function ToonMesh({
   color,
   rim = false,
+  specular = false,
+  vertexColors = false,
   outline = true,
   children,
   ...props
 }: ToonMeshProps) {
-  const material = useToon(color, rim)
+  const material = useToon(color, rim, { specular, vertexColors })
   const outlineOptions = outline === true ? undefined : outline || undefined
   const outlineColor = outlineOptions?.color
   const outlineThickness = outlineOptions?.thickness

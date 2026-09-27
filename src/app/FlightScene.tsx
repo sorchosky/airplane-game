@@ -10,9 +10,11 @@ import { useFlightStore } from '../flight/flightStore'
 import { hasDebugFlag } from '../input/source'
 import { PostFX } from '../render/PostFX'
 import { QualityGovernor } from '../render/QualityGovernor'
+import { CloudVeil } from '../ui/CloudVeil'
 import { Atmosphere } from '../world/Atmosphere'
 import { Foliage } from '../world/Foliage'
 import { Grass } from '../world/Grass'
+import { Landmarks } from '../world/Landmarks'
 import { Terrain } from '../world/Terrain'
 import { Water } from '../world/Water'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
@@ -63,10 +65,12 @@ export function FlightScene() {
         <Foliage />
         <Grass />
         <Water />
+        <Landmarks />
         <PerfProbe />
         <QualityGovernor />
         <PostFX />
       </Canvas>
+      <CloudVeil />
       <PerfHud initiallyVisible={debug} />
       {shot && <ShotReady />}
     </>

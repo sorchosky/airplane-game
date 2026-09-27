@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { heightAt } from './heightfield'
-import { FOLIAGE_MODEL_BUILDERS, triangleCount } from './models/tree'
+import { FOLIAGE_MODEL_BUILDERS, triangleCount } from './models/foliage'
 import {
   altitudeFalloff,
   cellsInRange,

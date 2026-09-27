@@ -31,12 +31,17 @@ export const color = {
   // Cel-shading linework: a cool near-black, so outlines read as ink rather than brown.
   outline: '#1f2a33',
 
-  // Plane livery: warm white body, safety-orange stripe, warm grey metal.
+  // Plane livery: warm white body, safety-orange stripe, warm grey metal. The wheel pants take a
+  // step darker trim and the struts a darker metal so the undercarriage separates from the wing
+  // and body in silhouette (#71).
   planeBody: '#f4efe3',
   planeStripe: '#d8562b',
-  planeMetal: '#9c948a',
+  planeTrim: '#d6cfc1',
+  planeMetal: '#857e75',
   // Cabin window band and tires: a cool, dark slate tint.
   planeGlass: '#35414d',
+  // Wingtip vortex vapour: a cool near-white, like the snow, tinted by the material's alpha.
+  vapor: '#eef3f7',
 
   // Gesture-control state (muted teal-cyan, not neon, so it reads as a
   // deliberate system color against the warm palette rather than clashing).
@@ -51,6 +56,10 @@ export const color = {
   textPrimary: '#f3e8d8',
   textMuted: '#cdbca6',
   accent: '#5cb8bd',
+  // Hairline chrome and the calibration target silhouette (`docs/art-bible.md` UI tokens).
+  line: 'rgba(247, 244, 236, 0.55)',
+  // The one white flash of the skeleton at calibration lock-in (#63).
+  lockFlash: '#ffffff',
 
   // Title screen (Figma "Driftwing" storyboard). The sky colors are the Figma "Golden hour
   // cirrus" shader's palette pre-mixed at the title's time-of-day, so `TitleSky` only blends
@@ -63,6 +72,12 @@ export const color = {
   titleText: '#e4e9f6',
   titleTextShadow: '#2c4781',
   titleStartBorder: 'rgba(228, 233, 246, 0.7)',
+  // #73: the warm white the intro fades up from, and the contrast assist that keeps the wordmark
+  // and Start at AA without a plate: a feathered darkening band across the wordmark's row and a
+  // soft glow in the same deep blue.
+  titleFade: '#fff4e6',
+  titleScrim: 'rgba(27, 39, 72, 0.4)',
+  titleGlow: 'rgba(27, 39, 72, 0.6)',
 } as const
 
 // 8pt spacing scale.
@@ -149,6 +164,16 @@ export interface LightingPreset {
   sunDirection: readonly [number, number, number]
   sunIntensity: number
   hemisphereIntensity: number
+  /**
+   * Two-tone colour grade on `high` (#72), display sRGB: the hue shadows lean toward (teal) and
+   * the hue highlights lean toward (warm). Only their hue and saturation move pixels; the grade
+   * keeps each pixel's luma, so tiers match in brightness.
+   */
+  gradeShadow: string
+  gradeHighlight: string
+  /** How far shadows and highlights lean toward their grade tints, 0..1 */
+  gradeShadowAmount: number
+  gradeHighlightAmount: number
 }
 
 export const lightingPresets = {
@@ -169,6 +194,11 @@ export const lightingPresets = {
     sunDirection: [0.6, 0.52, 0.49] as const,
     sunIntensity: 2.4,
     hemisphereIntensity: 0.9,
+    // The sky already carries the cool side, so highlights warm only a little.
+    gradeShadow: '#2f8a8c',
+    gradeHighlight: '#ffcf96',
+    gradeShadowAmount: 0.25,
+    gradeHighlightAmount: 0.15,
   },
   /** Low warm sun, peach horizon, violet zenith: `?tod=golden`, and the approach to dusk in #92. */
   goldenHour: {
@@ -184,6 +214,11 @@ export const lightingPresets = {
     sunDirection: [0.85, 0.28, 0.35] as const,
     sunIntensity: 2.2,
     hemisphereIntensity: 1.0,
+    // Already warm: keep the teal shadows for contrast and barely warm the highlights further.
+    gradeShadow: '#2f8a8c',
+    gradeHighlight: '#ffc58a',
+    gradeShadowAmount: 0.25,
+    gradeHighlightAmount: 0.08,
   },
 } as const satisfies Record<string, LightingPreset>
 
@@ -204,8 +239,10 @@ export const radius = {
 // HUD element sizing, relative to viewport so it scales with the TV.
 export const size = {
   cameraPreviewWidth: '20vw',
-  // Larger preview while calibrating, so the player can line themselves up from ~2 m.
-  cameraPreviewWidthLarge: '44vw',
-  // Calibration silhouette and progress ring.
-  calibrationFigure: 'clamp(160px, 18vw, 240px)',
+  // The calibrate preview's frame (#63): a cool edge the player can find from ~2 m.
+  calibrateFrame: '12px',
+  // Title pose demonstration (arms out, tilt, arms up) under Start.
+  poseDemoFigure: 'clamp(72px, 8vw, 120px)',
+  // Calibration hold-progress ring, beside the one line of guidance.
+  holdRing: 'clamp(40px, 4vw, 56px)',
 } as const

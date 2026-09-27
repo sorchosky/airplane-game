@@ -11,8 +11,15 @@ export interface DriftwingSnapshot {
   game: string
   controlPhase: string
   calibrated: boolean
-  input: { roll: number; pitch: number; active: boolean; source: string }
-  flight: { bankDeg: number; pitchDeg: number; altitude: number; speed: number; heading: number }
+  input: { roll: number; pitch: number; active: boolean; boost: boolean; source: string }
+  flight: {
+    bankDeg: number
+    pitchDeg: number
+    altitude: number
+    speed: number
+    heading: number
+    boosting: boolean
+  }
   replay: { phase: ReplayPhase; label: string | null; frameIndex: number; elapsedMs: number }
 }
 
@@ -36,13 +43,20 @@ function snapshot(): DriftwingSnapshot {
     game: useGameStore.getState().state,
     controlPhase: useControlStore.getState().machine.phase,
     calibrated: useCalibrationStore.getState().calibration !== null,
-    input: { roll: input.roll, pitch: input.pitch, active: input.active, source: input.source },
+    input: {
+      roll: input.roll,
+      pitch: input.pitch,
+      active: input.active,
+      boost: input.boost === true,
+      source: input.source,
+    },
     flight: {
       bankDeg: state.bank * DEG,
       pitchDeg: state.pitchAngle * DEG,
       altitude: state.position.y,
       speed: state.speed,
       heading: state.heading,
+      boosting: state.boosting,
     },
     replay: {
       phase: replayStatus.phase,

@@ -7,10 +7,10 @@ import { useFlightStore } from '../flight/flightStore'
 import { useQualityStore } from '../render/qualityStore'
 import { CellCache } from './cellCache'
 import { chunkCoord } from './chunks'
-import { foliageExclusions, foliageExclusionVersion } from './foliageExclusions'
+import { allFoliageExclusions, foliageExclusionVersion } from './foliageExclusions'
 import { createGrassMaterial, foliageUniforms, grassUniforms } from './foliageMaterial'
 import { surfaceHeightAt } from './heightfield'
-import { buildGrassCard, buildGrassMask } from './models/tree'
+import { buildGrassCard, buildGrassMask } from './models/foliage'
 import { altitudeFalloff, cellsInRange, scatterGrassTile, selectGrass } from './scatter'
 import { TERRAIN_CONFIG } from './terrainConfig'
 
@@ -56,7 +56,7 @@ export function Grass() {
   const cache = useMemo(
     () =>
       new CellCache<Float32Array>(
-        (cell) => scatterGrassTile(cell.x, cell.z, TERRAIN_CONFIG, foliageExclusions()),
+        (cell) => scatterGrassTile(cell.x, cell.z, TERRAIN_CONFIG, allFoliageExclusions()),
         CACHE_LIMIT,
       ),
     [],
