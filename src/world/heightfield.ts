@@ -30,7 +30,7 @@ interface NoiseSet {
 }
 
 /** FNV-1a string hash, used to turn a seed string into a 32-bit PRNG seed. */
-function hashString(value: string): number {
+export function hashString(value: string): number {
   let hash = 0x811c9dc5
   for (let i = 0; i < value.length; i++) {
     hash ^= value.charCodeAt(i)
@@ -40,7 +40,7 @@ function hashString(value: string): number {
 }
 
 /** Mulberry32: tiny seeded PRNG. `simplex-noise` uses it to shuffle its permutation table. */
-function mulberry32(seed: number): () => number {
+export function mulberry32(seed: number): () => number {
   let a = seed
   return () => {
     a = (a + 0x6d2b79f5) | 0

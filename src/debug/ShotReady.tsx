@@ -3,7 +3,7 @@ import { usePerfStore } from './perfStore'
 
 /**
  * Hidden marker for `tests/e2e/shots.spec.ts`: says when the terrain around a `?shot=` bookmark
- * has finished streaming, and carries the renderer counts for the capture log. Written straight
+ * and foliage have finished streaming, and carries the renderer counts for the capture log. Written straight
  * to the DOM from an animation frame loop, never as React state.
  */
 export function ShotReady() {
@@ -13,9 +13,10 @@ export function ShotReady() {
     let frame = 0
     const tick = () => {
       const el = ref.current
-      const { terrainReady, drawCalls, triangles, terrainTiles } = usePerfStore.getState()
+      const { terrainReady, foliageReady, grassReady, drawCalls, triangles, terrainTiles } =
+        usePerfStore.getState()
       if (el) {
-        el.dataset.ready = terrainReady ? 'true' : 'false'
+        el.dataset.ready = terrainReady && foliageReady && grassReady ? 'true' : 'false'
         el.dataset.draws = String(drawCalls)
         el.dataset.tris = String(triangles)
         el.dataset.tiles = String(terrainTiles)

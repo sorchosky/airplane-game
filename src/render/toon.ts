@@ -8,6 +8,7 @@ import {
   ShaderMaterial,
   UnsignedByteType,
   type ColorRepresentation,
+  type WebGLProgramParametersWithUniforms,
 } from 'three'
 import { color as colorTokens, lighting, toonRamp } from '../styles/tokens'
 import { atmosphereUniforms } from '../world/atmosphereUniforms'
@@ -102,18 +103,21 @@ const RIM_FRAGMENT = /* glsl */ `
   outgoingLight += toonRimColor * toonRimStrength * smoothstep( 0.55, 0.85, toonRimFacing );
   #include <opaque_fragment>`
 
+/** Adds the rim light to a toon shader being compiled. For materials with their own `onBeforeCompile`. */
+export function injectRimLight(shader: WebGLProgramParametersWithUniforms): void {
+  // Shared with the lighting preset, so the rim follows the sun's colour.
+  shader.uniforms.toonRimColor = atmosphereUniforms.atmoSunLight
+  shader.uniforms.toonRimStrength = { value: lighting.rimStrength }
+  shader.fragmentShader = shader.fragmentShader
+    .replace(
+      'void main() {',
+      'uniform vec3 toonRimColor;\nuniform float toonRimStrength;\nvoid main() {',
+    )
+    .replace('#include <opaque_fragment>', RIM_FRAGMENT)
+}
+
 function addRimLight(material: MeshToonMaterial): void {
-  material.onBeforeCompile = (shader) => {
-    // Shared with the lighting preset, so the rim follows the sun's colour.
-    shader.uniforms.toonRimColor = atmosphereUniforms.atmoSunLight
-    shader.uniforms.toonRimStrength = { value: lighting.rimStrength }
-    shader.fragmentShader = shader.fragmentShader
-      .replace(
-        'void main() {',
-        'uniform vec3 toonRimColor;\nuniform float toonRimStrength;\nvoid main() {',
-      )
-      .replace('#include <opaque_fragment>', RIM_FRAGMENT)
-  }
+  material.onBeforeCompile = injectRimLight
   material.customProgramCacheKey = () => 'toon-rim'
 }
 
@@ -173,7 +177,8 @@ const OUTLINE_VERTEX = /* glsl */ `
     #include <fog_vertex>
   }`
 
-const OUTLINE_FRAGMENT = /* glsl */ `
+/** Outline hull fragment shader: flat `color`, hazed like the geometry it outlines. */
+export const OUTLINE_FRAGMENT = /* glsl */ `
   #include <common>
   #include <fog_pars_fragment>
   #include <logdepthbuf_pars_fragment>
@@ -190,10 +195,10 @@ const OUTLINE_FRAGMENT = /* glsl */ `
  * Viewport height in CSS pixels, shared by every outline material so `maxPixels` means the same
  * thing everywhere. `ToonMesh` keeps it in sync with the canvas size.
  */
-const viewportHeightUniform = { value: 1080 }
+export const outlineViewportHeight = { value: 1080 }
 
 export function setOutlineViewportHeight(height: number): void {
-  if (height > 0) viewportHeightUniform.value = height
+  if (height > 0) outlineViewportHeight.value = height
 }
 
 export interface OutlineMaterialOptions {
@@ -221,7 +226,7 @@ export function getOutlineMaterial({
       color: { value: new Color(color) },
       thickness: { value: thickness },
       maxPixels: { value: maxPixels },
-      viewportHeight: viewportHeightUniform,
+      viewportHeight: outlineViewportHeight,
       ...atmosphereUniforms,
       // Fog uniforms, so outlines fade into the haze with the geometry they belong to.
       fogColor: { value: new Color() },
