@@ -2,6 +2,7 @@
 
 One line per decision. Newest at the bottom. Format: `YYYY-MM-DD · area · decision · why`.
 Sessions must not re-litigate these. Propose changes in PR handoff notes instead.
+Grep by area instead of reading the whole file, e.g. `grep -E '· (flight|controls) ·' docs/decisions.md`. Reuse an existing area name when adding a line.
 
 - 2026-09-24 · stack · Vite + React + TS + React Three Fiber + drei + Zustand · owner is fluent in React; R3F keeps 3D and UI in one tree
 - 2026-09-24 · stack · WebGL2 renderer, not WebGPU · safest support on iOS Safari; revisit after M4

@@ -3,7 +3,8 @@ import { defineConfig, devices } from '@playwright/test'
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
-  reporter: 'list',
+  // Per-test lines in CI logs; dots locally so agent sessions read failures, not a list of passes.
+  reporter: process.env.CI ? 'list' : 'dot',
   use: {
     baseURL: 'http://localhost:4173',
     trace: 'on-first-retry',
