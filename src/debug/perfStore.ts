@@ -23,6 +23,9 @@ interface PerfStore {
   latency: LatencySummary
   /** True once every tile of the current layout is drawn (no tiles pending). */
   terrainReady: boolean
+  /** True once the trees and grass around the plane are scattered and uploaded (#75). */
+  foliageReady: boolean
+  grassReady: boolean
 }
 
 export const usePerfStore = create<PerfStore>(() => ({
@@ -38,4 +41,6 @@ export const usePerfStore = create<PerfStore>(() => ({
   tier: 'high',
   latency: createLatencySummary(),
   terrainReady: false,
+  foliageReady: false,
+  grassReady: false,
 }))

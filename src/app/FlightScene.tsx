@@ -12,6 +12,8 @@ import { PostFX } from '../render/PostFX'
 import { QualityGovernor } from '../render/QualityGovernor'
 import { CloudVeil } from '../ui/CloudVeil'
 import { Atmosphere } from '../world/Atmosphere'
+import { Foliage } from '../world/Foliage'
+import { Grass } from '../world/Grass'
 import { Landmarks } from '../world/Landmarks'
 import { Terrain } from '../world/Terrain'
 import { Water } from '../world/Water'
@@ -60,6 +62,8 @@ export function FlightScene() {
         <ChaseCamera shot={shot} />
         <Plane paused={paused || shot !== null} />
         <Terrain />
+        <Foliage />
+        <Grass />
         <Water />
         <Landmarks />
         <PerfProbe />
