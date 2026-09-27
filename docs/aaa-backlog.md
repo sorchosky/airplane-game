@@ -49,8 +49,9 @@ default** on 2026-09-26 (#88), so A1 can start.
 | X3 | #80 | In-flight readout and pause teaching: horizon line with wing marks, pause ring on first arms-drop, menu gesture loop on first open | S | X2 #74 | review:visual |
 | X4 | #81 | Golden path: wind rings, birds, cloud break, waterfall and arch reveal, title card, free flight | M | A4 #70, A6 #76, F2 #77 | review:visual |
 | X5 | #82 | Accessibility: seated mode, handedness tolerance, high-contrast HUD, captions, AA audit | M | X3 #80 | agent-ready |
-| X6 | #109 | Control select after Start: Camera, or Keyboard (fine pointer) / Touch (coarse pointer); mode store replaces mount-time `?input=` reads, flag still presets and skips; touch pause button | M | none | review:visual |
+| X6 | #109 | Control select after Start: Camera, or Mouse (fine pointer) / Touch (coarse pointer); mode store replaces mount-time `?input=` reads, flag still presets and skips; touch pause button | M | none | review:visual |
 | X7 | #110 | Floating thumb joystick for Touch mode: spawns under the thumb, drag steers, release disengages to autopilot | M | X6 #109 | review:visual |
+| X8 | #111 | Mouse steering for desktop: cursor offset from screen center steers (up climbs), engaged while the cursor is in the window, keyboard still works | S | X6 #109, X7 #110 | agent-ready |
 | S1 | #83 | Showcase: `docs/showcase.md`, 30 s capture plan, five hero shots, perf and latency table, case study, known gaps | S | everything | needs-human (phone numbers) |
 
 ## Superseded tickets
