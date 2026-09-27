@@ -76,5 +76,5 @@ A multi-PR pass that takes the prototype to portfolio quality: engineering
 foundations (latency, allocations, adaptive quality), a BotW-faithful palette
 and lighting, terrain and foliage, flight feel, onboarding, clouds, VFX,
 landmarks, audio, UI reskin and an authored golden path. Slices, sizes and
-dependencies are in the backlog; each is filed as an issue (#59–#83) under the epic. Art
+dependencies are in the backlog; each is filed as an issue (#59–#83, plus later additions up to #111) under the epic. Art
 slices wait for the owner's sign-off on `docs/art-bible.md`.
