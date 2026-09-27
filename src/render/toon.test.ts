@@ -91,6 +91,32 @@ describe('createToonMaterial', () => {
     expect(shader.fragmentShader).toContain('#include <opaque_fragment>')
     expect(shader.uniforms).toHaveProperty('toonRimColor')
   })
+
+  it('adds a stepped specular term, alone or with the rim, each its own program', () => {
+    const plain = createToonMaterial({ color: color.planeGlass })
+    const spec = createToonMaterial({ color: color.planeGlass, specular: true })
+    const both = createToonMaterial({ color: color.planeGlass, specular: true, rim: true })
+    expect(spec).not.toBe(plain)
+    const keys = new Set([plain, spec, both].map((m) => m.customProgramCacheKey()))
+    expect(keys.size).toBe(3)
+    const shader = {
+      uniforms: {},
+      fragmentShader: 'void main() {\n\t#include <opaque_fragment>\n}',
+      vertexShader: '',
+    }
+    both.onBeforeCompile(shader as never, undefined as never)
+    expect(shader.fragmentShader).toContain('toonGlint')
+    expect(shader.fragmentShader).toContain('toonRimStrength')
+    expect(shader.fragmentShader).toContain('#include <opaque_fragment>')
+    expect(shader.uniforms).toHaveProperty('toonSpecular')
+  })
+
+  it('turns on vertex colours only when asked', () => {
+    expect(createToonMaterial({ color: color.planeBody }).vertexColors).toBe(false)
+    const shaded = createToonMaterial({ color: color.planeBody, vertexColors: true })
+    expect(shaded.vertexColors).toBe(true)
+    expect(shaded).not.toBe(createToonMaterial({ color: color.planeBody }))
+  })
 })
 
 describe('outline', () => {

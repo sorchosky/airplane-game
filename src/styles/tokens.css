@@ -28,8 +28,10 @@
   /* Plane livery */
   --color-plane-body: #f4efe3;
   --color-plane-stripe: #d8562b;
-  --color-plane-metal: #9c948a;
+  --color-plane-trim: #d6cfc1;
+  --color-plane-metal: #857e75;
   --color-plane-glass: #35414d;
+  --color-vapor: #eef3f7;
 
   /* Gesture-control state */
   --color-control-active: #5cb8bd;
@@ -41,6 +43,8 @@
   --color-text-primary: #f3e8d8;
   --color-text-muted: #cdbca6;
   --color-accent: #5cb8bd;
+  --color-line: rgba(247, 244, 236, 0.55);
+  --color-lock-flash: #ffffff;
 
   /* Title screen */
   --color-title-sky-top: #285799;
@@ -51,6 +55,9 @@
   --color-title-text: #e4e9f6;
   --color-title-text-shadow: #2c4781;
   --color-title-start-border: rgba(228, 233, 246, 0.7);
+  --color-title-fade: #fff4e6;
+  --color-title-scrim: rgba(27, 39, 72, 0.4);
+  --color-title-glow: rgba(27, 39, 72, 0.6);
 
   --space-xs: 4px;
   --space-sm: 8px;
@@ -79,8 +86,9 @@
   --radius-sharp: 2px;
 
   --size-camera-preview-width: 20vw;
-  --size-camera-preview-width-large: 44vw;
-  --size-calibration-figure: clamp(160px, 18vw, 240px);
+  --size-calibrate-frame: 12px;
+  --size-pose-demo-figure: clamp(72px, 8vw, 120px);
+  --size-hold-ring: clamp(40px, 4vw, 56px);
 }
 
 * {

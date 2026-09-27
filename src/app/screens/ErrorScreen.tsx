@@ -1,10 +1,16 @@
 import { color, space, type } from '../../styles/tokens'
+import { useCameraStore } from '../../pose/cameraService'
+import { CameraAsk } from '../../ui/CameraAsk'
 import { copy } from '../../ui/copy'
 import { useGameStore } from '../gameStore'
 
 export function ErrorScreen() {
   const errorMessage = useGameStore((s) => s.errorMessage)
   const retry = useGameStore((s) => s.retry)
+  const cameraDenied = useCameraStore((s) => s.status === 'denied')
+
+  // A refused camera gets the camera-ask frame again, with the settings hint (#63).
+  if (cameraDenied) return <CameraAsk denied onRetry={retry} />
 
   return (
     <div

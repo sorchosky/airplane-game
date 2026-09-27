@@ -10,6 +10,7 @@ import {
   chaseCameraOrientation,
   dampVector3,
   desiredCameraPosition,
+  framedLookAt,
   reducedMotionChaseCameraParams,
 } from './cameraMath'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
@@ -35,6 +36,7 @@ export function ChaseCamera({ shot = null }: ChaseCameraProps) {
   const smoothedPosition = useRef(new Vector3())
   const smoothedLookAt = useRef(new Vector3())
   const desiredPosition = useRef(new Vector3())
+  const aim = useRef(new Vector3())
   const initialized = useRef(false)
 
   // Read once per mount: a live media-query listener isn't worth it for a setting that doesn't
@@ -63,6 +65,7 @@ export function ChaseCamera({ shot = null }: ChaseCameraProps) {
       state.heading,
       params,
       desiredPosition.current,
+      state.yawBank,
     )
     const desiredLookAt = state.position
 
@@ -88,9 +91,17 @@ export function ChaseCamera({ shot = null }: ChaseCameraProps) {
     }
 
     camera.position.copy(smoothedPosition.current)
-    chaseCameraOrientation(
+    // Aim above the plane so it sits in the lower-centre third, not dead centre (#71).
+    framedLookAt(
       smoothedPosition.current,
       smoothedLookAt.current,
+      camera.fov,
+      params.screenY,
+      aim.current,
+    )
+    chaseCameraOrientation(
+      smoothedPosition.current,
+      aim.current,
       state.bank,
       params.rollFraction,
       camera.quaternion,
@@ -109,7 +120,7 @@ export function ChaseCamera({ shot = null }: ChaseCameraProps) {
       makeDefault
       fov={params.fovBase}
       // Far plane just past the terrain's view distance. Near is 1 m rather than 0.1 m to keep
-      // depth precision reasonable across that 10 km range; the plane is never closer than ~12 m.
+      // depth precision reasonable across that 10 km range; the plane is never closer than ~11 m.
       near={1}
       far={TERRAIN_CONFIG.viewDistance * 1.2}
       position={[0, CHASE_CAMERA_PARAMS.offsetUp, CHASE_CAMERA_PARAMS.offsetBack]}
