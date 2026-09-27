@@ -8,6 +8,15 @@ A browser flight game. The player stands in front of a propped-up phone (front c
 
 Roadmap and ticket index: `docs/roadmap.md`. Settled decisions: `docs/decisions.md`. Do not re-litigate a decision logged there. If you believe one is wrong, say so in the PR handoff notes.
 
+### Reading budget
+
+Sessions run on a metered plan. Read what the ticket needs, not every doc.
+
+- **`docs/decisions.md`: grep, don't read end to end.** Every line is `date · area · decision · why`. Search the areas your ticket touches, e.g. `grep -E '· (flight|controls) ·' docs/decisions.md`. Areas: `stack`, `platform`, `pose`, `controls`, `input`, `flight`, `world`, `render`, `art`, `ui`, `audio`, `camera`, `latency`, `robustness`, `debug`, `ci`, `hosting`, `workflow`, `future`.
+- **Art docs (`docs/art-bible.md`, `docs/art-direction.md`): only for look-and-feel work.** Open them when the ticket links them or changes how something looks (materials, palette, sky, lighting, models, post FX). Even then, jump to the section the ticket names.
+- **Other docs (`docs/perf.md`, `docs/experience.md`, `docs/aaa-backlog.md`): only when the ticket links them.**
+- **Dependencies are installed by a SessionStart hook** (`.claude/hooks/session-start.sh`) in cloud sessions. Don't run `npm ci` again unless the hook printed a failure.
+
 ## Stack
 
 - Vite + React + TypeScript (strict)
