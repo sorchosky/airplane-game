@@ -222,6 +222,13 @@ reaches the shaders as a uniform, never a compiled constant, so #92 can blend
 presets per frame without recompiling. A snap switch is never acceptable in
 play.
 
+The cycle's anchors are 03:30 night, 07:00 morning, 12:00 day, 16:30 afternoon,
+18:30 golden hour, 19:30 dusk and 22:00 night. Night holds through 03:30;
+00:00 is an identical key so the loop wraps continuously. The colours blend in
+OKLab and the easing has a flat tangent at each anchor. The nighttime plane
+outline shifts toward a pale blue to remain distinct against both navy sky and
+dark ground. `?tod=` pins the matching clock midpoint for review.
+
 ## 5. Shading model
 
 - **Toon ramp, three bands, sky-lit shadows.** Band levels move from

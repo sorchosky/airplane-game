@@ -24,6 +24,8 @@
 
   /* Cel-shading linework */
   --color-outline: #1f2a33;
+  --color-plane-outline-day: #1e2b33;
+  --color-plane-outline-night: #cbe5ff;
 
   /* Plane livery */
   --color-plane-body: #f4efe3;
@@ -31,6 +33,9 @@
   --color-plane-trim: #d6cfc1;
   --color-plane-metal: #857e75;
   --color-plane-glass: #35414d;
+  --color-nav-red: #ff4050;
+  --color-nav-green: #57ffc0;
+  --color-nav-white: #f5faff;
   --color-vapor: #eef3f7;
 
   /* Gesture-control state */
