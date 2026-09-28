@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { playLockInChime } from '../../audio/audioEngine'
 import {
   holdProgress,
+  DEFAULT_CALIBRATION_PARAMS,
   INITIAL_CALIBRATION_FLOW,
   stepCalibration,
   type CalibrationPhase,
@@ -20,6 +21,7 @@ import { CalibrationOverlay, type CalibrationOverlayView } from '../../ui/PoseOv
 import type { OverlayCheck } from '../../ui/poseOverlayMath'
 import { useGameStore } from '../gameStore'
 import { isReplayInputMode } from '../urlFlags'
+import { useAccessibilityStore } from '../accessibilityStore'
 
 const MODEL_STATUS_COPY: Partial<Record<PoseModelStatus, string>> = {
   loading: copy.calibrate.modelLoading,
@@ -132,13 +134,22 @@ function CalibrationView() {
     let lastDetectedAtMs = -1
     let lockedAtMs: number | null = null
     let frame = 0
+    const calibrationParams = useAccessibilityStore.getState().seated
+      ? { ...DEFAULT_CALIBRATION_PARAMS, requireHips: false }
+      : DEFAULT_CALIBRATION_PARAMS
 
     const tick = () => {
       const now = performance.now()
       const { frame: poseFrame, detectedAtMs } = usePoseStore.getState()
       if (lockedAtMs === null && detectedAtMs > 0 && detectedAtMs !== lastDetectedAtMs) {
         lastDetectedAtMs = detectedAtMs
-        flow = stepCalibration(flow, poseFrame?.landmarks ?? null, detectedAtMs, saved)
+        flow = stepCalibration(
+          flow,
+          poseFrame?.landmarks ?? null,
+          detectedAtMs,
+          saved,
+          calibrationParams,
+        )
         viewRef.current.check = overlayCheck(flow.phase)
         setPhase(flow.phase)
       }
@@ -159,7 +170,7 @@ function CalibrationView() {
 
       const ring = ringRef.current
       if (ring) {
-        const progress = holdProgress(flow, now, saved)
+        const progress = holdProgress(flow, now, saved, calibrationParams)
         ring.style.strokeDashoffset = String(RING_CIRCUMFERENCE * (1 - progress))
       }
 

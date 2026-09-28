@@ -5,6 +5,7 @@ import { useCalibrationStore } from '../pose/calibrationStore'
 import {
   DEFAULT_GESTURE_PARAMS,
   DEFAULT_GESTURE_STATE,
+  SEATED_GESTURE_PARAMS,
   interpretPose,
   predictControl,
   type ControlAxes,
@@ -14,6 +15,7 @@ import { usePoseStore } from '../pose/poseStore'
 import type { PoseLandmarks } from '../pose/types'
 import { useInputStore } from './inputStore'
 import type { ControlInput } from './types'
+import { useAccessibilityStore } from '../app/accessibilityStore'
 
 /**
  * If no detection has landed for this long (tab hidden, camera stalled, service stopped), treat
@@ -49,7 +51,16 @@ export function usePoseInterpreter(
 
     const interpret = (landmarks: PoseLandmarks | null, tMs: number) => {
       const calibration = useCalibrationStore.getState().calibration ?? DEFAULT_CALIBRATION
-      const { input, state } = interpretPose(landmarks, calibration, gestureState, tMs)
+      const gestureParams = useAccessibilityStore.getState().seated
+        ? SEATED_GESTURE_PARAMS
+        : DEFAULT_GESTURE_PARAMS
+      const { input, state } = interpretPose(
+        landmarks,
+        calibration,
+        gestureState,
+        tMs,
+        gestureParams,
+      )
       gestureState = state
       useInputStore.getState().setInput(source === input.source ? input : { ...input, source })
     }
@@ -81,7 +92,7 @@ export function usePoseInterpreter(
           gestureState,
           calibration,
           now - lastDetectedAtMs,
-          DEFAULT_GESTURE_PARAMS,
+          useAccessibilityStore.getState().seated ? SEATED_GESTURE_PARAMS : DEFAULT_GESTURE_PARAMS,
           predicted,
         )
       ) {

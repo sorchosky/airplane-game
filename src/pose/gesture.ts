@@ -21,6 +21,8 @@ import { LANDMARK, type PoseLandmark, type PoseLandmarks } from './types'
 export interface GestureParams {
   /** Elbow must be at least this straight, in degrees, to count as "outstretched". */
   minElbowAngleDeg: number
+  /** One arm may fall short of the straightness threshold by this many degrees. */
+  asymmetricArmToleranceDeg: number
   /** Wrist-to-wrist distance must exceed this multiple of the live shoulder width. */
   minWristSpanRatio: number
   /** Landmark visibility (0..1) required, averaged over both arms, for the gate to consider engaging. */
@@ -75,6 +77,7 @@ export interface GestureParams {
 
 export const DEFAULT_GESTURE_PARAMS: GestureParams = {
   minElbowAngleDeg: 150,
+  asymmetricArmToleranceDeg: 15,
   minWristSpanRatio: 1.5,
   minVisibility: 0.5,
   engageMs: 300,
@@ -92,6 +95,13 @@ export const DEFAULT_GESTURE_PARAMS: GestureParams = {
   boostMaxPitchRatio: 0.25,
   boostMinVisibility: 0.3,
   oneEuro: DEFAULT_ONE_EURO_PARAMS,
+}
+
+/** Seated play trades some range for stability while keeping the player's calibrated neutral. */
+export const SEATED_GESTURE_PARAMS: GestureParams = {
+  ...DEFAULT_GESTURE_PARAMS,
+  rollDeadzoneDeg: DEFAULT_GESTURE_PARAMS.rollDeadzoneDeg * 1.5,
+  pitchDeadzoneRatio: DEFAULT_GESTURE_PARAMS.pitchDeadzoneRatio * 1.5,
 }
 
 export interface GestureState {
@@ -304,9 +314,12 @@ export function measureArms(
   ]
   const meanVisibility = visibilities.reduce((sum, v) => sum + v, 0) / visibilities.length
 
+  const elbowsOut =
+    Math.max(leftElbowAngle, rightElbowAngle) >= params.minElbowAngleDeg &&
+    Math.min(leftElbowAngle, rightElbowAngle) >=
+      params.minElbowAngleDeg - params.asymmetricArmToleranceDeg
   const outstretched =
-    leftElbowAngle >= params.minElbowAngleDeg &&
-    rightElbowAngle >= params.minElbowAngleDeg &&
+    elbowsOut &&
     wristSpanRatio >= params.minWristSpanRatio &&
     meanVisibility >= params.minVisibility
 

@@ -10,6 +10,7 @@ import { InputReadout } from './InputReadout'
 import { PauseTeaching } from './PauseTeaching'
 import { Prompt } from './Prompt'
 import { WarmCaption } from './WarmCaption'
+import { AudioCaptions } from './AudioCaptions'
 
 /**
  * Flight HUD over the canvas: the control prompt and, when steering by pose, the camera preview
@@ -51,6 +52,7 @@ export function Hud() {
       <Prompt prompt={teaching ? null : prompt} />
       <PauseTeaching onChange={onTeachingChange} />
       <WarmCaption />
+      <AudioCaptions />
       <ClockReadout />
     </div>
   )

@@ -15,6 +15,7 @@ import {
   type PauseMenuItem,
 } from '../pauseMenu'
 import './pauseTeaching.css'
+import { useAccessibilityStore } from '../accessibilityStore'
 
 let menuTeachingSeen = false
 useGameStore.subscribe((state, previous) => {
@@ -35,6 +36,15 @@ function selectItem(item: PauseMenuItem | undefined): void {
       // reusing the one the player wants to replace.
       useCalibrationStore.getState().clearCalibration()
       useGameStore.getState().recalibrate()
+      return
+    case 'seated':
+      useAccessibilityStore.getState().toggleSeated()
+      return
+    case 'contrast':
+      useAccessibilityStore.getState().toggleHighContrast()
+      return
+    case 'captions':
+      useAccessibilityStore.getState().toggleCaptions()
       return
     case 'quit':
       useGameStore.getState().quitToTitle()
@@ -87,9 +97,15 @@ export function PauseMenu() {
   const keyboard = useControlModeStore((s) => s.controlMode !== 'camera')
   const [showTeaching, setShowTeaching] = useState(() => !keyboard && !menuTeachingSeen)
   const items = useMemo<PauseMenuItem[]>(
-    () => (keyboard ? ['resume', 'quit'] : ['resume', 'recalibrate', 'quit']),
+    () =>
+      keyboard
+        ? ['resume', 'contrast', 'captions', 'quit']
+        : ['resume', 'recalibrate', 'seated', 'contrast', 'captions', 'quit'],
     [keyboard],
   )
+  const seated = useAccessibilityStore((s) => s.seated)
+  const highContrast = useAccessibilityStore((s) => s.highContrast)
+  const captions = useAccessibilityStore((s) => s.captions)
   const personInFrame = usePoseStore((s) => s.frame !== null)
   const [highlight, setHighlight] = useState(INITIAL_PAUSE_MENU.index)
   const menuRef = useRef(INITIAL_PAUSE_MENU)
@@ -227,6 +243,20 @@ export function PauseMenu() {
       >
         {items.map((item, i) => {
           const highlighted = i === highlight
+          const label =
+            item === 'seated'
+              ? seated
+                ? copy.pause.seatedOn
+                : copy.pause.seatedOff
+              : item === 'contrast'
+                ? highContrast
+                  ? copy.pause.contrastOn
+                  : copy.pause.contrastOff
+                : item === 'captions'
+                  ? captions
+                    ? copy.pause.captionsOn
+                    : copy.pause.captionsOff
+                  : copy.pause[item]
           return (
             <button
               key={item}
@@ -252,7 +282,7 @@ export function PauseMenu() {
               }}
             >
               {highlighted && !keyboard && <HoldRing ringRef={ringRef} />}
-              {copy.pause[item]}
+              {label}
             </button>
           )
         })}

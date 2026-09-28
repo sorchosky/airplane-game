@@ -78,6 +78,15 @@ describe('checkBody', () => {
     expect(checkBody(withHips(tposeLevel, 0.75, 0.2))).toBe('tooClose')
   })
 
+  it('accepts a shoulders-only frame in seated mode', () => {
+    expect(
+      checkBody(tposeLevel as PoseLandmarks, {
+        ...DEFAULT_CALIBRATION_PARAMS,
+        requireHips: false,
+      }),
+    ).toBe('ok')
+  })
+
   it('checks shoulder width against the frame-width range', () => {
     expect(checkBody(TPOSE)).toBe('ok')
     const { minShoulderWidth, maxShoulderWidth } = DEFAULT_CALIBRATION_PARAMS
