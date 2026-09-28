@@ -69,3 +69,37 @@ describe('computeAudioParams', () => {
     expect(underSpeed.windCutoff).toBeGreaterThanOrEqual(DEFAULT_AUDIO_TUNABLES.windCutoffMin)
   })
 })
+
+describe('layered audio params', () => {
+  it('crossfades engine layers by load and writes into the supplied object', () => {
+    const out = { engineFreq: 0, engineGain: 0, windCutoff: 0, windGain: 0 }
+    const level = computeAudioParams({ speed: 45, pitchAngle: 0, bank: 0 }, RANGE, undefined, out)
+    const levelChug = level.chugGain ?? 0
+    const levelBuzz = level.buzzGain ?? 0
+    const levelWhine = level.whineGain ?? 0
+    const climb = computeAudioParams({ speed: 45, pitchAngle: 0.4, bank: 0 }, RANGE, undefined, out)
+    expect(climb).toBe(out)
+    expect(climb.chugGain).toBeGreaterThan(0)
+    expect(climb.buzzGain).toBeGreaterThan(levelBuzz)
+    expect(climb.whineGain).toBeGreaterThan(levelWhine)
+    expect((climb.buzzGain ?? 0) / (climb.chugGain ?? 1)).toBeGreaterThan(levelBuzz / levelChug)
+  })
+
+  it('builds a ground rush below the soft floor and muffled texture inside clouds', () => {
+    const clear = computeAudioParams({ speed: 45, pitchAngle: 0, bank: 0 }, RANGE)
+    const low = computeAudioParams({ speed: 45, pitchAngle: 0, bank: 0, floorContact: 0.9 }, RANGE)
+    const cloud = computeAudioParams(
+      { speed: 45, pitchAngle: 0, bank: 0, cloudInside: true },
+      RANGE,
+    )
+    const above15 = computeAudioParams(
+      { speed: 45, pitchAngle: 0, bank: 0, floorContact: 0.24 },
+      RANGE,
+    )
+    expect(clear.lowRushGain).toBe(0)
+    expect(above15.lowRushGain).toBe(0)
+    expect(low.lowRushGain).toBeGreaterThan(0)
+    expect(low.padGain).toBeGreaterThan(clear.padGain ?? 0)
+    expect(cloud.textureGain).toBeGreaterThan(clear.textureGain ?? 0)
+  })
+})

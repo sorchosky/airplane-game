@@ -1,4 +1,6 @@
 import { DEFAULT_AUDIO_TUNABLES, type EngineWindParams } from './audioParams'
+import { createAmbientBed, type AmbientBed } from './bed'
+import { emitAudioCaption, type AudioCaptionKey } from './captions'
 
 /**
  * Procedural engine drone + wind, built once as a persistent Web Audio graph and driven every
@@ -28,9 +30,14 @@ interface EngineGraph {
   context: AudioContext
   master: GainNode
   cueBus: GainNode
+  chug: GainNode
+  buzz: GainNode
+  whine: GainNode
   engineOsc1: OscillatorNode
   engineOsc2: OscillatorNode
-  engineGain: GainNode
+  highOsc: OscillatorNode
+  ambient: AmbientBed
+  lowRush: GainNode
   windFilter: BiquadFilterNode
   windGain: GainNode
 }
@@ -39,12 +46,20 @@ let graph: EngineGraph | null = null
 let muted = false
 let ducked = false
 
+let noiseBuffer: AudioBuffer | null = null
 function createLoopingNoise(context: AudioContext): AudioBufferSourceNode {
+  if (noiseBuffer) {
+    const source = context.createBufferSource()
+    source.buffer = noiseBuffer
+    source.loop = true
+    return source
+  }
   const length = Math.floor(context.sampleRate * NOISE_BUFFER_SECONDS)
   const buffer = context.createBuffer(1, length, context.sampleRate)
   const data = buffer.getChannelData(0)
   for (let i = 0; i < length; i += 1) data[i] = Math.random() * 2 - 1
 
+  noiseBuffer = buffer
   const source = context.createBufferSource()
   source.buffer = buffer
   source.loop = true
@@ -60,29 +75,36 @@ function buildGraph(context: AudioContext): EngineGraph {
   cueBus.gain.value = 0
   cueBus.connect(context.destination)
 
-  // Engine: two slightly detuned sawtooth oscillators (piston buzz) plus low-passed noise (chug),
-  // all through one gain stage so `updateAudioParams` only has to drive one number for "effort".
+  // Engine: piston chug, detuned mid buzz, and a quieter high whine. Each responds
+  // independently to RPM/load instead of raising a single combined oscillator stack.
   const engineOsc1 = context.createOscillator()
   engineOsc1.type = 'sawtooth'
   engineOsc1.frequency.value = DEFAULT_AUDIO_TUNABLES.engineFreqMin
   const engineOsc2 = context.createOscillator()
   engineOsc2.type = 'sawtooth'
   engineOsc2.frequency.value = DEFAULT_AUDIO_TUNABLES.engineFreqMin
-  engineOsc2.detune.value = 9 // cents; a slight beat gives the drone texture instead of a pure tone
-
+  engineOsc2.detune.value = 9
   const engineNoise = createLoopingNoise(context)
   const engineNoiseFilter = context.createBiquadFilter()
   engineNoiseFilter.type = 'lowpass'
-  engineNoiseFilter.frequency.value = 250
-  const engineNoiseGain = context.createGain()
-  engineNoiseGain.gain.value = 0.35 // the chug sits under the oscillators, not over them
+  engineNoiseFilter.frequency.value = 230
+  const chug = context.createGain()
+  const buzz = context.createGain()
+  const whine = context.createGain()
+  for (const gain of [chug, buzz, whine]) {
+    gain.gain.value = 0
+    gain.connect(master)
+  }
+  engineNoise.connect(engineNoiseFilter).connect(chug)
+  engineOsc1.connect(buzz)
+  engineOsc2.connect(buzz)
+  const highOsc = context.createOscillator()
+  highOsc.type = 'triangle'
+  highOsc.frequency.value = DEFAULT_AUDIO_TUNABLES.engineFreqMin * 3
+  highOsc.connect(whine)
+  highOsc.start()
 
-  const engineGain = context.createGain()
-  engineGain.gain.value = 0
-  engineOsc1.connect(engineGain)
-  engineOsc2.connect(engineGain)
-  engineNoise.connect(engineNoiseFilter).connect(engineNoiseGain).connect(engineGain)
-  engineGain.connect(master)
+  const ambient = createAmbientBed(context, master)
 
   // Wind: bandpass-filtered noise, gain and cutoff both driven per-frame.
   const windNoise = createLoopingNoise(context)
@@ -98,8 +120,30 @@ function buildGraph(context: AudioContext): EngineGraph {
   engineOsc2.start()
   engineNoise.start()
   windNoise.start()
+  const lowRushNoise = createLoopingNoise(context)
+  const lowRushFilter = context.createBiquadFilter()
+  lowRushFilter.type = 'lowpass'
+  lowRushFilter.frequency.value = 160
+  const lowRush = context.createGain()
+  lowRush.gain.value = 0
+  lowRushNoise.connect(lowRushFilter).connect(lowRush).connect(master)
+  lowRushNoise.start()
 
-  return { context, master, cueBus, engineOsc1, engineOsc2, engineGain, windFilter, windGain }
+  return {
+    context,
+    master,
+    cueBus,
+    engineOsc1,
+    engineOsc2,
+    chug,
+    buzz,
+    whine,
+    highOsc,
+    ambient,
+    lowRush,
+    windFilter,
+    windGain,
+  }
 }
 
 /** Builds the graph on first use. Feature-detects `AudioContext` (unsupported browsers get no
@@ -152,7 +196,19 @@ export function updateAudioParams(params: EngineWindParams): void {
   const now = graph.context.currentTime
   rampTo(graph.engineOsc1.frequency, params.engineFreq, now, PARAM_RAMP_TIME_CONSTANT)
   rampTo(graph.engineOsc2.frequency, params.engineFreq, now, PARAM_RAMP_TIME_CONSTANT)
-  rampTo(graph.engineGain.gain, params.engineGain, now, PARAM_RAMP_TIME_CONSTANT)
+  rampTo(graph.highOsc.frequency, params.engineFreq * 3, now, PARAM_RAMP_TIME_CONSTANT)
+  rampTo(graph.chug.gain, params.chugGain ?? params.engineGain * 0.4, now, PARAM_RAMP_TIME_CONSTANT)
+  rampTo(graph.buzz.gain, params.buzzGain ?? params.engineGain * 0.4, now, PARAM_RAMP_TIME_CONSTANT)
+  rampTo(
+    graph.whine.gain,
+    params.whineGain ?? params.engineGain * 0.1,
+    now,
+    PARAM_RAMP_TIME_CONSTANT,
+  )
+  rampTo(graph.lowRush.gain, params.lowRushGain ?? 0, now, PARAM_RAMP_TIME_CONSTANT)
+  rampTo(graph.ambient.pad.gain, params.padGain ?? 0, now, GAIN_RAMP_TIME_CONSTANT)
+  rampTo(graph.ambient.texture.gain, params.textureGain ?? 0, now, GAIN_RAMP_TIME_CONSTANT)
+  rampTo(graph.ambient.pulse.gain, params.pulseGain ?? 0, now, GAIN_RAMP_TIME_CONSTANT)
   rampTo(graph.windFilter.frequency, params.windCutoff, now, PARAM_RAMP_TIME_CONSTANT)
   rampTo(graph.windGain.gain, params.windGain, now, PARAM_RAMP_TIME_CONSTANT)
 }
@@ -181,6 +237,7 @@ const CUE_FREQUENCIES: Record<AudioCue, number> = {
 /** A short, ramped sine blip -- attack/release envelope, never an instant on/off -- for the
  * active/inactive gesture transition and each resume-countdown tick. */
 export function playCue(cue: AudioCue): void {
+  emitAudioCaption(`audio.${cue}`)
   if (!graph || muted) return
   const { context, cueBus } = graph
   const now = context.currentTime
@@ -210,6 +267,7 @@ const CHIME_RELEASE_SECONDS = 0.7
  * so it plays at the end of calibration before the engine is up, and only mute silences it.
  */
 export function playLockInChime(): void {
+  emitAudioCaption('audio.lockIn')
   if (!graph || muted) return
   const { context, cueBus } = graph
   const now = context.currentTime
@@ -257,6 +315,7 @@ export function playTitleSwell(timing: SwellTiming): boolean {
   const current = ensureGraph()
   if (!current || current.context.state !== 'running') return false
   applyGains()
+  emitAudioCaption('audio.titleSwell')
 
   const { context, cueBus } = current
   const now = context.currentTime
@@ -288,4 +347,63 @@ export function playTitleSwell(timing: SwellTiming): boolean {
     osc.stop(end + 0.05)
   })
   return true
+}
+
+/** A filtered noise sweep with a Doppler-shifted pitched layer for landmarks. */
+export function playWhoosh(
+  kind: 'cloud' | 'landmark' | 'lowPass' | 'ring',
+  closingSpeed = 0,
+): void {
+  const key: AudioCaptionKey =
+    kind === 'lowPass'
+      ? 'audio.lowPass'
+      : kind === 'ring'
+        ? 'audio.ring'
+        : kind === 'cloud'
+          ? 'audio.cloudWhoosh'
+          : 'audio.landmarkWhoosh'
+  emitAudioCaption(key)
+  if (!graph || muted || ducked) return
+  const { context, master } = graph
+  const now = context.currentTime
+  const source = createLoopingNoise(context)
+  source.playbackRate.setTargetAtTime(
+    Math.max(0.7, Math.min(1.35, (343 + closingSpeed) / 343)),
+    now,
+    0.03,
+  )
+  const filter = context.createBiquadFilter()
+  filter.type = 'bandpass'
+  filter.Q.value = 0.5
+  filter.frequency.setTargetAtTime(kind === 'lowPass' ? 250 : 700, now, 0.04)
+  const gain = context.createGain()
+  gain.gain.value = 0
+  gain.gain.setTargetAtTime(0.23, now, 0.08)
+  gain.gain.setTargetAtTime(0, now + 0.2, 0.23)
+  source.connect(filter).connect(gain).connect(master)
+  if (kind === 'landmark') {
+    const tone = context.createOscillator()
+    tone.type = 'sine'
+    const approach = Math.max(0.7, Math.min(1.35, (343 + closingSpeed) / 343))
+    tone.frequency.value = 240 * approach
+    tone.frequency.setTargetAtTime(175 / approach, now + 0.18, 0.24)
+    const toneGain = context.createGain()
+    toneGain.gain.value = 0
+    toneGain.gain.setTargetAtTime(0.13, now, 0.08)
+    toneGain.gain.setTargetAtTime(0, now + 0.22, 0.24)
+    tone.connect(toneGain).connect(master)
+    tone.start(now)
+    tone.stop(now + 1.6)
+    tone.onended = () => {
+      tone.disconnect()
+      toneGain.disconnect()
+    }
+  }
+  source.start(now)
+  source.stop(now + 1.6)
+  source.onended = () => {
+    source.disconnect()
+    filter.disconnect()
+    gain.disconnect()
+  }
 }
