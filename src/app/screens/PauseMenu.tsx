@@ -14,6 +14,12 @@ import {
   stepPauseMenu,
   type PauseMenuItem,
 } from '../pauseMenu'
+import './pauseTeaching.css'
+
+let menuTeachingSeen = false
+useGameStore.subscribe((state, previous) => {
+  if (state.state === 'title' && previous.state !== 'title') menuTeachingSeen = false
+})
 
 /** Hold ring radius and circumference in viewBox units. */
 const RING_RADIUS = 20
@@ -79,6 +85,7 @@ function HoldRing({ ringRef }: { ringRef: Ref<SVGCircleElement> }) {
  */
 export function PauseMenu() {
   const keyboard = useControlModeStore((s) => s.controlMode !== 'camera')
+  const [showTeaching, setShowTeaching] = useState(() => !keyboard && !menuTeachingSeen)
   const items = useMemo<PauseMenuItem[]>(
     () => (keyboard ? ['resume', 'quit'] : ['resume', 'recalibrate', 'quit']),
     [keyboard],
@@ -87,6 +94,13 @@ export function PauseMenu() {
   const [highlight, setHighlight] = useState(INITIAL_PAUSE_MENU.index)
   const menuRef = useRef(INITIAL_PAUSE_MENU)
   const ringRef = useRef<SVGCircleElement>(null)
+
+  useEffect(() => {
+    if (!showTeaching) return
+    menuTeachingSeen = true
+    const timer = window.setTimeout(() => setShowTeaching(false), 2000)
+    return () => window.clearTimeout(timer)
+  }, [showTeaching])
 
   const move = useCallback(
     (delta: number) => {
@@ -162,6 +176,50 @@ export function PauseMenu() {
       >
         {copy.pause.title}
       </h2>
+      {showTeaching && (
+        <div
+          className="pause-gesture-teaching"
+          data-testid="pause-gesture-teaching"
+          aria-label={copy.pause.gestureHint}
+          style={{ color: color.accent }}
+        >
+          <svg
+            className="pause-gesture-figure"
+            viewBox="0 0 64 56"
+            width="64"
+            height="56"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
+            <circle cx="32" cy="8" r="5" />
+            <path d="M32 15 V39 M32 21 L5 23 M32 21 L59 23 M32 39 L20 53 M32 39 L44 53" />
+          </svg>
+          <svg
+            className="pause-gesture-choice"
+            viewBox="0 0 48 48"
+            width="48"
+            height="48"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="4"
+            aria-hidden="true"
+          >
+            <circle cx="24" cy="24" r="20" opacity=".3" />
+            <circle
+              className="pause-gesture-progress"
+              cx="24"
+              cy="24"
+              r="20"
+              strokeDasharray={RING_CIRCUMFERENCE}
+              strokeDashoffset={RING_CIRCUMFERENCE}
+              transform="rotate(-90 24 24)"
+            />
+          </svg>
+        </div>
+      )}
       <div
         data-testid="pause-menu"
         data-highlight={items[highlight]}

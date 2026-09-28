@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react'
 import { useControlModeStore } from '../app/controlModeStore'
 import { useControlStore } from '../app/controlStore'
 import { useInputStore } from '../input/inputStore'
@@ -5,6 +6,8 @@ import { color, space } from '../styles/tokens'
 import { CameraPreview } from './CameraPreview'
 import { ClockReadout } from './ClockReadout'
 import { LockInReveal } from './LockInReveal'
+import { InputReadout } from './InputReadout'
+import { PauseTeaching } from './PauseTeaching'
 import { Prompt } from './Prompt'
 import { WarmCaption } from './WarmCaption'
 
@@ -14,6 +17,8 @@ import { WarmCaption } from './WarmCaption'
  * pointer input. The in-game clock (#94) sits top right. Rendered above the paused overlay so the player can still see themselves.
  */
 export function Hud() {
+  const [teaching, setTeaching] = useState(false)
+  const onTeachingChange = useCallback((visible: boolean) => setTeaching(visible), [])
   const prompt = useControlStore((s) => s.view.prompt)
   const active = useInputStore((s) => s.current.active)
   const showPreview = useControlModeStore((s) => s.controlMode === 'camera')
@@ -42,7 +47,9 @@ export function Hud() {
           }}
         />
       )}
-      <Prompt prompt={prompt} />
+      <InputReadout />
+      <Prompt prompt={teaching ? null : prompt} />
+      <PauseTeaching onChange={onTeachingChange} />
       <WarmCaption />
       <ClockReadout />
     </div>
