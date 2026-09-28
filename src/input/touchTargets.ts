@@ -6,5 +6,6 @@
 export const touchTargets = {
   roll: 0,
   pitch: 0,
-  toggleActive: false,
+  /** Manual control is engaged only while the floating joystick is held. */
+  active: false,
 }

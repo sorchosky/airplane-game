@@ -21,8 +21,8 @@ interface InputSourceProps {
 }
 
 /**
- * Mounts the source for the selected mode (or explicit dev preset). The temporary touch drag
- * fallback feeds keyboardSource's single writer until the floating joystick replaces it.
+ * Mounts the source for the selected mode (or explicit dev preset). The floating touch joystick
+ * feeds keyboardSource's single writer so keyboard and touch never race to update the store.
  */
 export function InputSource({ enableTouchControls }: InputSourceProps) {
   const mode = useControlModeStore((s) => s.controlMode)
