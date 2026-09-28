@@ -1,15 +1,16 @@
-import { DEFAULT_AUDIO_TUNABLES, type EngineWindParams } from './audioParams'
+import type { EngineWindParams } from './audioParams'
 import { createAmbientBed, type AmbientBed } from './bed'
 import { emitAudioCaption, type AudioCaptionKey } from './captions'
+import { createMusic } from './music'
 
 /**
- * Procedural engine drone + wind, built once as a persistent Web Audio graph and driven every
+ * Sparse procedural music, built once as a persistent Web Audio graph and driven every
  * frame by `useAudioEngine` feeding it `computeAudioParams` output. A module-level singleton
  * (like `pose/cameraService.ts`'s video element) rather than something owned by a component, since
  * only one `AudioContext` should ever exist for the page.
  *
  * Two output buses, both feeding `context.destination`:
- * - `master`  the engine + wind layers. Silenced by either the mute toggle or the pause duck.
+ * - `master`  the music and optional environmental accents. Silenced by mute or pause duck.
  * - `cueBus`  the active/inactive and countdown blips. Silenced only by mute, never by the pause
  *             duck, since the resume countdown has to be audible while the sim is ducked.
  */
@@ -30,16 +31,9 @@ interface EngineGraph {
   context: AudioContext
   master: GainNode
   cueBus: GainNode
-  chug: GainNode
-  buzz: GainNode
-  whine: GainNode
-  engineOsc1: OscillatorNode
-  engineOsc2: OscillatorNode
-  highOsc: OscillatorNode
+  music: ReturnType<typeof createMusic>
   ambient: AmbientBed
   lowRush: GainNode
-  windFilter: BiquadFilterNode
-  windGain: GainNode
 }
 
 let graph: EngineGraph | null = null
@@ -75,55 +69,13 @@ function buildGraph(context: AudioContext): EngineGraph {
   cueBus.gain.value = 0
   cueBus.connect(context.destination)
 
-  // Engine: piston chug, detuned mid buzz, and a quieter high whine. Each responds
-  // independently to RPM/load instead of raising a single combined oscillator stack.
-  const engineOsc1 = context.createOscillator()
-  engineOsc1.type = 'sawtooth'
-  engineOsc1.frequency.value = DEFAULT_AUDIO_TUNABLES.engineFreqMin
-  const engineOsc2 = context.createOscillator()
-  engineOsc2.type = 'sawtooth'
-  engineOsc2.frequency.value = DEFAULT_AUDIO_TUNABLES.engineFreqMin
-  engineOsc2.detune.value = 9
-  const engineNoise = createLoopingNoise(context)
-  const engineNoiseFilter = context.createBiquadFilter()
-  engineNoiseFilter.type = 'lowpass'
-  engineNoiseFilter.frequency.value = 230
-  const chug = context.createGain()
-  const buzz = context.createGain()
-  const whine = context.createGain()
-  for (const gain of [chug, buzz, whine]) {
-    gain.gain.value = 0
-    gain.connect(master)
-  }
-  engineNoise.connect(engineNoiseFilter).connect(chug)
-  engineOsc1.connect(buzz)
-  engineOsc2.connect(buzz)
-  const highOsc = context.createOscillator()
-  highOsc.type = 'triangle'
-  highOsc.frequency.value = DEFAULT_AUDIO_TUNABLES.engineFreqMin * 3
-  highOsc.connect(whine)
-  highOsc.start()
-
+  const music = createMusic(context, master)
   const ambient = createAmbientBed(context, master)
-
-  // Wind: bandpass-filtered noise, gain and cutoff both driven per-frame.
-  const windNoise = createLoopingNoise(context)
-  const windFilter = context.createBiquadFilter()
-  windFilter.type = 'bandpass'
-  windFilter.Q.value = 0.7
-  windFilter.frequency.value = DEFAULT_AUDIO_TUNABLES.windCutoffMin
-  const windGain = context.createGain()
-  windGain.gain.value = 0
-  windNoise.connect(windFilter).connect(windGain).connect(master)
-
-  engineOsc1.start()
-  engineOsc2.start()
-  engineNoise.start()
-  windNoise.start()
+  // Only a quiet, low-passed air layer remains at very low altitude.
   const lowRushNoise = createLoopingNoise(context)
   const lowRushFilter = context.createBiquadFilter()
   lowRushFilter.type = 'lowpass'
-  lowRushFilter.frequency.value = 160
+  lowRushFilter.frequency.value = 110
   const lowRush = context.createGain()
   lowRush.gain.value = 0
   lowRushNoise.connect(lowRushFilter).connect(lowRush).connect(master)
@@ -133,16 +85,9 @@ function buildGraph(context: AudioContext): EngineGraph {
     context,
     master,
     cueBus,
-    engineOsc1,
-    engineOsc2,
-    chug,
-    buzz,
-    whine,
-    highOsc,
+    music,
     ambient,
     lowRush,
-    windFilter,
-    windGain,
   }
 }
 
@@ -190,27 +135,14 @@ export async function resumeAudioEngine(): Promise<void> {
   applyGains()
 }
 
-/** Applies engine/wind params with a short ramp, so a per-frame caller never clicks. */
+/** Applies the quiet pad and optional low-altitude air with a short ramp. */
 export function updateAudioParams(params: EngineWindParams): void {
   if (!graph) return
   const now = graph.context.currentTime
-  rampTo(graph.engineOsc1.frequency, params.engineFreq, now, PARAM_RAMP_TIME_CONSTANT)
-  rampTo(graph.engineOsc2.frequency, params.engineFreq, now, PARAM_RAMP_TIME_CONSTANT)
-  rampTo(graph.highOsc.frequency, params.engineFreq * 3, now, PARAM_RAMP_TIME_CONSTANT)
-  rampTo(graph.chug.gain, params.chugGain ?? params.engineGain * 0.4, now, PARAM_RAMP_TIME_CONSTANT)
-  rampTo(graph.buzz.gain, params.buzzGain ?? params.engineGain * 0.4, now, PARAM_RAMP_TIME_CONSTANT)
-  rampTo(
-    graph.whine.gain,
-    params.whineGain ?? params.engineGain * 0.1,
-    now,
-    PARAM_RAMP_TIME_CONSTANT,
-  )
-  rampTo(graph.lowRush.gain, params.lowRushGain ?? 0, now, PARAM_RAMP_TIME_CONSTANT)
-  rampTo(graph.ambient.pad.gain, params.padGain ?? 0, now, GAIN_RAMP_TIME_CONSTANT)
-  rampTo(graph.ambient.texture.gain, params.textureGain ?? 0, now, GAIN_RAMP_TIME_CONSTANT)
-  rampTo(graph.ambient.pulse.gain, params.pulseGain ?? 0, now, GAIN_RAMP_TIME_CONSTANT)
-  rampTo(graph.windFilter.frequency, params.windCutoff, now, PARAM_RAMP_TIME_CONSTANT)
-  rampTo(graph.windGain.gain, params.windGain, now, PARAM_RAMP_TIME_CONSTANT)
+  rampTo(graph.lowRush.gain, (params.lowRushGain ?? 0) * 0.12, now, PARAM_RAMP_TIME_CONSTANT)
+  rampTo(graph.ambient.pad.gain, 0.018 + (params.padGain ?? 0) * 0.15, now, GAIN_RAMP_TIME_CONSTANT)
+  rampTo(graph.ambient.texture.gain, 0, now, GAIN_RAMP_TIME_CONSTANT)
+  rampTo(graph.ambient.pulse.gain, 0, now, GAIN_RAMP_TIME_CONSTANT)
 }
 
 /** The player's mute toggle (M key / pause menu). Silences everything, cues included. */
@@ -223,6 +155,7 @@ export function setMuted(value: boolean): void {
  * playback resumes exactly as the player left it. Cues stay audible (see module doc). */
 export function setDucked(value: boolean): void {
   ducked = value
+  graph?.music.setPlaying(!value)
   applyGains()
 }
 
