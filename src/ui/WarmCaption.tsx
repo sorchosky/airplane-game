@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { INITIAL_THERMAL_WATCH, stepThermalWatch } from '../app/robustness'
 import { usePerfStore } from '../debug/perfStore'
-import { color, space, type } from '../styles/tokens'
+import { color, effect, space, type } from '../styles/tokens'
 import { copy } from './copy'
 
 /** How long the caption stays up. */
@@ -55,8 +55,7 @@ export function WarmCaption() {
         transform: 'translateX(-50%)',
         margin: 0,
         padding: `${space.sm} ${space.lg}`,
-        borderRadius: space.md,
-        background: color.surfaceHud,
+        textShadow: effect.textGlow,
         color: color.textPrimary,
         fontFamily: type.fontBody,
         fontSize: type.tvBody,

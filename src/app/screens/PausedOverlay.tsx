@@ -1,4 +1,4 @@
-import { color, space, type } from '../../styles/tokens'
+import { color, effect, space, type } from '../../styles/tokens'
 import { copy } from '../../ui/copy'
 import { useControlStore } from '../controlStore'
 import { PauseMenu } from './PauseMenu'
@@ -23,7 +23,8 @@ export function PausedOverlay() {
         justifyContent: 'center',
         gap: space.lg,
         padding: space.xl,
-        background: color.surfaceHud,
+        background: color.surfaceScrim,
+        backdropFilter: effect.scrimBlur,
         color: color.textPrimary,
         textAlign: 'center',
       }}
