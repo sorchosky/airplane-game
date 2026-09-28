@@ -68,6 +68,8 @@ interface FlightStore {
    * the terrain height under the plane, for the soft floor.
    */
   tick: (input: ControlInput, dt: number, groundHeight: number) => void
+  /** Keeps Wings at a gentle glide, then ramps the last prompt into cruise. */
+  setPracticeProgress: (progress: number | null) => void
   reset: () => void
 }
 
@@ -79,6 +81,26 @@ interface FlightStore {
 export const useFlightStore = create<FlightStore>((set, get) => ({
   state: createInitialFlightState(DEFAULT_FLIGHT_PARAMS, spawnPosition()),
   params: DEFAULT_FLIGHT_PARAMS,
+  setPracticeProgress: (progress) => {
+    if (progress === null) {
+      set({ params: DEFAULT_FLIGHT_PARAMS })
+      return
+    }
+    const fraction = Math.max(0, Math.min(1, progress))
+    const target = DEFAULT_FLIGHT_PARAMS.cruiseSpeed * (0.45 + 0.55 * fraction)
+    // A separate params object leaves the normal flight tuning untouched.
+    const params =
+      get().params === DEFAULT_FLIGHT_PARAMS
+        ? {
+            ...DEFAULT_FLIGHT_PARAMS,
+            minSpeed: DEFAULT_FLIGHT_PARAMS.cruiseSpeed * 0.45,
+            floorPitchBias: 0,
+          }
+        : get().params
+    params.cruiseSpeed = target
+    if (fraction === 0 && get().params === DEFAULT_FLIGHT_PARAMS) get().state.speed = target
+    if (get().params !== params) set({ params })
+  },
   tick: (input, dt, groundHeight) => {
     const { state, params } = get()
     const wasBoosting = state.boosting

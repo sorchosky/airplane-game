@@ -28,7 +28,7 @@ test('replay: calibrates, engages the gate, banks with the tilt, climbs and dive
   page,
 }) => {
   test.setTimeout(180_000)
-  await page.goto('/?input=replay&replay=first-run&fx=low')
+  await page.goto('/?input=replay&replay=first-run&fx=low&wings=off')
   await page.getByRole('button', { name: 'Start' }).click()
   await expect(page.getByTestId('calibration-guidance')).toBeVisible()
 
@@ -82,7 +82,7 @@ test('replay: calibrates, engages the gate, banks with the tilt, climbs and dive
 // again. The sweep asks for a boost; flight gives a burst and the speed climbs above cruise.
 test('replay: arms swept back boost the plane, and it flies on after', async ({ page }) => {
   test.setTimeout(120_000)
-  await page.goto('/?input=replay&replay=boost&fx=low')
+  await page.goto('/?input=replay&replay=boost&fx=low&wings=off')
   await page.getByRole('button', { name: 'Start' }).click()
 
   await page.evaluate(() => {

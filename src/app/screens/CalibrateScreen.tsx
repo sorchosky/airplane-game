@@ -152,7 +152,7 @@ function CalibrationView() {
         } else if (now - lockedAtMs >= LOCK_IN_FLASH_MS) {
           const rect = frameRef.current?.getBoundingClientRect()
           if (rect) recordLockIn(rect, now)
-          useGameStore.getState().calibrationComplete()
+          useGameStore.getState().calibrationComplete(saved !== null)
           return
         }
       }
