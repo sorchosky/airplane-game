@@ -88,7 +88,15 @@ export function App() {
   }
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+    <div
+      style={{
+        position: 'relative',
+        width: '100vw',
+        height: '100vh',
+        overflow: 'hidden',
+        cursor: inFlight && mode === 'mouse' && !shot ? 'crosshair' : undefined,
+      }}
+    >
       {state === 'title' && <TitleScreen />}
       {state === 'select' && <ControlSelectScreen />}
       {state === 'permission' && <TitleScreen />}
