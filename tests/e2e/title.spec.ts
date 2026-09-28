@@ -42,6 +42,22 @@ test('coarse primary pointer offers touch and an on-screen pause button', async 
   await expect(page.getByTestId('title-handoff')).toHaveCount(0)
   await page.screenshot({ path: 'test-results/control-select-touch.png' })
   await page.getByRole('button', { name: /Touch/ }).click()
+  const joystickZone = page.getByTestId('touch-joystick-zone')
+  await joystickZone.dispatchEvent('pointerdown', {
+    pointerId: 1,
+    pointerType: 'touch',
+    clientX: 180,
+    clientY: 230,
+  })
+  await expect(page.getByTestId('touch-joystick')).toBeVisible()
+  await page.screenshot({ path: 'test-results/touch-joystick.png' })
+  await joystickZone.dispatchEvent('pointerup', {
+    pointerId: 1,
+    pointerType: 'touch',
+    clientX: 180,
+    clientY: 230,
+  })
+  await expect(page.getByTestId('touch-joystick')).toHaveCount(0)
   await page.getByRole('button', { name: 'Paused' }).click()
   await expect(page.getByRole('dialog', { name: 'Paused' })).toBeVisible()
   await context.close()

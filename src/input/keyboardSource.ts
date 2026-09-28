@@ -72,11 +72,6 @@ export function useKeyboardSource(enabled = true): void {
       const dt = Math.min(0.1, (now - lastTime) / 1000)
       lastTime = now
 
-      if (touchTargets.toggleActive) {
-        active = !active
-        touchTargets.toggleActive = false
-      }
-
       const keyRoll = targetRoll(pressed)
       const keyPitch = targetPitch(pressed)
 
@@ -84,7 +79,7 @@ export function useKeyboardSource(enabled = true): void {
       setInput({
         roll: rampTowards(current.roll, keyRoll || touchTargets.roll, RAMP_RATE, dt),
         pitch: rampTowards(current.pitch, keyPitch || touchTargets.pitch, RAMP_RATE, dt),
-        active,
+        active: active || touchTargets.active,
         boost: isBoosting(pressed),
         confidence: 1,
         source: 'keyboard',
