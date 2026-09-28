@@ -4,16 +4,22 @@ export type InputSourceName = ControlInput['source']
 
 const VALID_SOURCES: readonly InputSourceName[] = ['keyboard', 'pose', 'replay']
 
+export function getInputOverrideFromUrl(
+  search: string = window.location.search,
+): InputSourceName | null {
+  const value = new URLSearchParams(search).get('input')
+  return (VALID_SOURCES as readonly string[]).includes(value ?? '')
+    ? (value as InputSourceName)
+    : null
+}
+
 /**
  * Reads the `?input=` URL flag. Defaults to `pose`, the real game: with no flag the title screen
  * sends the player through camera calibration, so anything else would calibrate them and then
  * ignore their body. Keyboard is opt-in with `?input=keyboard`, which must always work in dev.
  */
 export function getInputSourceFromUrl(search: string = window.location.search): InputSourceName {
-  const value = new URLSearchParams(search).get('input')
-  return (VALID_SOURCES as readonly string[]).includes(value ?? '')
-    ? (value as InputSourceName)
-    : 'pose'
+  return getInputOverrideFromUrl(search) ?? 'pose'
 }
 
 /** `?debug` enables the perf HUD and pose/input debug readouts across the app. */

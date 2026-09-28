@@ -1,10 +1,12 @@
 import { create } from 'zustand'
 
-export type GameState = 'title' | 'permission' | 'calibrate' | 'flying' | 'paused' | 'error'
+export type GameState =
+  'title' | 'select' | 'permission' | 'calibrate' | 'flying' | 'paused' | 'error'
 
 export interface GameStore {
   state: GameState
   errorMessage: string | null
+  startSelection: () => void
   /** Requests camera permission, then advances to calibrate (or straight to flying in keyboard dev mode). */
   startPermission: () => void
   permissionGranted: () => void
@@ -24,7 +26,8 @@ export interface GameStore {
 // listed here is a no-op (and logged in dev) rather than a thrown error,
 // since a stray event mid-transition shouldn't crash the game.
 const TRANSITIONS: Record<GameState, Partial<Record<keyof GameStore, GameState>>> = {
-  title: { startPermission: 'permission', skipToFlying: 'flying' },
+  title: { startSelection: 'select', startPermission: 'permission', skipToFlying: 'flying' },
+  select: { startPermission: 'permission', skipToFlying: 'flying', quitToTitle: 'title' },
   permission: { permissionGranted: 'calibrate', permissionDenied: 'error' },
   calibrate: { calibrationComplete: 'flying', quitToTitle: 'title', permissionDenied: 'error' },
   flying: { pause: 'paused', quitToTitle: 'title' },
@@ -52,6 +55,7 @@ export const useGameStore = create<GameStore>((set, get) => {
   return {
     state: 'title',
     errorMessage: null,
+    startSelection: () => applyAction('startSelection'),
     startPermission: () => applyAction('startPermission'),
     permissionGranted: () => applyAction('permissionGranted'),
     permissionDenied: (message: string) => {

@@ -6,7 +6,7 @@ import { expect, test } from '@playwright/test'
 
 test('camera track ending shows "Lost the camera" and recovers by itself', async ({ page }) => {
   test.setTimeout(60_000)
-  await page.goto('/')
+  await page.goto('/?input=pose')
   await page.getByRole('button', { name: 'Start' }).click()
   const guidance = page.getByTestId('calibration-guidance')
   await expect(guidance).toBeVisible()
@@ -56,7 +56,7 @@ test('hiding the tab pauses the flight and comes back to the pause menu', async 
 test('a model that fails to load offers Try again and the keyboard', async ({ page }) => {
   test.setTimeout(90_000)
   await page.route('**/pose_landmarker_lite.task', (route) => route.abort())
-  await page.goto('/')
+  await page.goto('/?input=pose')
   await page.getByRole('button', { name: 'Start' }).click()
 
   const error = page.getByTestId('pose-model-error')

@@ -10,6 +10,16 @@ export const copy = {
     demoLabel: 'Arms out to fly, lean to turn, raise your arms to climb',
   },
 
+  controlSelect: {
+    title: 'Choose your controls',
+    camera: 'Camera',
+    cameraHint: 'Stand back, arms out like wings',
+    mouse: 'Mouse',
+    mouseHint: 'Move the mouse to steer',
+    touch: 'Touch',
+    touchHint: 'Drag anywhere to steer',
+  },
+
   // Storyboard frame 01: shown while the browser's camera prompt is open, and again if it's denied.
   cameraAsk: {
     body: 'We need your camera to see you fly. Nothing leaves your phone.',

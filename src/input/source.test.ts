@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { getInputSourceFromUrl, hasDebugFlag } from './source'
+import { getInputOverrideFromUrl, getInputSourceFromUrl, hasDebugFlag } from './source'
 
 describe('getInputSourceFromUrl', () => {
+  it('only treats a valid input flag as a dev preset', () => {
+    expect(getInputOverrideFromUrl('')).toBeNull()
+    expect(getInputOverrideFromUrl('?input=bogus')).toBeNull()
+    expect(getInputOverrideFromUrl('?input=replay')).toBe('replay')
+  })
   it('defaults to pose with no flag, matching the calibrate flow Start sends the player through', () => {
     expect(getInputSourceFromUrl('')).toBe('pose')
     expect(getInputSourceFromUrl('?debug')).toBe('pose')

@@ -3,9 +3,9 @@ import { playTitleSwell, resumeAudioEngine, setMuted } from '../../audio/audioEn
 import { useAudioStore } from '../../audio/audioStore'
 import { color } from '../../styles/tokens'
 import { TitleSky, type TitleSkyHandle } from '../../ui/TitleSky'
+import { selectedInputSource, useControlModeStore } from '../controlModeStore'
 import { useGameStore } from '../gameStore'
 import { tryLockLandscape } from '../orientation'
-import { isKeyboardInputMode } from '../urlFlags'
 import { acquireWakeLock } from '../wakeLock'
 import {
   FADE_EASING,
@@ -41,6 +41,7 @@ function prefersReducedMotion(): boolean {
 
 export function TitleScreen() {
   const startPermission = useGameStore((s) => s.startPermission)
+  const startSelection = useGameStore((s) => s.startSelection)
   const permissionGranted = useGameStore((s) => s.permissionGranted)
   const skipToFlying = useGameStore((s) => s.skipToFlying)
   const skyRef = useRef<TitleSkyHandle>(null)
@@ -57,7 +58,12 @@ export function TitleScreen() {
       if (still) useTitleHandoffStore.getState().begin(still)
     }
 
-    if (isKeyboardInputMode()) {
+    const source = selectedInputSource()
+    if (useControlModeStore.getState().inputOverride === null) {
+      startSelection()
+      return
+    }
+    if (source === 'keyboard') {
       skipToFlying()
       return
     }
@@ -68,7 +74,7 @@ export function TitleScreen() {
     // back to `error` via the same `permissionDenied` action.
     startPermission()
     permissionGranted()
-  }, [permissionGranted, skipToFlying, startPermission])
+  }, [permissionGranted, skipToFlying, startPermission, startSelection])
 
   // Decided once per mount, before the first paint, so a skipped intro never flashes.
   const [playIntro] = useState(() => shouldPlayIntro(introPlayed, prefersReducedMotion()))

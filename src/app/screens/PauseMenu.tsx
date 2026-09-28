@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Ref } from 'react'
 import { useInputStore } from '../../input/inputStore'
-import { getInputSourceFromUrl } from '../../input/source'
+import { useControlModeStore } from '../controlModeStore'
 import { useCalibrationStore } from '../../pose/calibrationStore'
 import { usePoseStore } from '../../pose/poseStore'
 import { color, space, type } from '../../styles/tokens'
@@ -78,7 +78,7 @@ function HoldRing({ ringRef }: { ringRef: Ref<SVGCircleElement> }) {
  * the hold.
  */
 export function PauseMenu() {
-  const keyboard = useMemo(() => getInputSourceFromUrl() === 'keyboard', [])
+  const keyboard = useControlModeStore((s) => s.controlMode !== 'camera')
   const items = useMemo<PauseMenuItem[]>(
     () => (keyboard ? ['resume', 'quit'] : ['resume', 'recalibrate', 'quit']),
     [keyboard],

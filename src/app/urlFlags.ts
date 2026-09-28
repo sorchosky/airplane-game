@@ -1,13 +1,13 @@
 // Small URL-flag reader shared across dev/testing entry points.
 
-import { getInputSourceFromUrl } from '../input/source'
+import { selectedInputSource } from './controlModeStore'
 
 /**
  * Whether Start skips the camera and calibration. Derived from the same `?input=` reader the input
  * store uses, so the screen flow and the source steering the plane can never disagree.
  */
 export function isKeyboardInputMode(): boolean {
-  return getInputSourceFromUrl() === 'keyboard'
+  return selectedInputSource() === 'keyboard'
 }
 
 /**
@@ -15,7 +15,7 @@ export function isKeyboardInputMode(): boolean {
  * must not open the camera or load the model.
  */
 export function isReplayInputMode(): boolean {
-  return getInputSourceFromUrl() === 'replay'
+  return selectedInputSource() === 'replay'
 }
 
 /** `?swatches` renders the design token review page instead of the game. */
