@@ -16,6 +16,11 @@ describe('joystickVector', () => {
   })
 
   it('does not amplify movement inside the gate', () => {
-    expect(joystickVector(18, 36)).toEqual({ x: 18, y: 36, roll: 0.25, pitch: -0.5 })
+    expect(joystickVector(18, 36)).toEqual({
+      x: 18,
+      y: 36,
+      roll: 18 / JOYSTICK_RANGE_PX,
+      pitch: -36 / JOYSTICK_RANGE_PX,
+    })
   })
 })
