@@ -126,7 +126,8 @@ for (const { phase, copy, pose } of PHASES) {
 test('calibrate: holding a T-pose fills the ring, then locks in to flight', async ({ page }) => {
   test.setTimeout(60_000)
   await serveFixture(page, syntheticPose(0.14, 'out'))
-  await page.goto('/?input=replay&fx=low&captions')
+  // This spec checks the calibration-to-flight reveal; Wings practice has its own flow spec.
+  await page.goto('/?input=replay&fx=low&captions&wings=off')
   await page.getByRole('button', { name: 'Start' }).click()
   const guidance = page.getByTestId('calibration-guidance')
   await expect(guidance).toHaveAttribute('data-phase', 'holding')

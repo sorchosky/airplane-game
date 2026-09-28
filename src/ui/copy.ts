@@ -62,6 +62,7 @@ export const copy = {
 
   pause: {
     title: 'Paused',
+    armsDown: 'Arms down to pause',
     resume: 'Resume',
     recalibrate: 'Recalibrate',
     quit: 'Quit to title',

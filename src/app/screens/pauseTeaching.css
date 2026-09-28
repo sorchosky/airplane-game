@@ -1,0 +1,51 @@
+.pause-gesture-teaching {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 56px;
+}
+
+.pause-gesture-figure {
+  display: inline-block;
+  transform-origin: center;
+  animation: gesture-tilt 2s ease-in-out both;
+}
+
+.pause-gesture-choice {
+  display: inline-block;
+}
+
+.pause-gesture-progress {
+  animation: gesture-hold 2s linear both;
+}
+
+@keyframes gesture-tilt {
+  0%,
+  65%,
+  100% {
+    transform: rotate(0);
+  }
+  20% {
+    transform: rotate(-20deg);
+  }
+  45% {
+    transform: rotate(20deg);
+  }
+}
+
+@keyframes gesture-hold {
+  0%,
+  65% {
+    stroke-dashoffset: 126;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pause-gesture-figure,
+  .pause-gesture-progress {
+    animation: none;
+  }
+}
