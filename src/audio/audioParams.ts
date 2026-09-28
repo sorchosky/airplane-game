@@ -12,6 +12,10 @@ export interface FlightAudioInput {
   speed: number // m/s
   pitchAngle: number // radians, positive = nose up
   bank: number // radians, positive = banking right
+  /** 0..1 soft-floor depth; optional for callers without the F1 hook. */
+  floorContact?: number
+  /** Whether the plane is inside a cumulus heap. */
+  cloudInside?: boolean
 }
 
 export interface FlightAudioRange {
@@ -29,6 +33,14 @@ export interface EngineWindParams {
   windCutoff: number
   /** 0..1, wind layer gain before the master bus. */
   windGain: number
+  /** Engine crossfade weights and environmental layers (optional to preserve older callers). */
+  chugGain?: number
+  buzzGain?: number
+  whineGain?: number
+  lowRushGain?: number
+  padGain?: number
+  textureGain?: number
+  pulseGain?: number
 }
 
 export interface AudioTunables {
@@ -90,5 +102,15 @@ export function computeAudioParams(
   out.engineGain = lerp(tunables.engineGainMin, tunables.engineGainMax, gainBlend)
   out.windCutoff = lerp(tunables.windCutoffMin, tunables.windCutoffMax, windBlend)
   out.windGain = lerp(tunables.windGainMin, tunables.windGainMax, windBlend)
+  const load = clamp01(climbFactor * 0.7 + normSpeed * 0.3)
+  out.chugGain = out.engineGain * (0.8 - load * 0.4)
+  out.buzzGain = out.engineGain * (0.24 + load * 0.36)
+  out.whineGain = out.engineGain * (0.05 + normSpeed * 0.2 + load * 0.12)
+  // The F1 soft-floor band is 20 m deep: depth 0.25 means 15 m above terrain.
+  const lowPass = clamp01(((flight.floorContact ?? 0) - 0.25) / 0.75)
+  out.lowRushGain = lowPass * 0.16
+  out.padGain = 0.025 + lowPass * 0.055
+  out.textureGain = 0.012 + lowPass * 0.035 + (flight.cloudInside ? 0.025 : 0)
+  out.pulseGain = 0.01 + lowPass * 0.045
   return out
 }

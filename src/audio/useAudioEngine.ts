@@ -4,7 +4,9 @@ import { useControlStore } from '../app/controlStore'
 import { useGameStore } from '../app/gameStore'
 import { useFlightStore } from '../flight/flightStore'
 import { useInputStore } from '../input/inputStore'
-import { playCue, setDucked, setMuted, updateAudioParams } from './audioEngine'
+import { useCloudStore } from '../world/cloudStore'
+import { getLandmarks, insideTrigger } from '../world/landmarks'
+import { playCue, playWhoosh, setDucked, setMuted, updateAudioParams } from './audioEngine'
 import { computeAudioParams, type EngineWindParams } from './audioParams'
 import { useAudioStore } from './audioStore'
 
@@ -34,6 +36,21 @@ export function useAudioEngine(): void {
   useEffect(() => {
     let lastActive: boolean | null = null
     let lastCountdown: number | null = null
+    const landmarks = getLandmarks()
+    const nearest = new Float64Array(landmarks.length)
+    const armed = new Uint8Array(landmarks.length)
+    const ringInside = new Uint8Array(landmarks.length)
+    const position: [number, number, number] = [0, 0, 0]
+    let lastCloudBursts = useCloudStore.getState().bursts
+    let ringSwellUntil = 0
+    let lowRushActive = false
+    const flightAudioInput = {
+      speed: 0,
+      pitchAngle: 0,
+      bank: 0,
+      floorContact: 0,
+      cloudInside: false,
+    }
     // One params object for the life of the flight; `computeAudioParams` fills it in place.
     const audioParams: EngineWindParams = {
       engineFreq: 0,
@@ -44,7 +61,54 @@ export function useAudioEngine(): void {
 
     const tick = (): void => {
       const { state, params } = useFlightStore.getState()
-      updateAudioParams(computeAudioParams(state, params, undefined, audioParams))
+      const cloud = useCloudStore.getState()
+      if (cloud.bursts !== lastCloudBursts) playWhoosh('cloud')
+      lastCloudBursts = cloud.bursts
+      position[0] = state.position.x
+      position[1] = state.position.y
+      position[2] = state.position.z
+      for (let i = 0; i < landmarks.length; i += 1) {
+        const landmark = landmarks[i]
+        if (!landmark) continue
+        const dx = landmark.soundAnchor[0] - position[0]
+        const dy = landmark.soundAnchor[1] - position[1]
+        const dz = landmark.soundAnchor[2] - position[2]
+        const distance = Math.hypot(dx, dy, dz)
+        // Arm on approach; one pass per encounter, rearming only after leaving the area.
+        if (distance > 250) armed[i] = 1
+        if (armed[i] && distance < 95 && distance < (nearest[i] ?? Infinity)) {
+          const forwardX = -Math.sin(state.heading) * Math.cos(state.pitchAngle)
+          const forwardY = Math.sin(state.pitchAngle)
+          const forwardZ = -Math.cos(state.heading) * Math.cos(state.pitchAngle)
+          const closing =
+            distance > 0
+              ? (state.speed * (forwardX * dx + forwardY * dy + forwardZ * dz)) / distance
+              : 0
+          playWhoosh('landmark', closing)
+          armed[i] = 0
+        }
+        nearest[i] = distance
+        const inside = insideTrigger(landmark.trigger, position)
+        if (inside && !ringInside[i]) {
+          playWhoosh('ring')
+          ringSwellUntil = performance.now() + 2400
+        }
+        ringInside[i] = inside ? 1 : 0
+      }
+      flightAudioInput.speed = state.speed
+      flightAudioInput.pitchAngle = state.pitchAngle
+      flightAudioInput.bank = state.bank
+      flightAudioInput.floorContact = state.floorContact
+      const lowRushNow = state.floorContact > 0.25
+      if (lowRushNow && !lowRushActive) playWhoosh('lowPass')
+      lowRushActive = lowRushNow
+      flightAudioInput.cloudInside = cloud.inside
+      computeAudioParams(flightAudioInput, params, undefined, audioParams)
+      if (performance.now() < ringSwellUntil) {
+        audioParams.padGain = (audioParams.padGain ?? 0) + 0.07
+        audioParams.textureGain = (audioParams.textureGain ?? 0) + 0.03
+      }
+      updateAudioParams(audioParams)
 
       const active = useInputStore.getState().current.active
       if (lastActive !== null && active !== lastActive) {
@@ -58,7 +122,8 @@ export function useAudioEngine(): void {
       }
       lastCountdown = countdown
     }
-    return frameLoop.add(tick, FRAME_PRIORITY.audio)
+    const unsubscribeFrame = frameLoop.add(tick, FRAME_PRIORITY.audio)
+    return unsubscribeFrame
   }, [])
 
   useEffect(() => {
