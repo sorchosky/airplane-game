@@ -35,7 +35,7 @@ test('coarse primary pointer offers touch and an on-screen pause button', async 
     isMobile: true,
   })
   const page = await context.newPage()
-  await page.goto('/')
+  await page.goto('/?debug')
   await page.getByRole('button', { name: 'Start' }).click()
   await expect(page.getByRole('button', { name: /Touch/ })).toBeVisible()
   await expect(page.getByRole('button', { name: /Mouse/ })).toHaveCount(0)
@@ -50,6 +50,16 @@ test('coarse primary pointer offers touch and an on-screen pause button', async 
     clientY: 230,
   })
   await expect(page.getByTestId('touch-joystick')).toBeVisible()
+  await joystickZone.dispatchEvent('pointermove', {
+    pointerId: 1,
+    pointerType: 'touch',
+    clientX: 216,
+    clientY: 194,
+  })
+  const input = () => page.evaluate(() => window.__driftwing?.snapshot().input)
+  await expect.poll(async () => (await input())?.roll).toBeGreaterThan(0)
+  await expect.poll(async () => (await input())?.pitch).toBeGreaterThan(0)
+  expect((await input())?.active).toBe(true)
   await page.screenshot({ path: 'test-results/touch-joystick.png' })
   await joystickZone.dispatchEvent('pointerup', {
     pointerId: 1,
@@ -57,6 +67,7 @@ test('coarse primary pointer offers touch and an on-screen pause button', async 
     clientX: 180,
     clientY: 230,
   })
+  await expect.poll(async () => (await input())?.active).toBe(false)
   await expect(page.getByTestId('touch-joystick')).toHaveCount(0)
   await page.getByRole('button', { name: 'Paused' }).click()
   await expect(page.getByRole('dialog', { name: 'Paused' })).toBeVisible()

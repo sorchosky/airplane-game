@@ -23,4 +23,9 @@ describe('joystickVector', () => {
       pitch: -36 / JOYSTICK_RANGE_PX,
     })
   })
+
+  it('keeps small radial thumb motion neutral', () => {
+    expect(joystickVector(3, -4)).toMatchObject({ roll: 0, pitch: 0 })
+    expect(joystickVector(6, 0).roll).toBeGreaterThan(0.1)
+  })
 })

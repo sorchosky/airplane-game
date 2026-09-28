@@ -3,7 +3,7 @@ import { mouseVector } from './mouseSource'
 
 describe('mouseVector', () => {
   it('maps screen center to neutral and above-right to climb and bank right', () => {
-    expect(mouseVector(600, 400, 1200, 800)).toEqual({ roll: 0, pitch: -0 })
+    expect(mouseVector(600, 400, 1200, 800)).toEqual({ roll: 0, pitch: 0 })
     expect(mouseVector(740, 260, 1200, 800).roll).toBeCloseTo(0.5)
     expect(mouseVector(740, 260, 1200, 800).pitch).toBeCloseTo(0.5)
   })

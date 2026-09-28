@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { color } from '../styles/tokens'
 import { joystickVector, type JoystickVector } from './touchJoystick'
 import { touchTargets } from './touchTargets'
+import './touchControls.css'
 
 // The knob reaches the base's inner edge at full deflection (80 px radius − 24 px knob radius).
 const BASE_DIAMETER_PX = 160
@@ -20,7 +21,9 @@ interface StickState extends JoystickVector {
  */
 export function TouchControls() {
   const [stick, setStick] = useState<StickState | null>(null)
+  const [exiting, setExiting] = useState<StickState | null>(null)
   const stickRef = useRef<StickState | null>(null)
+  const exitTimer = useRef<number | null>(null)
 
   const updateStick = (next: StickState | null) => {
     stickRef.current = next
@@ -33,6 +36,12 @@ export function TouchControls() {
     touchTargets.roll = 0
     touchTargets.pitch = 0
     touchTargets.active = false
+    setExiting(current)
+    if (exitTimer.current !== null) window.clearTimeout(exitTimer.current)
+    exitTimer.current = window.setTimeout(() => {
+      setExiting(null)
+      exitTimer.current = null
+    }, 120)
     updateStick(null)
   }
 
@@ -41,6 +50,7 @@ export function TouchControls() {
       touchTargets.roll = 0
       touchTargets.pitch = 0
       touchTargets.active = false
+      if (exitTimer.current !== null) window.clearTimeout(exitTimer.current)
     },
     [],
   )
@@ -89,13 +99,14 @@ export function TouchControls() {
         userSelect: 'none',
       }}
     >
-      {stick && (
+      {(stick || exiting) && (
         <div
           data-testid="touch-joystick"
+          className={stick ? 'touch-joystick-enter' : 'touch-joystick-exit'}
           style={{
             position: 'absolute',
-            left: stick.originX,
-            top: stick.originY,
+            left: (stick || exiting)!.originX,
+            top: (stick || exiting)!.originY,
             width: BASE_DIAMETER_PX,
             height: BASE_DIAMETER_PX,
             border: `2px solid ${color.line}`,
@@ -115,7 +126,7 @@ export function TouchControls() {
               borderRadius: '50%',
               background: color.controlActive,
               boxShadow: `0 0 0 2px ${color.line}`,
-              transform: `translate(calc(-50% + ${stick.x}px), calc(-50% + ${stick.y}px))`,
+              transform: `translate(calc(-50% + ${(stick || exiting)!.x}px), calc(-50% + ${(stick || exiting)!.y}px))`,
             }}
           />
         </div>
