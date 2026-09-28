@@ -29,6 +29,7 @@ import { PausedOverlay } from './screens/PausedOverlay'
 import { TitleHandoff } from './screens/TitleHandoff'
 import { useTitleHandoffStore } from './screens/titleHandoff'
 import { TitleScreen } from './screens/TitleScreen'
+import { WingsPrompts } from './screens/WingsPrompts'
 import { isMaterialsSceneMode, isReplayInputMode, isSwatchesMode } from './urlFlags'
 import { useGameClock } from './useGameClock'
 import { setupWakeLockReacquire } from './wakeLock'
@@ -73,11 +74,10 @@ export function App() {
     }
   }, [state, permissionDenied, mode])
 
-  const inFlight = state === 'flying' || state === 'paused'
+  const inFlight = state === 'wings' || state === 'flying' || state === 'paused'
   // `?shot=` captures the world alone: no prompt, no preview, no touch fallback over it.
   const shot = activeShot() !== null
-  const showPoseDebug =
-    hasDebugFlag() && (state === 'calibrate' || state === 'flying' || state === 'paused')
+  const showPoseDebug = hasDebugFlag() && (state === 'calibrate' || inFlight)
 
   if (isSwatchesMode()) {
     return <Swatches />
@@ -103,8 +103,9 @@ export function App() {
       {state === 'calibrate' && <CalibrateScreen />}
       {state === 'error' && <ErrorScreen />}
       {inFlight && <FlightScene />}
+      {state === 'wings' && <WingsPrompts />}
       {state === 'paused' && <PausedOverlay />}
-      {inFlight && <FlightControl hud={!shot} />}
+      {(state === 'flying' || state === 'paused') && <FlightControl hud={!shot} />}
       <InputSource enableTouchControls={state === 'flying' && !shot} />
       {titleHandoff && <TitleHandoff />}
       {showPoseDebug && <PoseDebug />}

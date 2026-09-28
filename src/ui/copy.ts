@@ -52,6 +52,14 @@ export const copy = {
     clockLabel: 'Time of day',
   },
 
+  wings: {
+    left: 'Tilt left',
+    right: 'Tilt right',
+    climb: 'Arms up',
+    dive: 'Arms down',
+    finished: 'You are flying',
+  },
+
   pause: {
     title: 'Paused',
     resume: 'Resume',

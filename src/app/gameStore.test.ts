@@ -3,6 +3,7 @@ import { useGameStore } from './gameStore'
 
 function reset() {
   useGameStore.setState({ state: 'title', errorMessage: null })
+  window.localStorage.removeItem('driftwing:wings-complete')
 }
 
 describe('gameStore transitions', () => {
@@ -12,7 +13,7 @@ describe('gameStore transitions', () => {
     expect(useGameStore.getState().state).toBe('title')
   })
 
-  it('walks the happy path from title to flying', () => {
+  it('walks the happy path through Wings to flying', () => {
     const store = useGameStore.getState()
     store.startSelection()
     expect(useGameStore.getState().state).toBe('select')
@@ -23,7 +24,19 @@ describe('gameStore transitions', () => {
     expect(useGameStore.getState().state).toBe('calibrate')
 
     store.calibrationComplete()
+    expect(useGameStore.getState().state).toBe('wings')
+    store.wingsComplete()
     expect(useGameStore.getState().state).toBe('flying')
+  })
+
+  it('skips completed practice with reused calibration', () => {
+    window.localStorage.setItem('driftwing:wings-complete', 'true')
+    useGameStore.setState({ state: 'calibrate' })
+    useGameStore.getState().calibrationComplete(true)
+    expect(useGameStore.getState().state).toBe('flying')
+    useGameStore.setState({ state: 'calibrate' })
+    useGameStore.getState().calibrationComplete(false)
+    expect(useGameStore.getState().state).toBe('wings')
   })
 
   it('selects a non-camera mode and shows selection again after quitting', () => {
@@ -97,6 +110,8 @@ describe('gameStore transitions', () => {
     store.recalibrate()
     expect(useGameStore.getState().state).toBe('calibrate')
     store.calibrationComplete()
+    expect(useGameStore.getState().state).toBe('wings')
+    store.wingsComplete()
     expect(useGameStore.getState().state).toBe('flying')
   })
 
