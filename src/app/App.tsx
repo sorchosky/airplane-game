@@ -18,10 +18,12 @@ import { copy } from '../ui/copy'
 import { Hud } from '../ui/Hud'
 import { OrientationPrompt } from '../ui/OrientationPrompt'
 import { setupCameraRecovery } from './cameraRecovery'
+import { useControlModeStore } from './controlModeStore'
 import { useControlStateDriver } from './controlStore'
 import { FlightScene } from './FlightScene'
 import { useGameStore } from './gameStore'
 import { CalibrateScreen } from './screens/CalibrateScreen'
+import { ControlSelectScreen } from './screens/ControlSelectScreen'
 import { ErrorScreen } from './screens/ErrorScreen'
 import { PausedOverlay } from './screens/PausedOverlay'
 import { TitleHandoff } from './screens/TitleHandoff'
@@ -41,6 +43,7 @@ function FlightControl({ hud }: { hud: boolean }) {
 
 export function App() {
   const state = useGameStore((s) => s.state)
+  const mode = useControlModeStore((s) => s.controlMode)
   const permissionDenied = useGameStore((s) => s.permissionDenied)
   const titleHandoff = useTitleHandoffStore((s) => s.still !== null)
 
@@ -55,7 +58,7 @@ export function App() {
   // calibrate screen (poseStore.modelStatus), not routed to the error state.
   // A replay feeds poseStore itself, so neither runs under `?input=replay`.
   useEffect(() => {
-    if (isReplayInputMode()) return
+    if (isReplayInputMode() || mode !== 'camera') return
     if (state === 'calibrate') {
       startCamera().then(
         () => startPoseService(getVideo()).catch(() => undefined),
@@ -68,7 +71,7 @@ export function App() {
       stopPoseService()
       stopCamera()
     }
-  }, [state, permissionDenied])
+  }, [state, permissionDenied, mode])
 
   const inFlight = state === 'flying' || state === 'paused'
   // `?shot=` captures the world alone: no prompt, no preview, no touch fallback over it.
@@ -87,6 +90,7 @@ export function App() {
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
       {state === 'title' && <TitleScreen />}
+      {state === 'select' && <ControlSelectScreen />}
       {state === 'permission' && <TitleScreen />}
       {state === 'calibrate' && <CalibrateScreen />}
       {state === 'error' && <ErrorScreen />}

@@ -1,7 +1,6 @@
-import { useMemo } from 'react'
+import { useControlModeStore } from '../app/controlModeStore'
 import { useControlStore } from '../app/controlStore'
 import { useInputStore } from '../input/inputStore'
-import { getInputSourceFromUrl } from '../input/source'
 import { CameraPreview } from './CameraPreview'
 import { ClockReadout } from './ClockReadout'
 import { LockInReveal } from './LockInReveal'
@@ -16,7 +15,7 @@ import { WarmCaption } from './WarmCaption'
 export function Hud() {
   const prompt = useControlStore((s) => s.view.prompt)
   const active = useInputStore((s) => s.current.active)
-  const showPreview = useMemo(() => getInputSourceFromUrl() === 'pose', [])
+  const showPreview = useControlModeStore((s) => s.controlMode === 'camera')
 
   return (
     <div data-testid="hud" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>

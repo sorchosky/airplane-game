@@ -1,10 +1,14 @@
 import { useMemo } from 'react'
+import { isTouchDevice, useControlModeStore } from '../app/controlModeStore'
+import { useControlStore } from '../app/controlStore'
+import { color, space, type } from '../styles/tokens'
+import { copy } from '../ui/copy'
 import { useGameStore } from '../app/gameStore'
 import { DebugReadout } from './DebugReadout'
 import { useKeyboardSource } from './keyboardSource'
 import { usePoseSource } from './poseSource'
 import { useReplaySource } from './replaySource'
-import { getInputSourceFromUrl, hasDebugFlag } from './source'
+import { hasDebugFlag } from './source'
 import { TouchControls } from './TouchControls'
 
 interface InputSourceProps {
@@ -17,11 +21,14 @@ interface InputSourceProps {
 }
 
 /**
- * Mounts the input source selected by the `?input=` URL flag and, when relevant, its dev-only
- * companions (touch fallback, debug readout). Mount once near the app root.
+ * Mounts the source for the selected mode (or explicit dev preset). The temporary touch drag
+ * fallback feeds keyboardSource's single writer until the floating joystick replaces it.
  */
 export function InputSource({ enableTouchControls }: InputSourceProps) {
-  const source = useMemo(() => getInputSourceFromUrl(), [])
+  const mode = useControlModeStore((s) => s.controlMode)
+  const override = useControlModeStore((s) => s.inputOverride)
+  const source = override ?? (mode === 'camera' ? 'pose' : 'keyboard')
+  const touchFallback = mode === 'touch' || (override === 'keyboard' && isTouchDevice())
   const debug = useMemo(() => hasDebugFlag(), [])
   // A replay stands in for the player, so it starts when a real player would step in: on leaving
   // the title screen. Back at the title it stops, and the next Start plays it from the top.
@@ -37,7 +44,35 @@ export function InputSource({ enableTouchControls }: InputSourceProps) {
 
   return (
     <>
-      {source === 'keyboard' && enableTouchControls && <TouchControls />}
+      {touchFallback && source === 'keyboard' && enableTouchControls && (
+        <>
+          <TouchControls />
+          {mode === 'touch' && (
+            <button
+              type="button"
+              aria-label={copy.pause.title}
+              onClick={() => useControlStore.getState().togglePause()}
+              style={{
+                position: 'absolute',
+                top: space.md,
+                right: space.md,
+                zIndex: 1,
+                minWidth: space.xxl,
+                minHeight: space.xxl,
+                padding: space.sm,
+                border: `2px solid ${color.line}`,
+                background: color.surfaceHud,
+                color: color.textPrimary,
+                fontSize: type.tvBody,
+                fontFamily: type.fontBody,
+                cursor: 'pointer',
+              }}
+            >
+              {copy.pause.title}
+            </button>
+          )}
+        </>
+      )}
       {debug && <DebugReadout />}
     </>
   )

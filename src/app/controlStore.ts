@@ -19,7 +19,7 @@ import {
 } from './controlStateMachine'
 import { FRAME_PRIORITY, frameLoop } from './frameLoop'
 import { useGameStore } from './gameStore'
-import { getInputSourceFromUrl } from '../input/source'
+import { useControlModeStore } from './controlModeStore'
 
 const INITIAL_VIEW: ControlView = { prompt: null, paused: false, countdown: null }
 
@@ -56,7 +56,10 @@ export const useControlStore = create<ControlStore>((_set, get) => ({
 }))
 
 function paramsForMode(): ControlMachineParams {
-  return { ...DEFAULT_CONTROL_MACHINE_PARAMS, gesturePause: getInputSourceFromUrl() !== 'keyboard' }
+  return {
+    ...DEFAULT_CONTROL_MACHINE_PARAMS,
+    gesturePause: useControlModeStore.getState().controlMode === 'camera',
+  }
 }
 
 function sameView(a: ControlView, b: ControlView): boolean {

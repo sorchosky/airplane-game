@@ -14,6 +14,8 @@ describe('gameStore transitions', () => {
 
   it('walks the happy path from title to flying', () => {
     const store = useGameStore.getState()
+    store.startSelection()
+    expect(useGameStore.getState().state).toBe('select')
     store.startPermission()
     expect(useGameStore.getState().state).toBe('permission')
 
@@ -22,6 +24,16 @@ describe('gameStore transitions', () => {
 
     store.calibrationComplete()
     expect(useGameStore.getState().state).toBe('flying')
+  })
+
+  it('selects a non-camera mode and shows selection again after quitting', () => {
+    const store = useGameStore.getState()
+    store.startSelection()
+    store.skipToFlying()
+    expect(useGameStore.getState().state).toBe('flying')
+    store.quitToTitle()
+    store.startSelection()
+    expect(useGameStore.getState().state).toBe('select')
   })
 
   it('skips straight to flying from title in keyboard dev mode', () => {
