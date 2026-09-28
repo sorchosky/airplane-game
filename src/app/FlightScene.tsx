@@ -6,6 +6,7 @@ import { ShotReady } from '../debug/ShotReady'
 import { activeShot, shotFlightState } from '../debug/shots'
 import { ChaseCamera } from '../flight/ChaseCamera'
 import { Plane } from '../flight/Plane'
+import { FlightVfx } from '../flight/FlightVfx'
 import { useFlightStore } from '../flight/flightStore'
 import { hasDebugFlag } from '../input/source'
 import { PostFX } from '../render/PostFX'
@@ -61,6 +62,7 @@ export function FlightScene() {
         <Atmosphere />
         <ChaseCamera shot={shot} />
         <Plane paused={paused || shot !== null} />
+        <FlightVfx paused={paused || shot !== null} />
         <Terrain />
         <Foliage />
         <Grass />

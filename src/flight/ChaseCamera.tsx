@@ -15,6 +15,7 @@ import {
 } from './cameraMath'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import { useFlightStore } from './flightStore'
+import { cameraShake, speedVfxIntensity } from './flightVfxMath'
 
 function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
@@ -49,7 +50,7 @@ export function ChaseCamera({ shot = null }: ChaseCameraProps) {
     [],
   )
 
-  useFrame((_frameState, delta) => {
+  useFrame((frameState, delta) => {
     const camera = cameraRef.current
     if (!camera) return
 
@@ -91,6 +92,12 @@ export function ChaseCamera({ shot = null }: ChaseCameraProps) {
     }
 
     camera.position.copy(smoothedPosition.current)
+    if (params.rollFraction > 0) {
+      const intensity = speedVfxIntensity(state.speed, useFlightStore.getState().params.cruiseSpeed)
+      const [shakeX, shakeY] = cameraShake(frameState.clock.elapsedTime, intensity)
+      camera.position.x += shakeX
+      camera.position.y += shakeY
+    }
     // Aim above the plane so it sits in the lower-centre third, not dead centre (#71).
     framedLookAt(
       smoothedPosition.current,

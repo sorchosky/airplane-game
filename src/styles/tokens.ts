@@ -47,6 +47,10 @@ export const color = {
   navWhite: '#f5faff',
   // Wingtip vortex vapour: a cool near-white, like the snow, tinted by the material's alpha.
   vapor: '#eef3f7',
+  windStreak: '#f5f6f8',
+  dust: '#b9a67c',
+  spray: '#d9f2f2',
+  bird: '#35414d',
 
   // Gesture-control state (muted teal-cyan, not neon, so it reads as a
   // deliberate system color against the warm palette rather than clashing).

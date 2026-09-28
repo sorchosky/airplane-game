@@ -37,6 +37,10 @@
   --color-nav-green: #57ffc0;
   --color-nav-white: #f5faff;
   --color-vapor: #eef3f7;
+  --color-wind-streak: #f5f6f8;
+  --color-dust: #b9a67c;
+  --color-spray: #d9f2f2;
+  --color-bird: #35414d;
 
   /* Gesture-control state */
   --color-control-active: #5cb8bd;
