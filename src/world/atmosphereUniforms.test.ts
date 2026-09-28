@@ -1,7 +1,13 @@
 import { Color, ShaderMaterial, UniformsUtils } from 'three'
 import { describe, expect, it } from 'vitest'
 import { lightingPresets } from '../styles/tokens'
-import { applyLighting, atmosphereUniforms, sunDirectionOf } from './atmosphereUniforms'
+import {
+  applyBlendedLighting,
+  applyLighting,
+  atmosphereUniforms,
+  sunDirectionOf,
+} from './atmosphereUniforms'
+import { createBlendedLighting, timeOfDay } from './timeOfDay'
 
 function hexToDisplay(hex: string): number[] {
   const n = parseInt(hex.slice(1), 16)
@@ -9,6 +15,18 @@ function hexToDisplay(hex: string): number[] {
 }
 
 describe('applyLighting', () => {
+  it('writes a clock sample into the same arrays held by existing materials', () => {
+    const material = new ShaderMaterial({ uniforms: UniformsUtils.clone(atmosphereUniforms) })
+    const held = material.uniforms.atmoHorizon?.value as Float32Array
+    const sample = timeOfDay(0, createBlendedLighting())
+    applyBlendedLighting(sample)
+    expect(held).toBe(atmosphereUniforms.atmoHorizon.value)
+    expect(Array.from(held)).toEqual(Array.from(sample.colors.skyHorizon))
+    expect(atmosphereUniforms.atmoNight.value[0]).toBe(1)
+    applyBlendedLighting(timeOfDay(420, sample))
+    expect(atmosphereUniforms.atmoNight.value[0]).toBe(0)
+    material.dispose()
+  })
   it('writes sky and haze colours as display sRGB and the sun light as linear', () => {
     const preset = lightingPresets.goldenHour
     applyLighting(preset)

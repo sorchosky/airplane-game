@@ -97,10 +97,11 @@ void main() {
   // Looking straight down shows the shallow color; grazing angles darken toward deep.
   float facing = clamp(dot(normal, viewDir), 0.0, 1.0);
   vec3 water = mix(WATER_DEEP, WATER_SHALLOW, 0.35 + 0.45 * facing + 0.12 * r * detail);
+  water *= mix(1.0, 0.46, atmoNight);
 
   // Cel-style sun glint: a soft-edged band, not a sharp highlight.
   float glint = smoothstep(0.93, 0.97, dot(reflect(-viewDir, normal), atmoSunDir));
-  water = mix(water, atmoSunLight, glint * 0.45 * detail);
+  water = mix(water, atmoSunLight, glint * (0.45 + 0.22 * atmoNight) * detail);
 
   float alpha = mix(0.92, 0.6, facing);
   gl_FragColor = vec4(water, alpha);

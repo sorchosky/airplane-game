@@ -6,6 +6,7 @@ import { copy } from '../ui/copy'
 import { useGameStore } from '../app/gameStore'
 import { DebugReadout } from './DebugReadout'
 import { useKeyboardSource } from './keyboardSource'
+import { useMouseSource } from './mouseSource'
 import { usePoseSource } from './poseSource'
 import { useReplaySource } from './replaySource'
 import { hasDebugFlag } from './source'
@@ -38,7 +39,9 @@ export function InputSource({ enableTouchControls }: InputSourceProps) {
 
   // Only the selected source writes the input store; two writers would overwrite each other
   // every frame.
-  useKeyboardSource(source === 'keyboard')
+  const mouseMode = mode === 'mouse' && override === null
+  useMouseSource(source === 'keyboard' && mouseMode && enableTouchControls)
+  useKeyboardSource(source === 'keyboard', mouseMode)
   usePoseSource(source === 'pose')
   useReplaySource(replaying)
 

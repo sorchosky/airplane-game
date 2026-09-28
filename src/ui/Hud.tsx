@@ -1,6 +1,7 @@
 import { useControlModeStore } from '../app/controlModeStore'
 import { useControlStore } from '../app/controlStore'
 import { useInputStore } from '../input/inputStore'
+import { color, space } from '../styles/tokens'
 import { CameraPreview } from './CameraPreview'
 import { ClockReadout } from './ClockReadout'
 import { LockInReveal } from './LockInReveal'
@@ -16,11 +17,31 @@ export function Hud() {
   const prompt = useControlStore((s) => s.view.prompt)
   const active = useInputStore((s) => s.current.active)
   const showPreview = useControlModeStore((s) => s.controlMode === 'camera')
+  const showReticle = useControlModeStore(
+    (s) => s.controlMode === 'mouse' && s.inputOverride === null,
+  )
 
   return (
     <div data-testid="hud" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
       <LockInReveal />
       {showPreview && <CameraPreview controlState={active ? 'active' : 'inactive'} />}
+      {showReticle && (
+        <div
+          data-testid="mouse-reticle"
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            width: space.md,
+            height: space.md,
+            border: `2px solid ${color.line}`,
+            borderRadius: '50%',
+            transform: 'translate(-50%, -50%)',
+            boxShadow: `0 0 0 2px ${color.outline}`,
+          }}
+        />
+      )}
       <Prompt prompt={prompt} />
       <WarmCaption />
       <ClockReadout />

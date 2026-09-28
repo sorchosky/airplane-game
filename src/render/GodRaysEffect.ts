@@ -1,8 +1,10 @@
 import { Effect, EffectAttribute } from 'postprocessing'
 import { type Camera, Color, Uniform, Vector2, Vector3 } from 'three'
 import { godRayFade, POST_FX } from './postFx'
+import { atmosphereUniforms } from '../world/atmosphereUniforms'
 
 const { samples, length, decay, glowRadius } = POST_FX.godRays
+const srgbToLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
 
 const fragmentShader = /* glsl */ `
 uniform vec2 sunUv;
@@ -87,6 +89,11 @@ export class GodRaysEffect extends Effect {
   }
 
   override update(): void {
+    const u = atmosphereUniforms
+    this.sunDirection.fromArray(u.atmoSunDir.value)
+    const glow = u.atmoSunGlow.value
+    const tint = this.uniforms.get('tint')!.value as Vector3
+    tint.set(srgbToLinear(glow[0]!), srgbToLinear(glow[1]!), srgbToLinear(glow[2]!))
     const camera = this.camera
     const strength = this.uniforms.get('strength')!
     if (!camera) {
@@ -97,10 +104,10 @@ export class GodRaysEffect extends Effect {
     // A point 100 m toward the sun: far enough past the 1 m near plane, well inside the far one.
     camera.getWorldPosition(this.sunPoint)
     this.sunPoint.addScaledVector(this.sunDirection, 100).project(camera)
-    const u = this.sunPoint.x * 0.5 + 0.5
+    const sunU = this.sunPoint.x * 0.5 + 0.5
     const v = this.sunPoint.y * 0.5 + 0.5
-    const fade = godRayFade(this.forward.dot(this.sunDirection), u, v)
-    ;(this.uniforms.get('sunUv')!.value as Vector2).set(u, v)
-    strength.value = POST_FX.godRays.strength * fade
+    const fade = godRayFade(this.forward.dot(this.sunDirection), sunU, v)
+    ;(this.uniforms.get('sunUv')!.value as Vector2).set(sunU, v)
+    strength.value = POST_FX.godRays.strength * fade * (1 - (u.atmoNight.value[0] ?? 0))
   }
 }

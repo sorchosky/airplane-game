@@ -15,7 +15,7 @@ export const copy = {
     camera: 'Camera',
     cameraHint: 'Stand back, arms out like wings',
     mouse: 'Mouse',
-    mouseHint: 'Move the mouse to steer',
+    mouseHint: 'Move the mouse to steer.',
     touch: 'Touch',
     touchHint: 'Drag anywhere to steer',
   },

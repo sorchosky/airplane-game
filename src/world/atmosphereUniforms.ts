@@ -1,6 +1,7 @@
 import { Color, SRGBColorSpace } from 'three'
 import type { LightingPreset } from '../styles/tokens'
 import { activeLighting } from './lightingPreset'
+import type { BlendedLighting } from './timeOfDay'
 
 /**
  * The lighting preset as shader uniforms, shared by every material that draws sky, haze or sun
@@ -26,6 +27,10 @@ export interface AtmosphereUniforms {
   atmoAmbientSky: { value: Float32Array }
   atmoCloudTop: { value: Float32Array }
   atmoCloudShade: { value: Float32Array }
+  atmoNight: { value: Float32Array }
+  atmoGradeShadow: { value: Float32Array }
+  atmoGradeHighlight: { value: Float32Array }
+  atmoGradeAmounts: { value: Float32Array }
 }
 
 const vec3 = () => ({ value: new Float32Array(3) })
@@ -41,6 +46,10 @@ export const atmosphereUniforms: AtmosphereUniforms = {
   atmoAmbientSky: vec3(),
   atmoCloudTop: vec3(),
   atmoCloudShade: vec3(),
+  atmoNight: { value: new Float32Array(1) },
+  atmoGradeShadow: vec3(),
+  atmoGradeHighlight: vec3(),
+  atmoGradeAmounts: { value: new Float32Array(2) },
 }
 
 const scratch = new Color()
@@ -88,3 +97,27 @@ export function applyLighting(preset: LightingPreset): void {
 }
 
 applyLighting(activeLighting())
+
+const linear = (c: number): number => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+function copyColor(target: Float32Array, source: Float32Array, asLinear = false): void {
+  for (let i = 0; i < 3; i++) target[i] = asLinear ? linear(source[i]!) : source[i]!
+}
+
+/** Write the clock's sample into the arrays all compiled materials hold by reference. */
+export function applyBlendedLighting(sample: BlendedLighting): void {
+  const u = atmosphereUniforms
+  copyColor(u.atmoZenith.value, sample.colors.skyZenith)
+  copyColor(u.atmoHorizon.value, sample.colors.skyHorizon)
+  copyColor(u.atmoHaze.value, sample.colors.fog)
+  copyColor(u.atmoSunGlow.value, sample.colors.sunGlow)
+  copyColor(u.atmoSunLight.value, sample.colors.sun, true)
+  copyColor(u.atmoAmbientSky.value, sample.colors.ambientSky, true)
+  copyColor(u.atmoCloudTop.value, sample.colors.cloudLight, true)
+  copyColor(u.atmoCloudShade.value, sample.colors.cloudShadow, true)
+  u.atmoSunDir.value.set(sample.direction)
+  u.atmoNight.value[0] = sample.nightAmount
+  copyColor(u.atmoGradeShadow.value, sample.colors.gradeShadow)
+  copyColor(u.atmoGradeHighlight.value, sample.colors.gradeHighlight)
+  u.atmoGradeAmounts.value[0] = sample.gradeShadowAmount
+  u.atmoGradeAmounts.value[1] = sample.gradeHighlightAmount
+}

@@ -43,11 +43,15 @@ void main() {
   vec3 dir = normalize(vDirection);
   vec3 sky = atmosphereSky(dir);
   float disc = smoothstep(SUN_DISC_EDGE_COS, SUN_DISC_COS, dot(dir, atmoSunDir));
+  // Same celestial key becomes a small, cool moon when the night sample takes over.
+  float moon = smoothstep(0.99977, 0.99986, dot(dir, atmoSunDir));
   // Display sRGB, like the haze, which Three applies after tone mapping. Written as-is to the
   // canvas, converted for the linear post-processing buffer, where the disc alone goes past white.
   vec3 discColor = atmosphereFromDisplay(atmoSunDisc);
   if (atmosphereOutputIsLinear()) discColor *= SUN_DISC_HDR;
-  gl_FragColor = vec4(mix(atmosphereFromDisplay(sky), discColor, disc), 1.0);
+  vec3 daySky = mix(atmosphereFromDisplay(sky), discColor, disc);
+  vec3 moonSky = mix(atmosphereFromDisplay(sky), atmosphereFromDisplay(atmoSunGlow), moon);
+  gl_FragColor = vec4(mix(daySky, moonSky, atmoNight), 1.0);
 }
 `
 

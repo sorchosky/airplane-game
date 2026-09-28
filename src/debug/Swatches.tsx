@@ -54,6 +54,10 @@ const LIGHTING_ROLES: Array<{ label: string; key: keyof LightingPreset }> = [
 const PRESET_LABELS: Record<keyof typeof lightingPresets, string> = {
   morning: 'Morning (default)',
   goldenHour: 'Golden hour (?tod=golden)',
+  day: 'Day',
+  afternoon: 'Afternoon',
+  dusk: 'Dusk',
+  night: 'Night',
 }
 
 // `tv-display` is the only size that gets the uppercase/wide-tracking main-title

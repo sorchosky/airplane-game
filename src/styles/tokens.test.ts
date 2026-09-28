@@ -189,6 +189,23 @@ describe('design tokens', () => {
     })
   })
 
+  it('keeps the plane and lights legible against the darkest sky and ground at night', () => {
+    const night = lightingPresets.night
+    for (const background of [
+      night.skyZenith,
+      night.skyHorizon,
+      color.grassShadow,
+      color.waterDeep,
+    ]) {
+      expect(contrastRatio(color.planeBody, background), background).toBeGreaterThanOrEqual(3)
+      expect(contrastRatio(color.planeOutlineNight, background), background).toBeGreaterThanOrEqual(
+        3,
+      )
+    }
+    expect(contrastRatio(color.navWhite, night.skyZenith)).toBeGreaterThanOrEqual(3)
+    expect(contrastRatio(color.navGreen, night.skyHorizon)).toBeGreaterThanOrEqual(3)
+  })
+
   it('mirrors every color, space and type value into tokens.css as a custom property', () => {
     const css = readFileSync('src/styles/tokens.css', 'utf-8')
     // Prettier normalizes quote style differently for JS (tokens.ts) vs. CSS (tokens.css) string

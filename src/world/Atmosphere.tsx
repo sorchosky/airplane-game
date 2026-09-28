@@ -1,12 +1,17 @@
 import { useFrame, useThree } from '@react-three/fiber'
-import { Fog } from 'three'
+import { useMemo, useRef } from 'react'
+import { DirectionalLight, Fog, HemisphereLight } from 'three'
+import { useClockStore } from './clockStore'
 import { useQualityStore } from '../render/qualityStore'
 import { hazeForViewDistance, SUN_DIRECTION } from './atmosphere'
+import { applyBlendedLighting } from './atmosphereUniforms'
 import { installAtmosphereFog } from './atmosphereShader'
 import { Clouds } from './Clouds'
 import { activeLighting } from './lightingPreset'
 import { Sky } from './Sky'
 import { TERRAIN_CONFIG } from './terrainConfig'
+import { createBlendedLighting, timeOfDay } from './timeOfDay'
+import { Stars } from './Stars'
 
 // Patch Three's fog chunks at import time, before any material in the scene compiles.
 installAtmosphereFog()
@@ -39,26 +44,66 @@ function HazeDriver() {
   return null
 }
 
+function DayCycleDriver() {
+  const sun = useRef<DirectionalLight>(null)
+  const ambient = useRef<HemisphereLight>(null)
+  const scene = useThree((s) => s.scene)
+  const sample = useMemo(createBlendedLighting, [])
+  useFrame(() => {
+    timeOfDay(useClockStore.getState().time.minutes, sample)
+    applyBlendedLighting(sample)
+    const key = sun.current
+    const fill = ambient.current
+    const c = sample.colors
+    const direction = sample.direction
+    if (key) {
+      key.position.set(
+        direction[0]! * SUN_LIGHT_DISTANCE,
+        direction[1]! * SUN_LIGHT_DISTANCE,
+        direction[2]! * SUN_LIGHT_DISTANCE,
+      )
+      key.color.setRGB(c.sun[0]!, c.sun[1]!, c.sun[2]!, 'srgb')
+      key.intensity = sample.sunIntensity
+    }
+    if (fill) {
+      fill.color.setRGB(c.ambientSky[0]!, c.ambientSky[1]!, c.ambientSky[2]!, 'srgb')
+      fill.groundColor.setRGB(c.ambientGround[0]!, c.ambientGround[1]!, c.ambientGround[2]!, 'srgb')
+      fill.intensity = sample.hemisphereIntensity
+    }
+    if (scene.fog instanceof Fog) scene.fog.color.setRGB(c.fog[0]!, c.fog[1]!, c.fog[2]!, 'srgb')
+  })
+  const light = activeLighting()
+  const [x, y, z] = SUN_DIRECTION
+  return (
+    <>
+      <directionalLight
+        ref={sun}
+        position={[x * SUN_LIGHT_DISTANCE, y * SUN_LIGHT_DISTANCE, z * SUN_LIGHT_DISTANCE]}
+        color={light.sun}
+        intensity={light.sunIntensity}
+      />
+      <hemisphereLight
+        ref={ambient}
+        args={[light.ambientSky, light.ambientGround, light.hemisphereIntensity]}
+      />
+    </>
+  )
+}
+
 /**
  * Sky, sun light, fill light, haze and clouds. The scene `fog` switches haze on for built-in
  * materials, and its `near` and `far` carry the far-haze fade range; its colour is unused, since
  * the haze model in `atmosphereShader.ts` replaces Three's fog math.
  */
 export function Atmosphere() {
-  const [x, y, z] = SUN_DIRECTION
   const light = activeLighting()
   return (
     <>
       <fog attach="fog" args={[light.fog, FULL_HAZE.start, FULL_HAZE.end]} />
       <HazeDriver />
       <Sky />
-      <directionalLight
-        position={[x * SUN_LIGHT_DISTANCE, y * SUN_LIGHT_DISTANCE, z * SUN_LIGHT_DISTANCE]}
-        color={light.sun}
-        intensity={light.sunIntensity}
-      />
-      {/* Sky-coloured fill from above, grass-bounced from below: shadows read sky-lit (#64). */}
-      <hemisphereLight args={[light.ambientSky, light.ambientGround, light.hemisphereIntensity]} />
+      <Stars />
+      <DayCycleDriver />
       <Clouds />
     </>
   )
