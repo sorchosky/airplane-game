@@ -1,0 +1,35 @@
+.touch-joystick-enter {
+  animation: touch-joystick-in 120ms ease-out both;
+}
+
+.touch-joystick-exit {
+  animation: touch-joystick-out 120ms ease-in both;
+}
+
+@keyframes touch-joystick-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes touch-joystick-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .touch-joystick-enter,
+  .touch-joystick-exit {
+    animation: none;
+  }
+  .touch-joystick-exit {
+    opacity: 0;
+  }
+}
