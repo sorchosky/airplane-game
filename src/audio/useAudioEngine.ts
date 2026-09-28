@@ -11,7 +11,7 @@ import { computeAudioParams, type EngineWindParams } from './audioParams'
 import { useAudioStore } from './audioStore'
 
 /**
- * Drives the procedural engine/wind audio from flight state, plays the soft active/inactive and
+ * Drives the quiet flight accents from flight state, plays the soft active/inactive and
  * countdown cues, and binds the M-key mute toggle. Mount once for the life of a flight (flying ⇄
  * paused), alongside `useControlStateDriver` -- see `App.tsx`'s `FlightControl`.
  */
@@ -28,7 +28,7 @@ export function useAudioEngine(): void {
   }, [paused])
 
   // Silences on unmount (leaving the flight scene), independent of the duck effect above so a quit
-  // straight from `flying` -- never paused -- doesn't leave the engine running at full gain.
+  // straight from `flying` -- never paused -- doesn't leave the score running at full gain.
   useEffect(() => {
     return () => setDucked(true)
   }, [])
