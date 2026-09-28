@@ -11,6 +11,7 @@ import {
 } from 'three'
 import { color } from '../styles/tokens'
 import { SUN_DIRECTION } from '../world/atmosphere'
+import { atmosphereUniforms } from '../world/atmosphereUniforms'
 import { heightAt, normalAt, surfaceHeightAt } from '../world/heightfield'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import { useFlightStore } from './flightStore'
@@ -66,14 +67,19 @@ export function ContactShadow() {
     anchor: { x: 0, y: 0, z: 0, height: 0 },
     blob: { radius: 0, opacity: 0 },
     normal: new Vector3(),
+    direction: [...SUN_DIRECTION] as [number, number, number],
   })
 
   useFrame(() => {
     const mesh = meshRef.current
     if (!mesh) return
     const { position } = useFlightStore.getState().state
-    const { anchor, blob, normal } = scratch.current
-    shadowAnchor(position.x, position.y, position.z, SUN_DIRECTION, surfaceAt, anchor)
+    const { anchor, blob, normal, direction } = scratch.current
+    const sun = atmosphereUniforms.atmoSunDir.value
+    direction[0] = sun[0]!
+    direction[1] = sun[1]!
+    direction[2] = sun[2]!
+    shadowAnchor(position.x, position.y, position.z, direction, surfaceAt, anchor)
     shadowBlob(anchor.height, SHADOW_BLOB_PARAMS, blob)
     mesh.visible = blob.opacity > 0.005
     if (!mesh.visible) return
@@ -84,7 +90,7 @@ export function ContactShadow() {
     mesh.quaternion.setFromUnitVectors(UP, normal)
     mesh.position.set(anchor.x, anchor.y, anchor.z).addScaledVector(normal, SHADOW_BLOB_PARAMS.lift)
     mesh.scale.setScalar(blob.radius)
-    material.opacity = blob.opacity
+    material.opacity = blob.opacity * (1 - 0.75 * (atmosphereUniforms.atmoNight.value[0] ?? 0))
   })
 
   return (

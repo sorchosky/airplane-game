@@ -2,6 +2,7 @@ import { Effect } from 'postprocessing'
 import { SRGBColorSpace, Uniform, Vector3 } from 'three'
 import type { GradeParams } from './postFx'
 import { LUMA } from './postFx'
+import { atmosphereUniforms } from '../world/atmosphereUniforms'
 
 const fragmentShader = /* glsl */ `
 uniform vec3 shadowTint;
@@ -49,5 +50,19 @@ export class WarmLiftEffect extends Effect {
       ]),
     })
     this.inputColorSpace = SRGBColorSpace
+  }
+
+  override update(): void {
+    const u = atmosphereUniforms
+    const shadow = u.atmoGradeShadow.value
+    const highlight = u.atmoGradeHighlight.value
+    ;(this.uniforms.get('shadowTint')!.value as Vector3).set(shadow[0]!, shadow[1]!, shadow[2]!)
+    ;(this.uniforms.get('highlightTint')!.value as Vector3).set(
+      highlight[0]!,
+      highlight[1]!,
+      highlight[2]!,
+    )
+    this.uniforms.get('shadowAmount')!.value = u.atmoGradeAmounts.value[0]!
+    this.uniforms.get('highlightAmount')!.value = u.atmoGradeAmounts.value[1]!
   }
 }

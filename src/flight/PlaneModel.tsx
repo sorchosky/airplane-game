@@ -7,8 +7,10 @@ import { getOutlineMaterial } from '../render/toon'
 import { ToonMesh } from '../render/ToonMesh'
 import { useToon } from '../render/useToon'
 import { color } from '../styles/tokens'
+import { atmosphereUniforms } from '../world/atmosphereUniforms'
 import { useFlightStore } from './flightStore'
 import { buildPlaneGeometry, type Shade } from './planeGeometry'
+import { NavigationLights } from './NavigationLights'
 import {
   NEUTRAL_DEFLECTIONS,
   createArticulation,
@@ -63,7 +65,9 @@ export function PlaneModel({ paused = false }: PlaneModelProps) {
     [geometry, stripeHull],
   )
   const stripeMaterial = useToon(color.planeStripe)
-  const outlineMaterial = useMemo(() => getOutlineMaterial(), [])
+  const outlineMaterial = useMemo(() => getOutlineMaterial({ color: color.planeOutlineDay }), [])
+  const dayOutline = useMemo(() => new Color(color.planeOutlineDay), [])
+  const nightOutline = useMemo(() => new Color(color.planeOutlineNight), [])
   const discMaterial = useMemo(
     () =>
       new MeshBasicMaterial({
@@ -97,6 +101,9 @@ export function PlaneModel({ paused = false }: PlaneModelProps) {
   })
 
   useFrame((_frameState, delta) => {
+    ;(outlineMaterial.uniforms.color!.value as Color)
+      .copy(dayOutline)
+      .lerp(nightOutline, atmosphereUniforms.atmoNight.value[0] ?? 0)
     if (paused) return
     const input = useInputStore.getState().current
     const { state, params } = useFlightStore.getState()
@@ -119,10 +126,16 @@ export function PlaneModel({ paused = false }: PlaneModelProps) {
 
   return (
     <group>
-      <ToonMesh color={color.planeBody} vertexColors castShadow>
+      <NavigationLights paused={paused} />
+      <ToonMesh
+        color={color.planeBody}
+        vertexColors
+        castShadow
+        outline={{ color: color.planeOutlineDay }}
+      >
         <primitive object={geometry.body} attach="geometry" />
       </ToonMesh>
-      <ToonMesh color={color.planeMetal} castShadow>
+      <ToonMesh color={color.planeMetal} castShadow outline={{ color: color.planeOutlineDay }}>
         <primitive object={geometry.metal} attach="geometry" />
       </ToonMesh>
       <ToonMesh color={color.planeGlass} specular outline={false}>
@@ -133,7 +146,7 @@ export function PlaneModel({ paused = false }: PlaneModelProps) {
       </mesh>
       <group ref={propRef} position={geometry.propHub}>
         <group ref={bladesRef}>
-          <ToonMesh color={color.planeMetal} castShadow>
+          <ToonMesh color={color.planeMetal} castShadow outline={{ color: color.planeOutlineDay }}>
             <primitive object={geometry.blades} attach="geometry" />
           </ToonMesh>
         </group>

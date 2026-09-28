@@ -30,6 +30,7 @@ uniform vec3 atmoHaze;
 uniform vec3 atmoSunGlow;
 uniform vec3 atmoSunDisc;
 uniform vec3 atmoSunDir;
+uniform float atmoNight;
 const float ATMO_COOL_SHIFT = ${glslFloat(config.hazeCoolShift)};
 const float ATMO_HAZE_DENSITY = ${glslFloat(config.hazeDensity)};
 const float ATMO_HAZE_WARM_MAX = ${glslFloat(config.hazeWarmMax)};
@@ -67,7 +68,7 @@ vec3 atmosphereSky(vec3 dir) {
   // Soft glow around the sun, in its own colour (#64): a wide faint halo plus a tighter one.
   float sunDot = max(dot(dir, atmoSunDir), 0.0);
   float glow = 0.45 * pow(sunDot, 6.0) + 0.35 * pow(sunDot, 48.0);
-  return mix(sky, atmoSunGlow, clamp(glow, 0.0, 1.0));
+  return mix(sky, atmoSunGlow, clamp(glow * mix(1.0, 0.22, atmoNight), 0.0, 1.0));
 }
 `
 
