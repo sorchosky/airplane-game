@@ -4,7 +4,7 @@ Fly a cel-shaded bush plane through a Breath of the Wild inspired world using yo
 
 - **Start here (agents and humans):** [`CLAUDE.md`](CLAUDE.md)
 - **Roadmap and ticket order:** [`docs/roadmap.md`](docs/roadmap.md)
-- **Settled decisions:** [`docs/decisions.md`](docs/decisions.md)
+- **Settled decisions:** [`docs/decisions.md`](docs/decisions.md) (history) and [`docs/decisions/`](docs/decisions/) (new)
 - **Starting a ticket session:** [`docs/kickoff-prompt.md`](docs/kickoff-prompt.md)
 
 ## Pose model files

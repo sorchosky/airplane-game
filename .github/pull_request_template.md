@@ -20,7 +20,7 @@ Closes #
 
 ## Decisions
 
-<!-- Any line added to docs/decisions.md, or "none". -->
+<!-- Any file added under docs/decisions/, or "none". -->
 
 ## Handoff notes
 

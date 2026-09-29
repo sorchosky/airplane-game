@@ -1,0 +1,1 @@
+- 2026-09-29 · workflow · New decisions go in one file each under `docs/decisions/` (one log-format line, named `YYYY-MM-DD-<issue#>-<slug>.md`); `docs/decisions.md` is frozen history and agents grep both · appending to one shared file made every pair of parallel PRs conflict, and Codex's sandbox cannot fetch `main` to resolve it

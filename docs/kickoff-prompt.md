@@ -35,6 +35,26 @@ Open a PR that closes the issue, using the PR template, and include handoff note
 If a decision only I can make blocks you, comment on the issue with options and a recommendation, label it needs-human, and stop.
 ```
 
+## Codex task
+
+Codex can't read GitHub from its sandbox, so paste the issue into the prompt. Start the task from `main` so its snapshot is as fresh as possible.
+
+```
+Implement GitHub issue #<N> in sorchosky/airplane-game.
+Read AGENTS.md, then CLAUDE.md, and follow both.
+
+Issue body:
+<paste the issue title, body and acceptance criteria here>
+```
+
+One-time setup in Codex environment settings: set the setup script to `bash scripts/codex-setup.sh`.
+
+If a Codex PR later shows "conflicts must be resolved", don't ask Codex to fix it. Its `main` is stale. Use GitHub's "Update branch" button, or run this in a Claude Code session:
+
+```
+Merge main into PR #<N> in sorchosky/airplane-game, resolve the conflicts, run npm run check, and push.
+```
+
 ## Tips for stretching a Pro plan
 
 - Start a fresh session per ticket. Do not continue a long session into the next ticket, and don't ask a session to run more than one ticket in the "next ticket" loop — one and done, every time.

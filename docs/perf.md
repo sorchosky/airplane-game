@@ -129,8 +129,8 @@ of expected payoff:
 4. Bank spring 0.35 → 0.2 s with a roll-rate cap so weight comes from the
    cap, not from lag (half bank in ~170 ms).
 
-Every constant change ships with the probe's before-and-after numbers in
-`docs/decisions.md`.
+Every constant change ships with the probe's before-and-after numbers in a
+`docs/decisions/` entry.
 
 ## Baseline: what runs where
 
