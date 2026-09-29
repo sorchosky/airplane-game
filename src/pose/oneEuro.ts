@@ -52,8 +52,25 @@ export function oneEuroFilter(
   state: OneEuroState,
   params: OneEuroParams = DEFAULT_ONE_EURO_PARAMS,
 ): OneEuroResult {
+  const next = createOneEuroState()
+  const value = oneEuroFilterInto(x, tMs, state, params, next)
+  return { value, state: next }
+}
+
+/** Allocation-free variant for hot paths. `out` may be the same object as `state`. */
+export function oneEuroFilterInto(
+  x: number,
+  tMs: number,
+  state: OneEuroState,
+  params: OneEuroParams = DEFAULT_ONE_EURO_PARAMS,
+  out: OneEuroState,
+): number {
   if (!state.initialized) {
-    return { value: x, state: { initialized: true, xPrev: x, dxPrev: 0, tPrevMs: tMs } }
+    out.initialized = true
+    out.xPrev = x
+    out.dxPrev = 0
+    out.tPrevMs = tMs
+    return x
   }
 
   const dtSeconds = Math.max(1 / 1000, (tMs - state.tPrevMs) / 1000)
@@ -62,5 +79,9 @@ export function oneEuroFilter(
   const cutoff = params.minCutoff + params.beta * Math.abs(filteredDx)
   const value = lowPass(x, state.xPrev, smoothingFactor(cutoff, dtSeconds))
 
-  return { value, state: { initialized: true, xPrev: value, dxPrev: filteredDx, tPrevMs: tMs } }
+  out.initialized = true
+  out.xPrev = value
+  out.dxPrev = filteredDx
+  out.tPrevMs = tMs
+  return value
 }

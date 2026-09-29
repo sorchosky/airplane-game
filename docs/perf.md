@@ -54,7 +54,7 @@ Bytes are heap growth per call averaged over 20k calls after warm-up with
 `--expose-gc`; microseconds are wall time per call. Everything in this table
 runs every frame at 60 Hz except where noted.
 
-| Path | Before B/call | After E2 (#60) B/call | CPU µs/call | Cadence |
+| Path | Before B/call | Current B/call | CPU µs/call | Cadence |
 |---|---|---|---|---|
 | `flightModel.step`, 1 substep | 360 | 32 | 0.39 | per frame |
 | `flightModel.step`, 2 substeps (dt 1/30) | 719 | 32 | 0.73 | long frames |
@@ -62,16 +62,21 @@ runs every frame at 60 Hz except where noted.
 | Plane rig (target and damp) | 720 | 16 | 0.73 | per frame |
 | `computeAudioParams` | 106 | 0 | 0.03 | per frame |
 | `heightAt` (soft floor) | noise | noise | 1.11 | per frame |
-| `interpretPose` | 815 | not yet | 0.79 | per detection, 20 Hz |
+| `interpretPose` | 815 | 96 | 0.79 | per detection, 20 Hz |
 | `PoseOverlay.armLine` | 596 | 0 | 0.20 | per frame |
 | Clouds wrap, 343 puffs | 2521 | loop rewritten, not measured | 19.78 | per frame |
 | `selectTiles` | 12645 | not yet | 94.89 | on chunk crossing only |
 
-"After" is from `src/flight/allocations.test.ts` (60k warm-up calls, 20k
-measured). The remaining 16–48 B are V8 boxing doubles stored into object
-fields in optimized code, not objects the code creates; the test's ceilings
-(56, 80, 32, 16, 16) catch any real regression. `interpretPose` and
-`selectTiles` are follow-ups in the backlog.
+The E2 results are from `src/flight/allocations.test.ts` (60k warm-up calls,
+20k measured). The remaining bytes are V8 boxing doubles stored into object
+fields in optimized code, not objects the code creates. The tests' ceilings
+catch any real regression. `selectTiles` is a follow-up in the backlog.
+
+R1 used `npm test -- --run src/pose/gestureAllocations.test.ts`, with the same
+60k warm-up and the best of three 20k-call rounds. It measured 96 B/call, down
+from the 815 B/call baseline. Those 96 bytes are V8 boxing six numeric field
+writes. The gesture path creates no objects, arrays or closures per detection,
+and its 128 B/call regression ceiling catches any new one.
 
 Where the bytes came from before E2, from reading the code:
 
