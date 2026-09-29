@@ -4,7 +4,7 @@ import { FRAME_PRIORITY, frameLoop } from '../frameLoop'
 import { useControlModeStore } from '../controlModeStore'
 import { useFlightStore } from '../../flight/flightStore'
 import { useInputStore } from '../../input/inputStore'
-import { color, space, type } from '../../styles/tokens'
+import { color, effect, space, type } from '../../styles/tokens'
 import { CameraPreview } from '../../ui/CameraPreview'
 import { copy } from '../../ui/copy'
 import { useGameStore } from '../gameStore'
@@ -62,7 +62,7 @@ export function WingsPrompts() {
           gap: space.md,
           padding: `${space.sm} ${space.lg}`,
           color: color.textPrimary,
-          background: color.surfaceHud,
+          textShadow: effect.textGlow,
           fontFamily: type.fontDisplay,
           fontSize: type.tvTitle,
           pointerEvents: 'none',

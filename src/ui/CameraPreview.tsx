@@ -1,6 +1,6 @@
 import { type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef } from 'react'
 import { getVideo, useCameraStore } from '../pose/cameraService'
-import { color, size, space } from '../styles/tokens'
+import { color, effect, size, space } from '../styles/tokens'
 import { contractKeyframes, LOCK_IN_CONTRACT_MS, recentLockIn, useLockInStore } from './lockIn'
 import { PoseOverlay, type ControlPreviewState } from './PoseOverlay'
 
@@ -38,6 +38,7 @@ export function CameraPreview({
   const containerRef = useRef<HTMLDivElement>(null)
   // A lost stream leaves its last frame on the element; blank it rather than show a frozen player.
   const lost = useCameraStore((s) => s.status === 'lost')
+  const frameColor = controlState === 'active' ? color.controlActive : color.controlInactive
 
   useEffect(() => {
     const container = containerRef.current
@@ -104,15 +105,36 @@ export function CameraPreview({
           : { position: 'relative', flexShrink: 0, height: '100%', maxWidth: '100%' }),
         aspectRatio: '4 / 3',
         overflow: 'hidden',
-        borderRadius: space.sm,
-        border: `${variant === 'corner' ? '3px' : size.calibrateFrame} solid ${
-          controlState === 'active' ? color.controlActive : color.controlInactive
-        }`,
+        border: `1px solid ${color.line}`,
+        boxShadow: `0 0 20px ${color.glow}`,
+        backdropFilter: effect.hudBlur,
         background: lost ? color.surfaceScrim : color.textPrimary,
       }}
     >
       {overlay ?? <PoseOverlay controlState={controlState} />}
       {children}
+      {(['top-left', 'top-right', 'bottom-right', 'bottom-left'] as const).map((corner) => {
+        const vertical = corner.startsWith('top') ? { top: 0 } : { bottom: 0 }
+        const horizontal = corner.endsWith('left') ? { left: 0 } : { right: 0 }
+        return (
+          <span
+            key={corner}
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              ...vertical,
+              ...horizontal,
+              width: variant === 'calibrate' ? size.calibrateFrame : space.md,
+              height: variant === 'calibrate' ? size.calibrateFrame : space.md,
+              borderTop: corner.startsWith('top') ? `3px solid ${frameColor}` : undefined,
+              borderBottom: corner.startsWith('bottom') ? `3px solid ${frameColor}` : undefined,
+              borderLeft: corner.endsWith('left') ? `3px solid ${frameColor}` : undefined,
+              borderRight: corner.endsWith('right') ? `3px solid ${frameColor}` : undefined,
+              pointerEvents: 'none',
+            }}
+          />
+        )
+      })}
     </div>
   )
 }
