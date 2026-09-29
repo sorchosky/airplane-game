@@ -15,6 +15,7 @@ import { CloudVeil } from '../ui/CloudVeil'
 import { Atmosphere } from '../world/Atmosphere'
 import { Foliage } from '../world/Foliage'
 import { Grass } from '../world/Grass'
+import { GoldenPath, GoldenPathTitle } from '../world/GoldenPath'
 import { Landmarks } from '../world/Landmarks'
 import { Terrain } from '../world/Terrain'
 import { Water } from '../world/Water'
@@ -63,6 +64,7 @@ export function FlightScene() {
         <ChaseCamera shot={shot} />
         <Plane paused={paused || shot !== null} />
         <FlightVfx paused={paused || shot !== null} />
+        {!shot && <GoldenPath paused={paused} />}
         <Terrain />
         <Foliage />
         <Grass />
@@ -73,6 +75,7 @@ export function FlightScene() {
         <PostFX />
       </Canvas>
       <CloudVeil />
+      {!shot && <GoldenPathTitle />}
       <PerfHud initiallyVisible={debug} />
       {shot && <ShotReady />}
     </>
