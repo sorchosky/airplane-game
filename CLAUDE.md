@@ -6,13 +6,13 @@ Guidance for Claude Code sessions working in this repo. Read this first, every s
 
 A browser flight game. The player stands in front of a propped-up phone (front camera, landscape) with arms outstretched like wings. The phone screen is cast to a TV (AirPlay / Chromecast mirroring). Body tilt banks the plane, raising or lowering both arms pitches it. The look is cel-shaded, inspired by *The Legend of Zelda: Breath of the Wild*. The plane is a stylized Cessna-style high-wing.
 
-Roadmap and ticket index: `docs/roadmap.md`. Settled decisions: `docs/decisions.md`. Do not re-litigate a decision logged there. If you believe one is wrong, say so in the PR handoff notes.
+Roadmap and ticket index: `docs/roadmap.md`. Settled decisions: `docs/decisions.md` plus `docs/decisions/`. Do not re-litigate a decision logged there. If you believe one is wrong, say so in the PR handoff notes.
 
 ### Reading budget
 
 Sessions run on a metered plan. Read what the ticket needs, not every doc.
 
-- **`docs/decisions.md`: grep, don't read end to end.** Every line is `date · area · decision · why`. Search the areas your ticket touches, e.g. `grep -E '· (flight|controls) ·' docs/decisions.md`. Areas: `stack`, `platform`, `pose`, `controls`, `input`, `flight`, `world`, `render`, `art`, `ui`, `audio`, `camera`, `latency`, `robustness`, `debug`, `ci`, `hosting`, `workflow`, `future`.
+- **Decisions: grep, don't read end to end.** Every line is `date · area · decision · why`, in `docs/decisions.md` (frozen history) and one file per decision in `docs/decisions/`. Search the areas your ticket touches, e.g. `grep -rhE '· (flight|controls) ·' docs/decisions.md docs/decisions/`. Areas: `stack`, `platform`, `pose`, `controls`, `input`, `flight`, `world`, `render`, `art`, `ui`, `audio`, `camera`, `latency`, `robustness`, `debug`, `ci`, `hosting`, `workflow`, `future`.
 - **Art docs (`docs/art-bible.md`, `docs/art-direction.md`): only for look-and-feel work.** Open them when the ticket links them or changes how something looks (materials, palette, sky, lighting, models, post FX). Even then, jump to the section the ticket names.
 - **Other docs (`docs/perf.md`, `docs/experience.md`, `docs/aaa-backlog.md`): only when the ticket links them.**
 - **Dependencies are installed by a SessionStart hook** (`.claude/hooks/session-start.sh`) in cloud sessions. Don't run `npm ci` again unless the hook printed a failure.
@@ -93,6 +93,8 @@ Flight code only reads `ControlInput`. It never imports from `pose/`. Pose code 
 
 ## Session protocol (one ticket per session)
 
+Codex and other non-Claude agents: also read `AGENTS.md`, which lists where your sandbox differs from this protocol.
+
 Start every session with a prompt from `docs/kickoff-prompt.md` — "run the next ticket" if you weren't given a specific issue number, or the specific-ticket prompt if you were.
 
 1. Read this file, then the issue you were given. Read other issues or PRs only if the ticket references them.
@@ -101,7 +103,7 @@ Start every session with a prompt from `docs/kickoff-prompt.md` — "run the nex
 4. `npm run check` must pass. Add unit tests for new pure logic. For visual changes, capture a screenshot with Playwright and put it in the PR.
 5. Open a PR with `Closes #<issue>` and fill in the PR template, including handoff notes.
 6. If you are blocked on a decision only the owner can make, comment the question on the issue with options and a recommendation, add the `needs-human` label, and stop.
-7. If you made a lasting decision (library choice, tuning constant rationale, contract change), add one line to `docs/decisions.md`.
+7. If you made a lasting decision (library choice, tuning constant rationale, contract change), add it as a new file `docs/decisions/<YYYY-MM-DD>-<issue#>-<slug>.md` holding one line in the log format. Never append to `docs/decisions.md`. Shared append-only lists are the top source of merge conflicts between parallel PRs.
 
 ## Definition of done
 

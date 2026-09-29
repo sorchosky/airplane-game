@@ -1,8 +1,11 @@
 # Decisions log
 
-One line per decision. Newest at the bottom. Format: `YYYY-MM-DD · area · decision · why`.
+One line per decision. Format: `YYYY-MM-DD · area · decision · why`.
 Sessions must not re-litigate these. Propose changes in PR handoff notes instead.
-Grep by area instead of reading the whole file, e.g. `grep -E '· (flight|controls) ·' docs/decisions.md`. Reuse an existing area name when adding a line.
+
+**This file is frozen history. Do not add lines here.** New decisions go in their own file under `docs/decisions/` (see `docs/decisions/README.md`), so parallel PRs never conflict on this file.
+
+Grep both places by area instead of reading anything end to end, e.g. `grep -rhE '· (flight|controls) ·' docs/decisions.md docs/decisions/`. Reuse an existing area name.
 
 - 2026-09-24 · stack · Vite + React + TS + React Three Fiber + drei + Zustand · owner is fluent in React; R3F keeps 3D and UI in one tree
 - 2026-09-24 · stack · WebGL2 renderer, not WebGPU · safest support on iOS Safari; revisit after M4
