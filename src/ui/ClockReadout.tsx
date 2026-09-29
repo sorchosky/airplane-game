@@ -1,4 +1,4 @@
-import { color, space, type } from '../styles/tokens'
+import { color, effect, space, type } from '../styles/tokens'
 import { useClockStore } from '../world/clockStore'
 import { copy } from './copy'
 
@@ -20,8 +20,10 @@ export function ClockReadout() {
         top: space.md,
         right: space.md,
         padding: `${space.xs} ${space.md}`,
-        borderRadius: space.md,
+        border: `1px solid ${color.line}`,
         background: color.surfaceHud,
+        backdropFilter: effect.hudBlur,
+        textShadow: effect.textGlow,
         color: color.textPrimary,
         fontFamily: type.fontBody,
         fontSize: type.tvBody,

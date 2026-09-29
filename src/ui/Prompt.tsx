@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ControlPrompt } from '../app/controlStateMachine'
-import { color, space, type } from '../styles/tokens'
+import { color, effect, space, type } from '../styles/tokens'
 import { copy } from './copy'
 
 const COPY: Record<Exclude<ControlPrompt, null>, string> = {
@@ -66,9 +66,8 @@ export function Prompt({ prompt }: PromptProps) {
         alignItems: 'center',
         gap: space.md,
         padding: `${space.md} ${space.xl}`,
-        borderRadius: space.md,
-        background: color.surfaceHud,
         color: color.textPrimary,
+        textShadow: effect.textGlow,
         fontFamily: type.fontBody,
         fontSize: type.tvBody,
         whiteSpace: 'nowrap',

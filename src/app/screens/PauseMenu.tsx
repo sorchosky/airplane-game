@@ -3,7 +3,7 @@ import { useInputStore } from '../../input/inputStore'
 import { useControlModeStore } from '../controlModeStore'
 import { useCalibrationStore } from '../../pose/calibrationStore'
 import { usePoseStore } from '../../pose/poseStore'
-import { color, space, type } from '../../styles/tokens'
+import { color, effect, radius, space, type } from '../../styles/tokens'
 import { copy } from '../../ui/copy'
 import { useControlStore } from '../controlStore'
 import { useGameStore } from '../gameStore'
@@ -187,6 +187,7 @@ export function PauseMenu() {
           fontSize: type.tvTitle,
           textTransform: 'uppercase',
           letterSpacing: type.trackingDisplay,
+          textShadow: effect.textGlow,
           margin: 0,
         }}
       >
@@ -274,9 +275,11 @@ export function PauseMenu() {
                 minHeight: 80,
                 minWidth: 240,
                 padding: `${space.md} ${space.xl}`,
-                borderRadius: space.md,
-                border: `4px solid ${highlighted ? color.accent : color.controlInactive}`,
-                background: color.surfaceHud,
+                borderRadius: radius.sharp,
+                border: `1px solid ${highlighted ? color.accent : color.line}`,
+                background: highlighted ? color.surfaceHud : 'transparent',
+                backdropFilter: highlighted ? effect.hudBlur : undefined,
+                boxShadow: highlighted ? `0 0 20px ${color.glow}` : 'none',
                 color: highlighted ? color.textPrimary : color.textMuted,
                 cursor: 'pointer',
               }}

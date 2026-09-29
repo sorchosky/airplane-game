@@ -55,14 +55,15 @@ export const color = {
   controlInactive: '#8a7c6c',
 
   // UI
-  surfaceHud: 'rgba(36, 27, 21, 0.8)',
-  // Opaque `surfaceHud`, for full-screen blockers that must hide everything behind them.
-  surfaceScrim: '#241b15',
-  textPrimary: '#f3e8d8',
-  textMuted: '#cdbca6',
-  accent: '#5cb8bd',
+  // Multi-line copy keeps the denser alpha required for AA; one-line HUD elements use glow alone.
+  surfaceHud: 'rgba(12, 18, 26, 0.8)',
+  surfaceScrim: 'rgba(12, 18, 26, 0.6)',
+  textPrimary: '#f7f4ec',
+  textMuted: '#cfd6dc',
+  accent: '#58c3c9',
   // Hairline chrome and the calibration target silhouette (`docs/art-bible.md` UI tokens).
   line: 'rgba(247, 244, 236, 0.55)',
+  glow: 'rgba(12, 18, 26, 0.6)',
   // The one white flash of the skeleton at calibration lock-in (#63).
   lockFlash: '#ffffff',
 
@@ -312,6 +313,13 @@ export const lighting = {
 // Corner radii.
 export const radius = {
   sharp: '2px',
+} as const
+
+// Frost and glow shared by the lightweight HUD chrome (#79).
+export const effect = {
+  hudBlur: 'blur(12px)',
+  scrimBlur: 'blur(16px) saturate(80%)',
+  textGlow: `0 0 12px ${color.glow}`,
 } as const
 
 // HUD element sizing, relative to viewport so it scales with the TV.
