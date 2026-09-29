@@ -95,6 +95,12 @@ Flight code only reads `ControlInput`. It never imports from `pose/`. Pose code 
 
 Codex and other non-Claude agents: also read `AGENTS.md`, which lists where your sandbox differs from this protocol.
 
+Proposed workflows must use the GitHub issue numbers and titles from the
+roadmap or the prompt. Never introduce temporary identifiers such as R1 or H1.
+If a proposed unit of work does not have a GitHub issue yet, describe it as a
+draft ticket by title and make clear that it must be filed before an agent can
+work on it. Do not present draft tickets as executable ticket references.
+
 Start every session with a prompt from `docs/kickoff-prompt.md` — "run the next ticket" if you weren't given a specific issue number, or the specific-ticket prompt if you were.
 
 1. Read this file, then the issue you were given. Read other issues or PRs only if the ticket references them.
