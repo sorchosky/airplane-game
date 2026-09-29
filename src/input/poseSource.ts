@@ -6,6 +6,8 @@ import {
   DEFAULT_GESTURE_PARAMS,
   DEFAULT_GESTURE_STATE,
   SEATED_GESTURE_PARAMS,
+  createArmMeasurement,
+  createInterpretPoseResult,
   interpretPose,
   predictControl,
   type ControlAxes,
@@ -48,6 +50,8 @@ export function usePoseInterpreter(
     let gestureState: GestureState = DEFAULT_GESTURE_STATE
     let lastDetectedAtMs = -1
     const predicted: ControlAxes = { roll: 0, pitch: 0 }
+    const interpreted = createInterpretPoseResult()
+    const measurement = createArmMeasurement()
 
     const interpret = (landmarks: PoseLandmarks | null, tMs: number) => {
       const calibration = useCalibrationStore.getState().calibration ?? DEFAULT_CALIBRATION
@@ -60,9 +64,12 @@ export function usePoseInterpreter(
         gestureState,
         tMs,
         gestureParams,
+        interpreted,
+        measurement,
       )
       gestureState = state
-      useInputStore.getState().setInput(source === input.source ? input : { ...input, source })
+      input.source = source
+      useInputStore.getState().setInput(input)
     }
 
     const onDetection = (landmarks: PoseLandmarks | null, detectedAtMs: number) => {

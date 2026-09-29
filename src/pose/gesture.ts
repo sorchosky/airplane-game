@@ -4,7 +4,7 @@ import { DEFAULT_CALIBRATION, type Calibration } from './calibration'
 import {
   createOneEuroState,
   DEFAULT_ONE_EURO_PARAMS,
-  oneEuroFilter,
+  oneEuroFilterInto,
   type OneEuroParams,
   type OneEuroState,
 } from './oneEuro'
@@ -133,8 +133,29 @@ export interface InterpretPoseResult {
   state: GestureState
 }
 
+export function createGestureState(): GestureState {
+  return {
+    active: false,
+    conditionSincePassedMs: null,
+    conditionSinceFailedMs: null,
+    boost: false,
+    sweptSinceMs: null,
+    rollFilter: createOneEuroState(),
+    pitchFilter: createOneEuroState(),
+  }
+}
+
+export function createInterpretPoseResult(): InterpretPoseResult {
+  return {
+    input: { roll: 0, pitch: 0, active: false, boost: false, confidence: 0, source: 'pose' },
+    state: createGestureState(),
+  }
+}
+
 function distance(a: PoseLandmark, b: PoseLandmark): number {
-  return Math.hypot(a.x - b.x, a.y - b.y)
+  const dx = a.x - b.x
+  const dy = a.y - b.y
+  return Math.sqrt(dx * dx + dy * dy)
 }
 
 /** Angle at `vertex`, in degrees, between the rays toward `a` and `b`. 180 = perfectly straight. */
@@ -143,8 +164,8 @@ function angleAtVertexDeg(a: PoseLandmark, vertex: PoseLandmark, b: PoseLandmark
   const v1y = a.y - vertex.y
   const v2x = b.x - vertex.x
   const v2y = b.y - vertex.y
-  const mag1 = Math.hypot(v1x, v1y)
-  const mag2 = Math.hypot(v2x, v2y)
+  const mag1 = Math.sqrt(v1x * v1x + v1y * v1y)
+  const mag2 = Math.sqrt(v2x * v2x + v2y * v2y)
   if (mag1 === 0 || mag2 === 0) return 0
   const cos = clamp((v1x * v2x + v1y * v2y) / (mag1 * mag2), -1, 1)
   return (Math.acos(cos) * 180) / Math.PI
@@ -152,29 +173,6 @@ function angleAtVertexDeg(a: PoseLandmark, vertex: PoseLandmark, b: PoseLandmark
 
 function getLandmark(landmarks: PoseLandmarks, index: number): PoseLandmark | undefined {
   return landmarks[index]
-}
-
-interface ArmLandmarks {
-  leftShoulder: PoseLandmark
-  rightShoulder: PoseLandmark
-  leftElbow: PoseLandmark
-  rightElbow: PoseLandmark
-  leftWrist: PoseLandmark
-  rightWrist: PoseLandmark
-}
-
-function getArmLandmarks(landmarks: PoseLandmarks | null): ArmLandmarks | null {
-  if (!landmarks) return null
-  const leftShoulder = getLandmark(landmarks, LANDMARK.LEFT_SHOULDER)
-  const rightShoulder = getLandmark(landmarks, LANDMARK.RIGHT_SHOULDER)
-  const leftElbow = getLandmark(landmarks, LANDMARK.LEFT_ELBOW)
-  const rightElbow = getLandmark(landmarks, LANDMARK.RIGHT_ELBOW)
-  const leftWrist = getLandmark(landmarks, LANDMARK.LEFT_WRIST)
-  const rightWrist = getLandmark(landmarks, LANDMARK.RIGHT_WRIST)
-  if (!leftShoulder || !rightShoulder || !leftElbow || !rightElbow || !leftWrist || !rightWrist) {
-    return null
-  }
-  return { leftShoulder, rightShoulder, leftElbow, rightElbow, leftWrist, rightWrist }
 }
 
 /** Linear deadzone + scale to -1..1. Sign-preserving. */
@@ -252,16 +250,18 @@ function updateGate(
   state: GestureState,
   tMs: number,
   params: GestureParams,
-): Pick<GestureState, 'active' | 'conditionSincePassedMs' | 'conditionSinceFailedMs'> {
+  out: GestureState,
+): void {
   if (conditionMet) {
     const sincePassedMs = state.conditionSincePassedMs ?? tMs
     const active = state.active || tMs - sincePassedMs >= params.engageMs
-    return { active, conditionSincePassedMs: sincePassedMs, conditionSinceFailedMs: null }
+    writeGate(out, active, sincePassedMs, null)
+    return
   }
 
   const sinceFailedMs = state.conditionSinceFailedMs ?? tMs
   const active = state.active && tMs - sinceFailedMs < params.disengageGraceMs
-  return { active, conditionSincePassedMs: null, conditionSinceFailedMs: sinceFailedMs }
+  writeGate(out, active, null, sinceFailedMs)
 }
 
 /** Raw per-frame arm measurements, before filtering, calibration or gating. */
@@ -284,6 +284,17 @@ export interface ArmMeasurement {
   meanVisibility: number
 }
 
+export function createArmMeasurement(): ArmMeasurement {
+  return {
+    outstretched: false,
+    sweepDepthRatio: 0,
+    rollDeg: 0,
+    pitchRatio: 0,
+    shoulderWidth: 0,
+    meanVisibility: 0,
+  }
+}
+
 /**
  * Measures the arms on a single frame. Null when an arm landmark is missing. Shared by the
  * gesture interpreter and the calibration flow (#17) so both agree on what "arms out" means.
@@ -292,11 +303,18 @@ export function measureArms(
   landmarks: PoseLandmarks | null,
   fallbackShoulderWidth: number = DEFAULT_CALIBRATION.shoulderWidth,
   params: GestureParams = DEFAULT_GESTURE_PARAMS,
+  out?: ArmMeasurement,
 ): ArmMeasurement | null {
-  const arms = getArmLandmarks(landmarks)
-  if (!arms) return null
-
-  const { leftShoulder, rightShoulder, leftElbow, rightElbow, leftWrist, rightWrist } = arms
+  if (!landmarks) return null
+  const leftShoulder = getLandmark(landmarks, LANDMARK.LEFT_SHOULDER)
+  const rightShoulder = getLandmark(landmarks, LANDMARK.RIGHT_SHOULDER)
+  const leftElbow = getLandmark(landmarks, LANDMARK.LEFT_ELBOW)
+  const rightElbow = getLandmark(landmarks, LANDMARK.RIGHT_ELBOW)
+  const leftWrist = getLandmark(landmarks, LANDMARK.LEFT_WRIST)
+  const rightWrist = getLandmark(landmarks, LANDMARK.RIGHT_WRIST)
+  if (!leftShoulder || !rightShoulder || !leftElbow || !rightElbow || !leftWrist || !rightWrist) {
+    return null
+  }
 
   const shoulderWidth = distance(leftShoulder, rightShoulder) || fallbackShoulderWidth
   const wristSpanRatio = distance(leftWrist, rightWrist) / shoulderWidth
@@ -304,15 +322,14 @@ export function measureArms(
   const leftElbowAngle = angleAtVertexDeg(leftShoulder, leftElbow, leftWrist)
   const rightElbowAngle = angleAtVertexDeg(rightShoulder, rightElbow, rightWrist)
 
-  const visibilities = [
-    leftShoulder.visibility,
-    rightShoulder.visibility,
-    leftElbow.visibility,
-    rightElbow.visibility,
-    leftWrist.visibility,
-    rightWrist.visibility,
-  ]
-  const meanVisibility = visibilities.reduce((sum, v) => sum + v, 0) / visibilities.length
+  const meanVisibility =
+    (leftShoulder.visibility +
+      rightShoulder.visibility +
+      leftElbow.visibility +
+      rightElbow.visibility +
+      leftWrist.visibility +
+      rightWrist.visibility) /
+    6
 
   const elbowsOut =
     Math.max(leftElbowAngle, rightElbowAngle) >= params.minElbowAngleDeg &&
@@ -330,7 +347,14 @@ export function measureArms(
   const sweepDepthRatio =
     Math.min(leftWrist.z - leftShoulder.z, rightWrist.z - rightShoulder.z) / shoulderWidth
 
-  return { outstretched, sweepDepthRatio, rollDeg, pitchRatio, shoulderWidth, meanVisibility }
+  const measurement = out ?? createArmMeasurement()
+  measurement.outstretched = outstretched
+  measurement.sweepDepthRatio = sweepDepthRatio
+  measurement.rollDeg = rollDeg
+  measurement.pitchRatio = pitchRatio
+  measurement.shoulderWidth = shoulderWidth
+  measurement.meanVisibility = meanVisibility
+  return measurement
 }
 
 /**
@@ -353,31 +377,29 @@ export function interpretPose(
   state: GestureState = DEFAULT_GESTURE_STATE,
   tMs: number,
   params: GestureParams = DEFAULT_GESTURE_PARAMS,
+  out: InterpretPoseResult = createInterpretPoseResult(),
+  measurement: ArmMeasurement = createArmMeasurement(),
 ): InterpretPoseResult {
-  const arms = measureArms(landmarks, calibration.shoulderWidth, params)
+  const arms = measureArms(landmarks, calibration.shoulderWidth, params, measurement)
+  const next = out.state
+  const input = out.input
 
   if (!arms) {
-    const gate = updateGate(false, state, tMs, params)
-    return {
-      input: {
-        roll: 0,
-        pitch: 0,
-        active: gate.active,
-        boost: false,
-        confidence: 0,
-        source: 'pose',
-      },
-      state: { ...state, ...gate, boost: false, sweptSinceMs: null },
-    }
+    copyGestureState(state, next)
+    updateGate(false, state, tMs, params, next)
+    next.boost = false
+    next.sweptSinceMs = null
+    writeInput(input, 0, 0, next.active, false, 0)
+    return out
   }
 
   // The sweep only counts once flying (the gate already on), and it keeps the gate on: arms swept
   // back fail the outstretched check (the span collapses), but the player hasn't left.
   const swept = state.active && isSwept(arms, state.boost, params)
-  const gate = updateGate(arms.outstretched || swept, state, tMs, params)
+  updateGate(arms.outstretched || swept, state, tMs, params, next)
   const sweptSinceMs = swept ? (state.sweptSinceMs ?? tMs) : null
   const boost =
-    gate.active &&
+    next.active &&
     sweptSinceMs !== null &&
     (state.boost || tMs - sweptSinceMs >= params.boostEngageMs)
   const confidence = clamp(arms.meanVisibility, 0, 1)
@@ -386,35 +408,82 @@ export function interpretPose(
     // Wrists behind and below the shoulders would read as a dive: tucked wings fly straight. The
     // filters restart when the arms come back out, so neither they nor the prediction carry the
     // pre-sweep attitude through the boost.
-    return {
-      input: { roll: 0, pitch: 0, active: gate.active, boost, confidence, source: 'pose' },
-      state: {
-        ...gate,
-        boost,
-        sweptSinceMs,
-        rollFilter: DEFAULT_GESTURE_STATE.rollFilter,
-        pitchFilter: DEFAULT_GESTURE_STATE.pitchFilter,
-      },
-    }
+    next.boost = boost
+    next.sweptSinceMs = sweptSinceMs
+    resetFilter(next.rollFilter)
+    resetFilter(next.pitchFilter)
+    writeInput(input, 0, 0, next.active, boost, confidence)
+    return out
   }
 
-  const { value: rollDeg, state: rollFilter } = oneEuroFilter(
+  const rollDeg = oneEuroFilterInto(
     arms.rollDeg,
     tMs,
     state.rollFilter,
     params.oneEuro,
+    next.rollFilter,
   )
-  const { value: pitchRatio, state: pitchFilter } = oneEuroFilter(
+  const pitchRatio = oneEuroFilterInto(
     arms.pitchRatio,
     tMs,
     state.pitchFilter,
     params.oneEuro,
+    next.pitchFilter,
   )
 
   const { roll, pitch } = mapControl(rollDeg, pitchRatio, calibration, params, scratchAxes)
 
-  return {
-    input: { roll, pitch, active: gate.active, boost, confidence, source: 'pose' },
-    state: { ...gate, boost, sweptSinceMs, rollFilter, pitchFilter },
-  }
+  next.boost = boost
+  next.sweptSinceMs = sweptSinceMs
+  writeInput(input, roll, pitch, next.active, boost, confidence)
+  return out
+}
+
+function copyFilter(from: OneEuroState, to: OneEuroState): void {
+  to.initialized = from.initialized
+  to.xPrev = from.xPrev
+  to.dxPrev = from.dxPrev
+  to.tPrevMs = from.tPrevMs
+}
+
+function resetFilter(filter: OneEuroState): void {
+  filter.initialized = false
+  filter.xPrev = 0
+  filter.dxPrev = 0
+  filter.tPrevMs = 0
+}
+
+function copyGestureState(from: GestureState, to: GestureState): void {
+  writeGate(to, from.active, from.conditionSincePassedMs, from.conditionSinceFailedMs)
+  to.boost = from.boost
+  to.sweptSinceMs = from.sweptSinceMs
+  copyFilter(from.rollFilter, to.rollFilter)
+  copyFilter(from.pitchFilter, to.pitchFilter)
+}
+
+function writeGate(
+  state: GestureState,
+  active: boolean,
+  passed: number | null,
+  failed: number | null,
+): void {
+  state.active = active
+  state.conditionSincePassedMs = passed
+  state.conditionSinceFailedMs = failed
+}
+
+function writeInput(
+  input: ControlInput,
+  roll: number,
+  pitch: number,
+  active: boolean,
+  boost: boolean,
+  confidence: number,
+): void {
+  input.roll = roll
+  input.pitch = pitch
+  input.active = active
+  input.boost = boost
+  input.confidence = confidence
+  input.source = 'pose'
 }
