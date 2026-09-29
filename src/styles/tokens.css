@@ -45,6 +45,7 @@
   /* UI */
   --color-surface-hud: rgba(12, 18, 26, 0.8);
   --color-surface-scrim: rgba(12, 18, 26, 0.6);
+  --color-surface-solid: rgb(12, 18, 26);
   --color-text-primary: #f7f4ec;
   --color-text-muted: #cfd6dc;
   --color-accent: #58c3c9;
@@ -113,4 +114,17 @@ body {
   color: var(--color-text-primary);
   font-family: var(--font-body);
   overscroll-behavior: none;
+}
+
+/* Accessibility high-contrast mode: inline HUD styles use these semantic token values, so the
+   attribute selector can make every plate opaque without coupling components to the setting. */
+.high-contrast [style*='rgba(12, 18, 26, 0.8)'] {
+  background: var(--color-surface-solid) !important;
+}
+
+.high-contrast [data-testid='input-readout'] path,
+.high-contrast [data-testid='input-readout'] g,
+.high-contrast [data-testid='hud-prompt'] svg,
+.high-contrast [data-testid='camera-preview'] svg {
+  stroke-width: 4px;
 }

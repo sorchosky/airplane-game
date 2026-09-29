@@ -33,6 +33,7 @@ import { WingsPrompts } from './screens/WingsPrompts'
 import { isMaterialsSceneMode, isReplayInputMode, isSwatchesMode } from './urlFlags'
 import { useGameClock } from './useGameClock'
 import { setupWakeLockReacquire } from './wakeLock'
+import { useAccessibilityStore } from './accessibilityStore'
 
 /** Control-state machine, audio and in-game clock plus the HUD, mounted for the life of one flight (flying ⇄ paused). */
 function FlightControl({ hud }: { hud: boolean }) {
@@ -47,6 +48,7 @@ export function App() {
   const mode = useControlModeStore((s) => s.controlMode)
   const permissionDenied = useGameStore((s) => s.permissionDenied)
   const titleHandoff = useTitleHandoffStore((s) => s.still !== null)
+  const highContrast = useAccessibilityStore((s) => s.highContrast)
 
   useEffect(() => setupWakeLockReacquire(), [])
   useEffect(() => setupCameraLifecycle(), [])
@@ -89,6 +91,7 @@ export function App() {
 
   return (
     <div
+      className={highContrast ? 'high-contrast' : undefined}
       style={{
         position: 'relative',
         width: '100vw',

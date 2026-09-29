@@ -58,6 +58,7 @@ export const color = {
   // Multi-line copy keeps the denser alpha required for AA; one-line HUD elements use glow alone.
   surfaceHud: 'rgba(12, 18, 26, 0.8)',
   surfaceScrim: 'rgba(12, 18, 26, 0.6)',
+  surfaceSolid: 'rgb(12, 18, 26)',
   textPrimary: '#f7f4ec',
   textMuted: '#cfd6dc',
   accent: '#58c3c9',

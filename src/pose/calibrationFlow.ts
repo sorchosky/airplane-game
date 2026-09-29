@@ -11,6 +11,8 @@ import { LANDMARK, type PoseLandmark, type PoseLandmarks } from './types'
 export interface CalibrationParams {
   /** Visibility (0..1) required on each shoulder and hip for the distance check. */
   minBodyVisibility: number
+  /** Seated mode accepts a shoulders-only frame when hips cannot be seen. */
+  requireHips: boolean
   /**
    * Shoulder distance as a fraction of frame width. Below the minimum the player is too far for
    * reliable landmarks; above the maximum their outstretched arms won't fit in frame.
@@ -34,11 +36,12 @@ export interface CalibrationParams {
 
 export const DEFAULT_CALIBRATION_PARAMS: CalibrationParams = {
   minBodyVisibility: 0.5,
+  requireHips: true,
   minShoulderWidth: 0.07,
   maxShoulderWidth: 0.2,
   holdMs: 2000,
   skipHoldMs: 1000,
-  skipRollToleranceDeg: 6,
+  skipRollToleranceDeg: 15,
   skipPitchTolerance: 0.15,
   maxRollStdDeg: 5,
   maxPitchStd: 0.12,
@@ -128,7 +131,8 @@ export function checkBody(
     leftShoulder.y - rightShoulder.y,
   )
 
-  if (!hipsVisible || shoulderWidth > params.maxShoulderWidth) return 'tooClose'
+  if ((params.requireHips && !hipsVisible) || shoulderWidth > params.maxShoulderWidth)
+    return 'tooClose'
   if (shoulderWidth < params.minShoulderWidth) return 'tooFar'
   return 'ok'
 }

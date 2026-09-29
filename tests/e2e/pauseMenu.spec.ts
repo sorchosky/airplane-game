@@ -10,9 +10,31 @@ test('keyboard: pause menu navigates with arrows and Enter quits to title', asyn
   await page.screenshot({ path: 'test-results/28-pause-menu.png' })
 
   await page.keyboard.press('ArrowRight')
+  await expect(menu).toHaveAttribute('data-highlight', 'contrast')
+  await page.keyboard.press('ArrowRight')
+  await expect(menu).toHaveAttribute('data-highlight', 'captions')
+  await page.keyboard.press('ArrowRight')
   await expect(menu).toHaveAttribute('data-highlight', 'quit')
   await page.keyboard.press('Enter')
   await expect(page.getByRole('button', { name: 'Start' })).toBeVisible()
+})
+
+test('accessibility settings toggle and persist from the pause menu', async ({ page }) => {
+  await page.goto('/?input=keyboard')
+  await page.getByRole('button', { name: 'Start' }).click()
+  await page.keyboard.press('Escape')
+
+  await page.getByRole('button', { name: 'High contrast: off' }).click()
+  await expect(page.getByRole('button', { name: 'High contrast: on' })).toBeVisible()
+  await page.getByRole('button', { name: 'Captions: off' }).click()
+  await expect(page.getByRole('button', { name: 'Captions: on' })).toBeVisible()
+  await page.screenshot({ path: 'docs/screenshots/82-accessibility-menu.png' })
+
+  await page.reload()
+  await page.getByRole('button', { name: 'Start' }).click()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: 'High contrast: on' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Captions: on' })).toBeVisible()
 })
 
 test('pause menu Resume (click) runs the countdown back to flight', async ({ page }) => {

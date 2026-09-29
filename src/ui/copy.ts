@@ -69,6 +69,24 @@ export const copy = {
     gestureHint: 'Tilt to choose. Hold your arms level to pick.',
     stepIntoView: 'Step into view and spread your arms to choose',
     keyboardHint: '← → to choose, Enter to pick, Esc to resume',
+    seatedOn: 'Seated mode: on',
+    seatedOff: 'Seated mode: off',
+    contrastOn: 'High contrast: on',
+    contrastOff: 'High contrast: off',
+    captionsOn: 'Captions: on',
+    captionsOff: 'Captions: off',
+  },
+
+  captions: {
+    engaged: 'Controls engaged',
+    disengaged: 'Autopilot engaged',
+    countdown: 'Countdown chime',
+    lockIn: 'Calibration locked',
+    titleSwell: 'Music swells',
+    cloudWhoosh: 'Wind rushes through cloud',
+    landmarkWhoosh: 'Landmark rushes past',
+    lowPass: 'Wind rushes close below',
+    ring: 'Wind ring chimes',
   },
 
   orientation: {

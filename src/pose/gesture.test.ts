@@ -14,6 +14,7 @@ import { DEFAULT_CALIBRATION, type Calibration } from './calibration'
 import {
   DEFAULT_GESTURE_PARAMS,
   DEFAULT_GESTURE_STATE,
+  SEATED_GESTURE_PARAMS,
   interpretPose,
   predictControl,
   type GestureState,
@@ -21,6 +22,15 @@ import {
 import { LANDMARK, type PoseLandmark, type PoseLandmarks } from './types'
 
 const FRAME_MS = 33 // ~30fps, comfortably finer than the 300/500ms hysteresis windows
+
+describe('seated gesture profile', () => {
+  it('widens both control deadzones by 1.5x', () => {
+    expect(SEATED_GESTURE_PARAMS.rollDeadzoneDeg).toBe(DEFAULT_GESTURE_PARAMS.rollDeadzoneDeg * 1.5)
+    expect(SEATED_GESTURE_PARAMS.pitchDeadzoneRatio).toBe(
+      DEFAULT_GESTURE_PARAMS.pitchDeadzoneRatio * 1.5,
+    )
+  })
+})
 
 /** Feeds the same landmarks in repeatedly from t=0 until just past the engage window. */
 function runUntilSettled(
