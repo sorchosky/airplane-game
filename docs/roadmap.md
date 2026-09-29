@@ -78,9 +78,3 @@ and lighting, terrain and foliage, flight feel, onboarding, clouds, VFX,
 landmarks, audio, UI reskin and an authored golden path. Slices, sizes and
 dependencies are in the backlog; each is filed as an issue (#59–#83, plus later additions up to #111) under the epic. Art
 slices wait for the owner's sign-off on `docs/art-bible.md`.
-
-## Proposed M6 Release candidate
-
-A release-candidate pass that runs three non-intersecting agent tickets beside
-four owner-led QA and review tickets. Slices, sizes, dependencies and the phase
-exit criteria are in [`docs/next-phase.md`](next-phase.md).
