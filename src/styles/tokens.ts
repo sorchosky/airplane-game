@@ -31,7 +31,9 @@ export const color = {
   // Cel-shading linework: a cool near-black, so outlines read as ink rather than brown.
   outline: '#1f2a33',
   planeOutlineDay: '#1e2b33',
-  planeOutlineNight: '#cbe5ff',
+  // A restrained neutral lift for the darkest hours, not a luminous blue halo. The plane-specific
+  // token keeps its animated material isolated from cached foliage and landmark outlines.
+  planeOutlineNight: '#51565a',
 
   // Plane livery: warm white body, safety-orange stripe, warm grey metal. The wheel pants take a
   // step darker trim and the struts a darker metal so the undercarriage separates from the wing

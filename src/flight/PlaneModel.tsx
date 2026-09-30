@@ -11,6 +11,7 @@ import { atmosphereUniforms } from '../world/atmosphereUniforms'
 import { useFlightStore } from './flightStore'
 import { buildPlaneGeometry, type Shade } from './planeGeometry'
 import { NavigationLights } from './NavigationLights'
+import { planeOutlineNightMix } from './planeOutline'
 import {
   NEUTRAL_DEFLECTIONS,
   createArticulation,
@@ -103,7 +104,7 @@ export function PlaneModel({ paused = false }: PlaneModelProps) {
   useFrame((_frameState, delta) => {
     ;(outlineMaterial.uniforms.color!.value as Color)
       .copy(dayOutline)
-      .lerp(nightOutline, atmosphereUniforms.atmoNight.value[0] ?? 0)
+      .lerp(nightOutline, planeOutlineNightMix(atmosphereUniforms.atmoNight.value[0] ?? 0))
     if (paused) return
     const input = useInputStore.getState().current
     const { state, params } = useFlightStore.getState()
