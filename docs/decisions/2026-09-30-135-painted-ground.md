@@ -1,0 +1,1 @@
+- 2026-09-30 · art · Continuous procedural terrain supersedes #75 and art-bible §7 grass-card sway/downwash only; remove the separate card layer and retain the shared terrain bands, painterly surface variation, and foliage because the stamped clumps broke the ground's scale and continuity.

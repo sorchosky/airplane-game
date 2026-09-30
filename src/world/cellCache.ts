@@ -1,7 +1,7 @@
 import type { CellRef } from './scatter'
 
 /**
- * Builds and caches per-cell data (a foliage chunk's trees, a grass tile's cards) a few at a time,
+ * Builds and caches per-cell data, such as a foliage chunk's instances, a few at a time,
  * so a chunk crossing never costs one long frame. Pure TS; the clock is injectable for tests.
  *
  * `want` names the cells needed now, nearest first. `work` builds missing ones until its time

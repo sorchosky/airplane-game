@@ -13,10 +13,10 @@ export function ShotReady() {
     let frame = 0
     const tick = () => {
       const el = ref.current
-      const { terrainReady, foliageReady, grassReady, drawCalls, triangles, terrainTiles } =
+      const { terrainReady, foliageReady, drawCalls, triangles, terrainTiles } =
         usePerfStore.getState()
       if (el) {
-        el.dataset.ready = terrainReady && foliageReady && grassReady ? 'true' : 'false'
+        el.dataset.ready = terrainReady && foliageReady ? 'true' : 'false'
         el.dataset.draws = String(drawCalls)
         el.dataset.tris = String(triangles)
         el.dataset.tiles = String(terrainTiles)

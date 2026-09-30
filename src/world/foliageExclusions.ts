@@ -3,7 +3,7 @@ import type { FoliageExclusion } from './scatter'
 
 // Where foliage must not grow. Landmark footprints (#76) are always excluded; anything else placed
 // on the ground later (a runway, a camp) registers a circle here, before or after the scene mounts,
-// and `Foliage` and `Grass` notice the version change and re-scatter.
+// and `Foliage` notices the version change and re-scatters.
 //
 // ```ts
 // const remove = addFoliageExclusion({ x: 1200, z: 800, radius: 60 })

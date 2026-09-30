@@ -72,8 +72,8 @@ export interface TerrainBands {
 }
 
 /**
- * Grass, trees, bushes and boulders (#75). Placement is `scatter.ts` (pure), drawing is
- * `Foliage.tsx` and `Grass.tsx`. Densities are chances per jittered grid cell, 0..1.
+ * Trees, bushes and boulders (#75). Placement is `scatter.ts` (pure), drawing is `Foliage.tsx`.
+ * Densities are chances per jittered grid cell, 0..1.
  */
 export interface FoliageConfig {
   /** m, nothing past this. Trees thin out from `foliageFadeStart` to here. */
@@ -107,25 +107,8 @@ export interface FoliageConfig {
   /** m, height where conifers start to replace round trees, and where they have fully */
   coniferLow: number
   coniferHigh: number
-  /** m, no trees or grass within this height above `waterLevel` (keeps them off wet shores) */
+  /** m, no foliage within this height above `waterLevel` (keeps it off wet shores) */
   shoreMargin: number
-  /** m, grass cards only within this distance of the plane, thinning from `grassFadeStart` */
-  grassDistance: number
-  grassFadeStart: number
-  /** m, above-ground height where grass starts to thin, and where it is gone */
-  grassAltitudeFade: number
-  grassAltitudeMax: number
-  /** m, edge of a grass tile: the unit grass is scattered, cached and streamed in */
-  grassTile: number
-  /** m, edge of a grass scatter cell (one card per cell at full density) */
-  grassCell: number
-  /** Hz, grass sway frequency at cruise speed */
-  grassSwayHz: number
-  /** m, sway of a card's tip at cruise speed */
-  grassSway: number
-  /** m above ground where the plane's downwash starts to flatten grass, and radius it reaches */
-  downwashHeight: number
-  downwashRadius: number
 }
 
 export interface TerrainConfig {
@@ -273,15 +256,5 @@ export const TERRAIN_CONFIG: TerrainConfig = {
     coniferLow: 150,
     coniferHigh: 230,
     shoreMargin: 1.5,
-    grassDistance: 250,
-    grassFadeStart: 30,
-    grassAltitudeFade: 70,
-    grassAltitudeMax: 120,
-    grassTile: 32,
-    grassCell: 3.2,
-    grassSwayHz: 0.6,
-    grassSway: 0.18,
-    downwashHeight: 30,
-    downwashRadius: 18,
   },
 }
