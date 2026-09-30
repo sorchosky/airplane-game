@@ -198,10 +198,13 @@ describe('design tokens', () => {
       color.waterDeep,
     ]) {
       expect(contrastRatio(color.planeBody, background), background).toBeGreaterThanOrEqual(3)
-      expect(contrastRatio(color.planeOutlineNight, background), background).toBeGreaterThanOrEqual(
-        3,
-      )
     }
+    // The cream body carries the ≥3:1 night contract. The outline gets only the minimum neutral
+    // lift needed to keep joints legible, rather than becoming a broad pale halo.
+    const channels = [1, 3, 5].map((i) =>
+      Number.parseInt(color.planeOutlineNight.slice(i, i + 2), 16),
+    )
+    expect(Math.max(...channels) - Math.min(...channels)).toBeLessThanOrEqual(10)
     expect(contrastRatio(color.navWhite, night.skyZenith)).toBeGreaterThanOrEqual(3)
     expect(contrastRatio(color.navGreen, night.skyHorizon)).toBeGreaterThanOrEqual(3)
   })
