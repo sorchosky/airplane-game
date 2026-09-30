@@ -30,6 +30,8 @@ export const color = {
 
   // Cel-shading linework: a cool near-black, so outlines read as ink rather than brown.
   outline: '#1f2a33',
+  // Landscape linework is quieter than the aircraft silhouette and leans toward foliage shadow.
+  foliageOutline: '#29383a',
   planeOutlineDay: '#1e2b33',
   // A restrained neutral lift for the darkest hours, not a luminous blue halo. The plane-specific
   // token keeps its animated material isolated from cached foliage and landmark outlines.
