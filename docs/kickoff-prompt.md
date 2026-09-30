@@ -37,17 +37,19 @@ If a decision only I can make blocks you, comment on the issue with options and 
 
 ## Codex task
 
-Codex can't read GitHub from its sandbox, so paste the issue into the prompt. Start the task from `main` so its snapshot is as fresh as possible.
+Codex can't read GitHub during the task, so its setup script caches every open issue into `.issues/<N>.md` while the network is still open. Just give the number. Start the task from `main` so its snapshot is as fresh as possible.
 
 ```
 Implement GitHub issue #<N> in sorchosky/airplane-game.
 Read AGENTS.md, then CLAUDE.md, and follow both.
-
-Issue body:
-<paste the issue title, body and acceptance criteria here>
 ```
 
-One-time setup in Codex environment settings: set the setup script to `bash scripts/codex-setup.sh`.
+One-time setup in Codex environment settings:
+
+- Setup script: `bash scripts/codex-setup.sh`
+- Maintenance script: `node scripts/fetch-issues.mjs`. Codex reuses cached containers for hours, and this refreshes the issue cache so newly filed issues show up.
+
+If Codex still says it can't find the issue (e.g. filed seconds ago), paste the body under an `Issue body:` line in the prompt. A pasted body always wins over the cache.
 
 If a Codex PR later shows "conflicts must be resolved", don't ask Codex to fix it. Its `main` is stale. Use GitHub's "Update branch" button, or run this in a Claude Code session:
 
