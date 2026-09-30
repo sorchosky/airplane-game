@@ -39,11 +39,10 @@ const dummy = new Object3D()
 const forward = new Vector3(0, 0, 1)
 const direction = new Vector3()
 
-/** Wind rings, the crossing flock and a denser cloud bank composing the optional first flight. */
+/** Wind rings and a denser cloud bank composing the optional first flight. */
 export function GoldenPath({ paused }: { paused: boolean }) {
   const ringsRef = useRef<InstancedMesh>(null)
   const puffsRef = useRef<InstancedMesh>(null)
-  const birdsRef = useRef<InstancedMesh>(null)
   const start = useMemo(() => useFlightStore.getState().state.position.clone(), [])
   const arch = useMemo(() => getLandmarks().find((landmark) => landmark.kind === 'arch'), [])
   const route = useMemo(() => (arch ? createGoldenPathRoute(start, arch) : null), [arch, start])
@@ -55,11 +54,6 @@ export function GoldenPath({ paused }: { paused: boolean }) {
 
   const ringGeometry = useMemo(() => new TorusGeometry(GOLDEN_PATH.ringRadius, 0.7, 8, 48), [])
   const puffGeometry = useMemo(() => new IcosahedronGeometry(1, 0), [])
-  const birdGeometry = useMemo(() => {
-    const geometry = new IcosahedronGeometry(1, 0)
-    geometry.scale(1.8, 0.12, 0.45)
-    return geometry
-  }, [])
   const ringMaterial = useMemo(
     () =>
       new MeshBasicMaterial({
@@ -79,7 +73,6 @@ export function GoldenPath({ paused }: { paused: boolean }) {
       }),
     [],
   )
-  const birdMaterial = useMemo(() => new MeshBasicMaterial({ color: color.bird }), [])
   const cloudMaterial = useMemo(
     () =>
       new MeshBasicMaterial({
@@ -108,22 +101,12 @@ export function GoldenPath({ paused }: { paused: boolean }) {
     () => () => {
       ringGeometry.dispose()
       puffGeometry.dispose()
-      birdGeometry.dispose()
       ringMaterial.dispose()
       puffMaterial.dispose()
-      birdMaterial.dispose()
       cloudMaterial.dispose()
       useGoldenPathUi.getState().setReveal(0)
     },
-    [
-      birdGeometry,
-      birdMaterial,
-      cloudMaterial,
-      puffGeometry,
-      puffMaterial,
-      ringGeometry,
-      ringMaterial,
-    ],
+    [cloudMaterial, puffGeometry, puffMaterial, ringGeometry, ringMaterial],
   )
 
   useFrame(({ clock, camera }) => {
@@ -200,27 +183,6 @@ export function GoldenPath({ paused }: { paused: boolean }) {
       puffs.instanceMatrix.needsUpdate = true
     }
 
-    const birds = birdsRef.current
-    if (birds) {
-      const target = route.arch.trigger.center
-      direction.set(target[0] - route.cloud.x, 0, target[2] - route.cloud.z).normalize()
-      const across = new Vector3(-direction.z, 0, direction.x)
-      for (let i = 0; i < 9; i += 1) {
-        const rank = Math.ceil(i / 2)
-        const side = i % 2 === 0 ? -1 : 1
-        const travel = (now * 18) % 240
-        dummy.position
-          .set(route.cloud.x, route.cloud.y + 55, route.cloud.z)
-          .addScaledVector(direction, travel - 120 - rank * 9)
-          .addScaledVector(across, side * rank * 9)
-        dummy.scale.set(1, 0.7 + Math.sin(now * 5 + i) * 0.25, 1)
-        dummy.lookAt(target[0], dummy.position.y, target[2])
-        dummy.updateMatrix()
-        birds.setMatrixAt(i, dummy.matrix)
-      }
-      birds.instanceMatrix.needsUpdate = true
-    }
-
     previous.current = { x: current.x, y: current.y, z: current.z }
   })
 
@@ -247,7 +209,6 @@ export function GoldenPath({ paused }: { paused: boolean }) {
     <>
       <instancedMesh ref={ringsRef} args={[ringGeometry, ringMaterial, 3]} />
       <instancedMesh ref={puffsRef} args={[puffGeometry, puffMaterial, 24]} frustumCulled={false} />
-      <instancedMesh ref={birdsRef} args={[birdGeometry, birdMaterial, 9]} frustumCulled={false} />
       {clouds}
     </>
   )
