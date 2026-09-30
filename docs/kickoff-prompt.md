@@ -47,7 +47,7 @@ Read AGENTS.md, then CLAUDE.md, and follow both.
 One-time setup in Codex environment settings:
 
 - Setup script: `bash scripts/codex-setup.sh`
-- Maintenance script: `node scripts/fetch-issues.mjs`. Codex reuses cached containers for hours, and this refreshes the issue cache so newly filed issues show up.
+- Maintenance script: `[ -f scripts/fetch-issues.mjs ] && node scripts/fetch-issues.mjs || true`. The guard keeps a branch without the script from failing to resume. Codex reuses cached containers for hours, and this refreshes the issue cache so newly filed issues show up.
 
 If Codex still says it can't find the issue (e.g. filed seconds ago), paste the body under an `Issue body:` line in the prompt. A pasted body always wins over the cache.
 
