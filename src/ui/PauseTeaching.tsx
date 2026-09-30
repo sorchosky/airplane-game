@@ -5,6 +5,7 @@ import { FRAME_PRIORITY, frameLoop } from '../app/frameLoop'
 import { useGameStore } from '../app/gameStore'
 import { color, effect, motion, space, type } from '../styles/tokens'
 import { copy } from './copy'
+import { HairlineRule } from './HairlineRule'
 import { createPauseTeachingState, stepPauseTeaching } from './pauseTeachingState'
 
 const CIRCUMFERENCE = 2 * Math.PI * 20
@@ -96,6 +97,7 @@ export function PauseTeaching({
           transform="rotate(-90 24 24)"
         />
       </svg>
+      <HairlineRule />
       {copy.pause.armsDown}
     </div>
   )

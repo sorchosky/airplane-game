@@ -37,6 +37,9 @@ export function PausedOverlay() {
             fontFamily: type.fontDisplay,
             fontWeight: type.weightDisplay,
             fontSize: type.tvDisplay,
+            letterSpacing: type.trackingHero,
+            textTransform: 'uppercase',
+            textShadow: effect.textGlow,
             margin: 0,
           }}
         >

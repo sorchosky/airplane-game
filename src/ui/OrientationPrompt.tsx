@@ -2,7 +2,7 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { useControlStore } from '../app/controlStore'
 import { useGameStore } from '../app/gameStore'
 import { PORTRAIT_QUERY } from '../app/orientation'
-import { color, space, type } from '../styles/tokens'
+import { color, effect, radius, space, type } from '../styles/tokens'
 import { copy } from './copy'
 
 function subscribe(onChange: () => void): () => void {
@@ -72,23 +72,40 @@ export function OrientationPrompt() {
         padding: space.xl,
         textAlign: 'center',
         background: color.surfaceScrim,
+        backdropFilter: effect.scrimBlur,
         color: color.textPrimary,
       }}
     >
-      <RotateIcon />
-      <h2
+      <div
         style={{
-          fontFamily: type.fontDisplay,
-          fontWeight: type.weightDisplay,
-          fontSize: type.tvTitle,
-          margin: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: space.lg,
+          maxWidth: '36ch',
+          padding: space.xl,
+          border: `1px solid ${color.line}`,
+          borderRadius: radius.sharp,
+          background: color.surfaceHud,
+          backdropFilter: effect.hudBlur,
+          textShadow: effect.textGlow,
         }}
       >
-        {copy.orientation.title}
-      </h2>
-      <p style={{ fontSize: type.tvBody, margin: 0, color: color.textMuted }}>
-        {copy.orientation.body}
-      </p>
+        <RotateIcon />
+        <h2
+          style={{
+            fontFamily: type.fontDisplay,
+            fontWeight: type.weightDisplay,
+            fontSize: type.tvTitle,
+            margin: 0,
+          }}
+        >
+          {copy.orientation.title}
+        </h2>
+        <p style={{ fontSize: type.tvBody, margin: 0, color: color.textMuted }}>
+          {copy.orientation.body}
+        </p>
+      </div>
     </div>
   )
 }

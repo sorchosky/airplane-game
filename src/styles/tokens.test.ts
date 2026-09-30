@@ -1,7 +1,15 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { titleTextBackdrops } from '../ui/titleSkyShader'
-import { color, lightingPresets, space, toonRamp, type, type LightingPreset } from './tokens'
+import {
+  color,
+  effect,
+  lightingPresets,
+  space,
+  toonRamp,
+  type,
+  type LightingPreset,
+} from './tokens'
 
 const HEX = /^#[0-9a-f]{6}$/i
 const RGBA = /^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*[\d.]+\s*\)$/i
@@ -22,9 +30,12 @@ const REQUIRED_COLOR_ROLES = [
   'controlActive',
   'controlInactive',
   'surfaceHud',
+  'surfaceScrim',
   'textPrimary',
   'textMuted',
   'accent',
+  'line',
+  'glow',
 ] as const
 
 function srgbToLinear(channel: number): number {
@@ -71,7 +82,7 @@ describe('design tokens', () => {
       const value = color[role]
       expect(value, `color.${role}`).toBeDefined()
       expect(value, `color.${role} should be a hex or rgba() string`).toMatch(
-        role === 'surfaceHud' ? RGBA : HEX,
+        ['surfaceHud', 'surfaceScrim', 'line', 'glow'].includes(role) ? RGBA : HEX,
       )
     }
   })
@@ -99,6 +110,16 @@ describe('design tokens', () => {
     const compositedHud = compositeOverSurfaceHud(worstCaseBackdrop)
     expect(contrastRatio(color.textPrimary, compositedHud)).toBeGreaterThanOrEqual(4.5)
     expect(contrastRatio(color.textMuted, compositedHud)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('keeps unpanelled primary text at WCAG AA over the brightest backdrop using the glow', () => {
+    const behindText = compositeOver(color.glow, color.snow)
+    expect(contrastRatio(color.textPrimary, behindText)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('keeps large inactive controls at WCAG AA over the worst-case cool scrim', () => {
+    const behindText = compositeOver(color.surfaceScrim, color.snow)
+    expect(contrastRatio(color.textMuted, behindText)).toBeGreaterThanOrEqual(3)
   })
 
   // #73: the wordmark (tv-hero) and Start (tv-body, 24 px minimum at 600) are both WCAG large
@@ -244,6 +265,8 @@ describe('design tokens', () => {
     expect(css.includes(`--weight-button: ${type.weightButton};`)).toBe(true)
     expect(css.includes(`--weight-hero: ${type.weightHero};`)).toBe(true)
     expect(css.includes(`--weight-start: ${type.weightStart};`)).toBe(true)
+    expect(css.includes(`--effect-hud-blur: ${effect.hudBlur};`)).toBe(true)
+    expect(css.includes(`--effect-scrim-blur: ${effect.scrimBlur};`)).toBe(true)
   })
 
   it('loads exactly the Google Fonts weights the tokens use (no unused/missing weights)', () => {

@@ -11,7 +11,7 @@ import { useCalibrationStore } from '../../pose/calibrationStore'
 import { getVideo, useCameraStore } from '../../pose/cameraService'
 import { startPoseService } from '../../pose/poseService'
 import { usePoseStore, type PoseModelStatus } from '../../pose/poseStore'
-import { color, radius, space, type } from '../../styles/tokens'
+import { color, effect, radius, space, type } from '../../styles/tokens'
 import { CameraAsk } from '../../ui/CameraAsk'
 import { CameraPreview } from '../../ui/CameraPreview'
 import { copy } from '../../ui/copy'
@@ -71,8 +71,11 @@ function ModelErrorState() {
         gap: space.lg,
         width: '18ch',
         padding: space.xl,
-        borderRadius: space.md,
+        border: `1px solid ${color.line}`,
+        borderRadius: radius.sharp,
         background: color.surfaceHud,
+        backdropFilter: effect.hudBlur,
+        textShadow: effect.textGlow,
         fontSize: type.tvTitle,
         textAlign: 'center',
       }}
@@ -233,8 +236,8 @@ function CalibrationView() {
                 alignItems: 'center',
                 gap: space.md,
                 padding: `${space.sm} ${space.lg}`,
-                borderRadius: space.md,
-                background: color.surfaceHud,
+                borderBottom: `1px solid ${color.line}`,
+                textShadow: effect.textGlow,
                 fontSize: type.tvTitle,
                 whiteSpace: 'nowrap',
               }}
@@ -257,8 +260,8 @@ function CalibrationView() {
                 style={{
                   margin: 0,
                   padding: `${space.xs} ${space.md}`,
-                  borderRadius: space.sm,
-                  background: color.surfaceHud,
+                  borderBottom: `1px solid ${color.line}`,
+                  textShadow: effect.textGlow,
                   fontSize: type.tvBody,
                   color: color.textMuted,
                 }}

@@ -58,7 +58,7 @@ export const color = {
   // deliberate system color against the warm palette rather than clashing).
   // Whether the player's gesture is currently steering the plane.
   controlActive: '#5cb8bd',
-  controlInactive: '#8a7c6c',
+  controlInactive: '#8e9aa6',
 
   // UI
   // Multi-line copy keeps the denser alpha required for AA; one-line HUD elements use glow alone.

@@ -43,7 +43,7 @@
 
   /* Gesture-control state */
   --color-control-active: #5cb8bd;
-  --color-control-inactive: #8a7c6c;
+  --color-control-inactive: #8e9aa6;
 
   /* UI */
   --color-surface-hud: rgba(12, 18, 26, 0.8);
@@ -101,6 +101,9 @@
   --size-hold-ring: clamp(40px, 4vw, 56px);
   --motion-prompt-fade: 400ms;
   --motion-prompt-fade-ease: ease;
+  --effect-hud-blur: blur(12px);
+  --effect-scrim-blur: blur(16px) saturate(80%);
+  --effect-text-glow: 0 0 12px var(--color-glow);
 }
 
 * {
@@ -140,4 +143,13 @@ body {
 
 .high-contrast [data-testid='pause-teaching'] circle {
   stroke-width: 5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-property: opacity !important;
+    scroll-behavior: auto !important;
+  }
 }
