@@ -98,6 +98,8 @@
   --size-calibrate-frame: 12px;
   --size-pose-demo-figure: clamp(72px, 8vw, 120px);
   --size-hold-ring: clamp(40px, 4vw, 56px);
+  --motion-prompt-fade: 400ms;
+  --motion-prompt-fade-ease: ease;
 }
 
 * {
@@ -129,4 +131,12 @@ body {
 .high-contrast [data-testid='hud-prompt'] svg,
 .high-contrast [data-testid='camera-preview'] svg {
   stroke-width: 4px;
+}
+
+.high-contrast [data-testid='pause-teaching'] {
+  background: var(--color-surface-solid) !important;
+}
+
+.high-contrast [data-testid='pause-teaching'] circle {
+  stroke-width: 5px;
 }

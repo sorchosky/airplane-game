@@ -323,6 +323,12 @@ export const effect = {
   hudBlur: 'blur(12px)',
   scrimBlur: 'blur(16px) saturate(80%)',
   textGlow: `0 0 12px ${color.glow}`,
+  ringGlow: `drop-shadow(0 0 6px ${color.glow})`,
+} as const
+
+export const motion = {
+  promptFadeMs: 400,
+  promptFadeEase: 'ease',
 } as const
 
 // HUD element sizing, relative to viewport so it scales with the TV.
