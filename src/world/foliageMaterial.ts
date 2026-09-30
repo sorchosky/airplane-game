@@ -8,12 +8,7 @@ import {
   type WebGLProgramParametersWithUniforms,
 } from 'three'
 import { color } from '../styles/tokens'
-import {
-  getToonGradientMap,
-  injectRimLight,
-  OUTLINE_FRAGMENT,
-  outlineViewportHeight,
-} from '../render/toon'
+import { getToonGradientMap, OUTLINE_FRAGMENT, outlineViewportHeight } from '../render/toon'
 import { atmosphereUniforms } from './atmosphereUniforms'
 import { GROW_SOFTNESS } from './scatter'
 import type { FoliageConfig } from './terrainConfig'
@@ -63,7 +58,7 @@ function fadeUniforms(fadeStart: number, fadeEnd: number) {
 }
 
 /**
- * Toon body for trees, bushes and boulders: vertex colours, the shared toon ramp and rim light,
+ * Toon body for trees, bushes and boulders: vertex colours and the shared toon ramp,
  * a small per-instance value shift, and the grow/shrink fade. Needs a `foliageKeep` instanced
  * attribute beside `instanceMatrix`.
  */
@@ -89,9 +84,8 @@ export function createFoliageBodyMaterial(fadeStart: number, fadeEnd: number): M
         '#include <begin_vertex>',
         '#include <begin_vertex>\n  transformed *= foliageGrowth(foliageOrigin, foliageKeep, 1.0);',
       )
-    injectRimLight(shader)
   }
-  material.customProgramCacheKey = () => 'foliage-body'
+  material.customProgramCacheKey = () => 'foliage-body-no-rim'
   return material
 }
 
@@ -109,7 +103,11 @@ const HULL_VERTEX = /* glsl */ `
     vec3 origin = instanceMatrix[3].xyz;
     float grow = foliageGrowth(origin, foliageKeep, 1.0);
     vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4( position * grow, 1.0 );
-    vec3 viewNormal = normalize( normalMatrix * mat3( instanceMatrix ) * normal );
+    // Transform the normal with the inverse transpose of the complete instance transform.
+    // Using mat3(instanceMatrix) directly only works for uniform scales and can detach the
+    // hull from a nonuniformly scaled body.
+    mat3 instanceNormalMatrix = transpose( inverse( mat3( instanceMatrix ) ) );
+    vec3 viewNormal = normalize( normalMatrix * instanceNormalMatrix * normal );
     float depth = max( -mvPosition.z, 1e-3 );
     float metersPerPixel = 2.0 * depth / ( projectionMatrix[1][1] * viewportHeight );
     // Thins to nothing before outlineDistance, where the hull buffer stops.
@@ -132,7 +130,7 @@ export function createFoliageHullMaterial(
   return new ShaderMaterial({
     uniforms: {
       ...fadeUniforms(fadeStart, fadeEnd),
-      color: { value: new Color(color.outline) },
+      color: { value: new Color(color.foliageOutline) },
       thickness: { value: FOLIAGE_OUTLINE.thickness },
       maxPixels: { value: FOLIAGE_OUTLINE.maxPixels },
       viewportHeight: outlineViewportHeight,
@@ -154,7 +152,7 @@ export function createFoliageHullMaterial(
  * Foliage outline weight. Thicker in the world than the plane's 0.06 m (which would vanish on a
  * tree 100 m away) but capped lower on screen, so near trees stay lighter-lined than the plane.
  */
-export const FOLIAGE_OUTLINE = { thickness: 0.35, maxPixels: 2 } as const
+export const FOLIAGE_OUTLINE = { thickness: 0.18, maxPixels: 1.25 } as const
 
 /** Grass-only uniforms, written every frame by `Grass`. */
 export const grassUniforms = {
