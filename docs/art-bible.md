@@ -281,12 +281,10 @@ never "damage".
 
 | Effect | Trigger | Look | Budget |
 |---|---|---|---|
-| Wind streaks | speed > 1.08 × cruise | 8–20 m white ribbons, 35% alpha, around the frame edge, 0.6 s life | 1 instanced draw, ≤ 24 ribbons |
 | Wingtip vortices | \|bank\| > 25° or speed > 52 m/s | Ribbon trail per wingtip, 1.5 s, 40% → 0 alpha | 2 draws |
 | Cloud burst | entering a cloud | Screen veil `cloud-top` 30% for 0.4 s, 6 puffs pushed aside | 1 instanced draw |
 | Spray / dust | < 8 m over water / ground | Ground-coloured puffs under the plane, 0.8 s | 1 instanced draw |
 | Grass wind | always, near field | Vertex sway, 0.6 Hz, amplitude scaled by speed and by the plane's downwash | 0 extra draws |
-| Birds | ambient | 3–5 V-formations, instanced cards, far and slow | 1 draw |
 | Floor pull-up | soft floor engaged | Spray or dust burst plus a low rumble, never a hit | shares spray |
 
 ## 8. UI language

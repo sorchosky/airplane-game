@@ -1,21 +1,19 @@
 import { clamp } from '../input/clamp'
 
 export const FLIGHT_VFX = {
-  streakCount: 24,
-  streakStartSpeedRatio: 1.08,
-  streakFullSpeedRatio: 1.35,
+  speedStartRatio: 1.08,
+  speedFullRatio: 1.35,
   lowPassHeight: 8,
   contactLife: 0.8,
   shakeStartSpeedRatio: 1.08,
   shakeMaxMetres: 0.075,
 } as const
 
-/** 0..1 intensity shared by speed lines and camera shake. */
+/** 0..1 intensity for retained speed feedback such as camera shake and FOV. */
 export function speedVfxIntensity(speed: number, cruiseSpeed: number): number {
   const ratio = speed / Math.max(cruiseSpeed, 1e-6)
   return clamp(
-    (ratio - FLIGHT_VFX.streakStartSpeedRatio) /
-      (FLIGHT_VFX.streakFullSpeedRatio - FLIGHT_VFX.streakStartSpeedRatio),
+    (ratio - FLIGHT_VFX.speedStartRatio) / (FLIGHT_VFX.speedFullRatio - FLIGHT_VFX.speedStartRatio),
     0,
     1,
   )

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyRingSpeedGain, createGoldenPathRoute, segmentHitsSphere } from './goldenPath'
-import type { Landmark } from './landmarks'
+import { insideTrigger, type Landmark } from './landmarks'
 
 const arch = {
   trigger: { shape: 'box', center: [2000, 100, -2000], halfExtents: [20, 30, 12], yaw: 0 },
@@ -12,6 +12,11 @@ describe('golden path', () => {
     expect(route.rings).toHaveLength(3)
     expect(route.rings[0]!.z).toBeLessThan(0)
     expect(route.rings[2]!.x).toBeGreaterThan(route.rings[0]!.x)
+  })
+
+  it('retains the arch trigger that completes the route', () => {
+    const route = createGoldenPathRoute({ x: 0, y: 120, z: 0 }, arch)
+    expect(insideTrigger(route.arch.trigger, route.arch.trigger.center)).toBe(true)
   })
 
   it('detects a pass even when the frame endpoints are outside the ring', () => {

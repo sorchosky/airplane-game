@@ -15,8 +15,10 @@ describe('flight VFX', () => {
   })
 
   it('fades low-pass contact out over the lowest eight metres', () => {
+    expect(lowPassIntensity(-2)).toBe(1)
     expect(lowPassIntensity(0)).toBe(1)
     expect(lowPassIntensity(4)).toBe(0.5)
     expect(lowPassIntensity(8)).toBe(0)
+    expect(lowPassIntensity(80)).toBe(0)
   })
 })
