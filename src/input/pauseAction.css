@@ -1,0 +1,27 @@
+.touch-pause-action {
+  position: fixed;
+  right: calc(var(--space-md) + env(safe-area-inset-right));
+  bottom: calc(var(--space-md) + env(safe-area-inset-bottom));
+  z-index: 1;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.touch-pause-action:focus-visible {
+  border-color: var(--color-accent) !important;
+  outline: 4px solid var(--color-text-primary);
+  outline-offset: var(--space-sm);
+}
+
+.touch-pause-action:active {
+  background: var(--color-control-active) !important;
+  transform: scale(0.98);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .touch-pause-action {
+    transition: none;
+  }
+}

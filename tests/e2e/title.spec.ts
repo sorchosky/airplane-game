@@ -69,7 +69,7 @@ test('coarse primary pointer offers touch and an on-screen pause button', async 
   })
   await expect.poll(async () => (await input())?.active).toBe(false)
   await expect(page.getByTestId('touch-joystick')).toHaveCount(0)
-  await page.getByRole('button', { name: 'Paused' }).click()
+  await page.getByRole('button', { name: 'Pause', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Paused' })).toBeVisible()
   await context.close()
 })

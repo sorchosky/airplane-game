@@ -111,7 +111,9 @@ export function App() {
       {(state === 'flying' || state === 'paused') && <FlightControl hud={!shot} />}
       <InputSource enableTouchControls={state === 'flying' && !shot} />
       {titleHandoff && <TitleHandoff />}
-      {showPoseDebug && <PoseDebug />}
+      {showPoseDebug && (
+        <PoseDebug reserveTouchPause={state === 'flying' && mode === 'touch' && !shot} />
+      )}
       <OrientationPrompt />
     </div>
   )
