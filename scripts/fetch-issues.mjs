@@ -1,30 +1,28 @@
 #!/usr/bin/env node
-// Caches GitHub issues as Markdown so agents without GitHub access (Codex)
-// can read a ticket from its number alone. The repo is public, so no token
-// is needed. Uses curl rather than fetch() so sandbox HTTPS proxies apply.
+// Mirrors open GitHub issues into docs/issues/<number>.md so agents without
+// GitHub access (Codex) can read a ticket from its number alone. Run by
+// .github/workflows/sync-issues.yml on every issue change. Uses curl rather
+// than fetch() so sandbox HTTPS proxies apply. Set GITHUB_TOKEN to avoid the
+// 60 requests/hour unauthenticated limit.
 //
-//   node scripts/fetch-issues.mjs        cache every open issue
-//   node scripts/fetch-issues.mjs 129    cache #129 and print it
-//
-// Output: .issues/<number>.md (gitignored).
+//   node scripts/fetch-issues.mjs        mirror every open issue, drop closed ones
+//   node scripts/fetch-issues.mjs 129    mirror #129 and print it
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const REPO = 'sorchosky/airplane-game'
-const OUT_DIR = '.issues'
+const OUT_DIR = join('docs', 'issues')
+const ISSUE_FILE = /^\d+\.md$/
 
 function getJson(path) {
+  const headers = ['-H', 'Accept: application/vnd.github+json']
+  if (process.env.GITHUB_TOKEN) {
+    headers.push('-H', `Authorization: Bearer ${process.env.GITHUB_TOKEN}`)
+  }
   const out = execFileSync(
     'curl',
-    [
-      '-fsSL',
-      '--retry',
-      '3',
-      '-H',
-      'Accept: application/vnd.github+json',
-      `https://api.github.com${path}`,
-    ],
+    ['-fsSL', '--retry', '3', ...headers, `https://api.github.com${path}`],
     { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 },
   )
   return JSON.parse(out)
@@ -43,9 +41,7 @@ function toMarkdown(issue) {
 }
 
 function save(issue) {
-  const file = join(OUT_DIR, `${issue.number}.md`)
-  writeFileSync(file, toMarkdown(issue))
-  return file
+  writeFileSync(join(OUT_DIR, `${issue.number}.md`), toMarkdown(issue))
 }
 
 mkdirSync(OUT_DIR, { recursive: true })
@@ -56,17 +52,18 @@ if (arg) {
   save(issue)
   process.stdout.write(toMarkdown(issue))
 } else {
-  let count = 0
+  // Fetch everything before touching disk, so a failed request leaves the
+  // existing mirror intact.
+  const issues = []
   for (let page = 1; ; page++) {
     const batch = getJson(`/repos/${REPO}/issues?state=open&per_page=100&page=${page}`)
     // The issues endpoint also returns pull requests; skip them.
-    for (const issue of batch) {
-      if (!issue.pull_request) {
-        save(issue)
-        count++
-      }
-    }
+    issues.push(...batch.filter((issue) => !issue.pull_request))
     if (batch.length < 100) break
   }
-  console.log(`Cached ${count} open issues in ${OUT_DIR}/`)
+  for (const file of readdirSync(OUT_DIR)) {
+    if (ISSUE_FILE.test(file)) rmSync(join(OUT_DIR, file))
+  }
+  issues.forEach(save)
+  console.log(`Mirrored ${issues.length} open issues in ${OUT_DIR}/`)
 }

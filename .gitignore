@@ -22,6 +22,3 @@ shots
 
 # MediaPipe WASM runtime, copied from node_modules on postinstall
 public/mediapipe/wasm
-
-# Issue cache for agents without GitHub access (scripts/fetch-issues.mjs)
-.issues

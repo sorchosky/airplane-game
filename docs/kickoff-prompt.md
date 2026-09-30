@@ -37,7 +37,7 @@ If a decision only I can make blocks you, comment on the issue with options and 
 
 ## Codex task
 
-Codex can't read GitHub during the task, so its setup script caches every open issue into `.issues/<N>.md` while the network is still open. Just give the number. Start the task from `main` so its snapshot is as fresh as possible.
+Codex can't read GitHub during the task, so a GitHub Action (`.github/workflows/sync-issues.yml`) mirrors every open issue into `docs/issues/<N>.md` on `main`. Just give the number. Start the task from `main` so its snapshot is as fresh as possible.
 
 ```
 Implement GitHub issue #<N> in sorchosky/airplane-game.
@@ -47,9 +47,9 @@ Read AGENTS.md, then CLAUDE.md, and follow both.
 One-time setup in Codex environment settings:
 
 - Setup script: `bash scripts/codex-setup.sh`
-- Maintenance script: `[ -f scripts/fetch-issues.mjs ] && node scripts/fetch-issues.mjs || true`. The guard keeps a branch without the script from failing to resume. Codex reuses cached containers for hours, and this refreshes the issue cache so newly filed issues show up.
+- Maintenance script: leave empty. Issues come from the repo, not the network.
 
-If Codex still says it can't find the issue (e.g. filed seconds ago), paste the body under an `Issue body:` line in the prompt. A pasted body always wins over the cache.
+The mirror updates about 30 seconds after an issue is opened or edited. If Codex says it can't find the issue, wait for the "Sync issues" Action to finish and start a new task. Or paste the body under an `Issue body:` line in the prompt. A pasted body always wins over the mirror.
 
 If a Codex PR later shows "conflicts must be resolved", don't ask Codex to fix it. Its `main` is stale. Use GitHub's "Update branch" button, or run this in a Claude Code session:
 

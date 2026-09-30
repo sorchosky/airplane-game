@@ -1,0 +1,47 @@
+name: Sync issues
+
+# Mirrors open issues into docs/issues/ on main so Codex, which has no GitHub
+# access inside a task, can read a ticket from its number.
+
+on:
+  issues:
+    types: [opened, edited, reopened, closed, deleted, transferred, labeled, unlabeled]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: read
+
+# Each run mirrors every open issue, so queued runs can collapse into one.
+concurrency:
+  group: sync-issues
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Mirror open issues
+        run: node scripts/fetch-issues.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit and push
+        run: |
+          git add docs/issues
+          if git diff --cached --quiet; then
+            echo "Mirror already up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Sync issue mirror [skip ci]"
+          # A PR may merge between checkout and push. Rebase and retry.
+          for attempt in 1 2 3; do
+            git push origin HEAD:main && exit 0
+            git pull --rebase origin main
+          done
+          exit 1
