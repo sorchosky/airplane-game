@@ -23,6 +23,9 @@ export function Hud() {
   const prompt = useControlStore((s) => s.view.prompt)
   const active = useInputStore((s) => s.current.active)
   const showPreview = useControlModeStore((s) => s.controlMode === 'camera')
+  const teachingEligible = useControlModeStore(
+    (s) => s.controlMode === 'camera' || s.inputOverride === 'pose' || s.inputOverride === 'replay',
+  )
   const showReticle = useControlModeStore(
     (s) => s.controlMode === 'mouse' && s.inputOverride === null,
   )
@@ -50,7 +53,7 @@ export function Hud() {
       )}
       <InputReadout />
       <Prompt prompt={teaching ? null : prompt} />
-      <PauseTeaching onChange={onTeachingChange} />
+      <PauseTeaching eligible={teachingEligible} onChange={onTeachingChange} />
       <WarmCaption />
       <AudioCaptions />
       <ClockReadout />
