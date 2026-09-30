@@ -5,7 +5,6 @@ import {
   linearRgb,
   luminance,
   rotateHue,
-  strataPhase,
   sunTintWeights,
   TERRAIN_PALETTE,
   terrainColorAt,
@@ -127,6 +126,7 @@ const NEUTRAL: TerrainSurface = {
   macroValue: 0,
   brush: 0,
   distance: 0,
+  detailCoverage: 1,
   sunFacing: 0.45,
   ambientSky: linearRgb(lightingPresets.morning.ambientSky),
 }
@@ -144,27 +144,6 @@ describe('rotateHue', () => {
   it('turns the hue by the given angle', () => {
     expect(hueDegrees(rotateHue(green, 6)) - hueDegrees(green)).toBeCloseTo(6, 6)
     expect(hueDegrees(rotateHue(green, -6)) - hueDegrees(green)).toBeCloseTo(-6, 6)
-  })
-})
-
-describe('strataPhase', () => {
-  it('spaces the strata between strataSpacingMin and strataSpacingMax', () => {
-    const dy = 0.01
-    let widest = 0
-    let closest = Infinity
-    for (let y = 0; y < 600; y += 0.5) {
-      const spacing = dy / (strataPhase(y + dy, 0) - strataPhase(y, 0))
-      widest = Math.max(widest, spacing)
-      closest = Math.min(closest, spacing)
-    }
-    expect(closest).toBeGreaterThanOrEqual(b.strataSpacingMin - 0.01)
-    expect(widest).toBeLessThanOrEqual(b.strataSpacingMax + 0.01)
-    expect(closest).toBeLessThan(b.strataSpacingMin + 0.1)
-    expect(widest).toBeGreaterThan(b.strataSpacingMax - 0.1)
-  })
-
-  it('shifts with the macro noise, so bands wave across the landscape', () => {
-    expect(strataPhase(200, 1) - strataPhase(200, 0)).toBeCloseTo(b.strataJitter, 10)
   })
 })
 
@@ -229,25 +208,34 @@ describe('terrainColorAt with surface detail (#69)', () => {
     expectColor(far, plain)
   })
 
-  it('bands rock with strata, not grass, and fades them out by strataFadeEnd', () => {
+  it('uses broad macro noise for rock without exceeding the brush envelope', () => {
     const cliff = 0.6
     const height = 150
     const plainRock = terrainColorAt(height, cliff, 0, config)
-    const ratios: number[] = []
-    for (let y = height; y < height + 8; y += 0.25) {
-      const banded = terrainColorAt(y, cliff, 0, config, NEUTRAL)
-      ratios.push(sum(banded) / sum(terrainColorAt(y, cliff, 0, config)))
-    }
-    expect(Math.max(...ratios)).toBeCloseTo(1 + b.strataValue, 2)
-    expect(Math.min(...ratios)).toBeCloseTo(1 - b.strataValue, 2)
+    const bright = terrainColorAt(height, cliff, 0, config, at({ macro: 1, brush: 1 }))
+    const dark = terrainColorAt(height, cliff, 0, config, at({ macro: -1, brush: -1 }))
+    expect(sum(bright) / sum(plainRock)).toBeCloseTo(1 + b.brushValue, 6)
+    expect(sum(dark) / sum(plainRock)).toBeCloseTo(1 - b.brushValue, 6)
+
+    const macroOnly = terrainColorAt(height, cliff, 0, config, at({ macro: 1 }))
+    expect(sum(macroOnly) / sum(plainRock)).toBeCloseTo(1 + b.brushValue * b.rockMacroMix, 6)
+  })
+
+  it('respects material masks, distance fade, and screen-space coverage', () => {
+    const detailed = at({ macro: 1, brush: 1 })
+    const snowHeight = b.snowHeight + b.snowBlend
     expectColor(
-      terrainColorAt(height, cliff, 0, config, at({ distance: b.strataFadeEnd })),
-      plainRock,
+      terrainColorAt(snowHeight, FLAT, 0, config, detailed),
+      terrainColorAt(snowHeight, FLAT, 0, config),
     )
-    // Gentle grass slopes carry no strata at any height.
-    for (let y = GRASS_HEIGHT; y < GRASS_HEIGHT + 8; y += 0.5) {
-      expectColor(terrainColorAt(y, FLAT, 0, config, NEUTRAL), terrainColorAt(y, FLAT, 0, config))
-    }
+    expectColor(
+      terrainColorAt(GRASS_HEIGHT, FLAT, 0, config, at({ brush: 1, distance: b.brushFadeEnd })),
+      terrainColorAt(GRASS_HEIGHT, FLAT, 0, config),
+    )
+    expectColor(
+      terrainColorAt(GRASS_HEIGHT, FLAT, 0, config, at({ brush: 1, detailCoverage: 0 })),
+      terrainColorAt(GRASS_HEIGHT, FLAT, 0, config),
+    )
   })
 
   it('leans sunlit grass to grass-light and shaded grass cooler and bluer', () => {
