@@ -1,12 +1,6 @@
 import { MeshToonMaterial } from 'three'
 import { getToonGradientMap } from '../render/toon'
-import {
-  strataWarpLength,
-  SUN_TINT_AWAY,
-  SUN_TINT_TOWARD,
-  TERRAIN_PALETTE,
-  type Rgb,
-} from './terrainColor'
+import { SUN_TINT_AWAY, SUN_TINT_TOWARD, TERRAIN_PALETTE, type Rgb } from './terrainColor'
 import type { TerrainConfig } from './terrainConfig'
 import { waterTimeUniform } from './waterShader'
 
@@ -47,7 +41,6 @@ const vec3 TERRAIN_SNOW = ${vec3(p.snow)};
 const vec3 TERRAIN_WATER_SHALLOW = ${vec3(p.waterShallow)};
 const vec3 TERRAIN_WATER_DEEP = ${vec3(p.waterDeep)};
 const float TERRAIN_WATER_LEVEL = ${float(config.waterLevel)};
-const float TERRAIN_PI = 3.14159265;
 const vec3 TERRAIN_LUMA = vec3(0.2126, 0.7152, 0.0722);
 
 // Hash and value noise. Smooth, -1..1, cheap enough to run per pixel.
@@ -74,20 +67,18 @@ float terrainNoise(vec2 worldXZ) {
   return clamp(terrainValueNoise(p) * 0.7 + terrainValueNoise(p * 2.3 + 17.0) * 0.3, -1.0, 1.0);
 }
 
-// Brush breakup (#69): three taps along the downhill direction, averaged, so on a slope the
-// strokes streak down the fall line; on flat ground the taps collapse into one round sample.
-// The taps are offset from the pixel rather than rotating its coordinates, so the pattern stays
-// put as the normal turns.
-float terrainBrushNoise(vec2 worldXZ, vec3 normal) {
-  vec2 downhill = normal.xz;
-  float steepness = length(downhill);
-  vec2 along = steepness > 1e-4 ? downhill / steepness : vec2(0.0);
-  float reach = ${float(b.brushScale)} * ${float(b.brushStretch - 1)} * 0.5 * smoothstep(0.02, 0.15, steepness);
-  vec2 p = worldXZ / ${float(b.brushScale)} + 71.0;
-  vec2 step = along * reach / ${float(b.brushScale)};
-  float n = terrainValueNoise(p - step) + terrainValueNoise(p) + terrainValueNoise(p + step);
-  // Averaging three samples narrows the spread; 1.4 brings it back to about -1..1.
-  return clamp(n * (1.4 / 3.0), -1.0, 1.0);
+// World-space triplanar brush breakup. Flat ground reads the XZ projection while cliffs select
+// XY/YZ, so detail stays anchored without turning into stretched vertical streaks. Smooth normal
+// weights keep the projection continuous across terrain chunks and LODs.
+float terrainBrushNoise(vec3 world, vec3 normal) {
+  vec3 weights = abs(normal);
+  weights *= weights;
+  weights /= max(weights.x + weights.y + weights.z, 1e-4);
+  vec3 p = world / ${float(b.brushScale)};
+  float x = terrainValueNoise(p.yz + 71.0);
+  float y = terrainValueNoise(p.xz + 113.0);
+  float z = terrainValueNoise(p.xy + 157.0);
+  return clamp(x * weights.x + y * weights.y + z * weights.z, -1.0, 1.0);
 }
 
 // Hue rotation about the grey axis; mirrors \`rotateHue\`.
@@ -99,16 +90,10 @@ vec3 terrainRotateHue(vec3 c, float degrees) {
   return c * cosA + vec3(c.b - c.g, c.r - c.b, c.g - c.r) * sinA + grey;
 }
 
-// Strata cycles at height y; mirrors \`strataPhase\`.
-float terrainStrataPhase(float y, float macro) {
-  return y * ${float((1 / b.strataSpacingMin + 1 / b.strataSpacingMax) / 2)}
-    + ${float(((1 / b.strataSpacingMin - 1 / b.strataSpacingMax) / 2) * strataWarpLength(config))} * sin(y / ${float(strataWarpLength(config))})
-    + macro * ${float(b.strataJitter)};
-}
-
 vec3 terrainColor(
   float height, float slope, float noise,
-  float macro, float macroValue, float brush, float distance, float sunFacing, vec3 ambientSky
+  float macro, float macroValue, float brush, float detailCoverage, float distance,
+  float sunFacing, vec3 ambientSky
 ) {
   float sandLine = TERRAIN_WATER_LEVEL + ${float(b.sandHeight)} + noise * ${float(b.sandJitter)};
   float snowLine = ${float(b.snowHeight)} + noise * ${float(b.snowJitter)};
@@ -135,15 +120,11 @@ vec3 terrainColor(
 
   vec3 c = mix(grass, TERRAIN_SAND, sand);
   c = mix(c, TERRAIN_ROCK, rock);
-  float strata = smoothstep(${float(b.strataRockWeight)}, ${float(b.strataRockWeight + 0.2)}, rock)
-    * (1.0 - smoothstep(${float(b.strataFadeStart)}, ${float(b.strataFadeEnd)}, distance));
-  // Shader-only antialiasing: strata start fading below 16 pixels a cycle and are gone by 6
-  // (fwidth is cycles per pixel), so distant cliffs never turn into pinstripes or moire.
-  float strataPhase = terrainStrataPhase(height, macro);
-  strata *= 1.0 - smoothstep(0.0625, 0.1667, fwidth(strataPhase));
-  c *= 1.0 + ${float(b.strataValue)} * sin(2.0 * TERRAIN_PI * strataPhase) * strata;
   c = mix(c, TERRAIN_SNOW, snow);
-  c *= 1.0 + ${float(b.brushValue)} * brush * (1.0 - smoothstep(${float(b.brushFadeStart)}, ${float(b.brushFadeEnd)}, distance));
+  float rockDetail = mix(brush, macro, ${float(b.rockMacroMix)});
+  float detail = mix(brush, rockDetail, rock);
+  c *= 1.0 + ${float(b.brushValue)} * detail * (1.0 - snow) * detailCoverage
+    * (1.0 - smoothstep(${float(b.brushFadeStart)}, ${float(b.brushFadeEnd)}, distance));
   return mix(c, mix(TERRAIN_WATER_SHALLOW, TERRAIN_WATER_DEEP, waterDepth), water);
 }
 
@@ -193,13 +174,17 @@ function fragmentColor(config: TerrainConfig): string {
   float terrainSlope = 1.0 - clamp(terrainNormal.y, 0.0, 1.0);
   float terrainDistance = length(vViewPosition);
   vec2 terrainMacroP = vTerrainWorld.xz / ${float(config.bands.macroScale)};
+  // Fade when a 70 m feature approaches six pixels. fwidth follows actual DPR, including 0.75.
+  float terrainDetailFootprint = length(fwidth(vTerrainWorld)) / ${float(config.bands.brushScale)};
+  float terrainDetailCoverage = 1.0 - smoothstep(0.0625, 0.1667, terrainDetailFootprint);
   diffuseColor.rgb = terrainColor(
     vTerrainWorld.y,
     terrainSlope,
     terrainNoiseValue,
     terrainValueNoise(terrainMacroP),
     terrainValueNoise(terrainMacroP * 1.7 + 41.0),
-    terrainBrushNoise(vTerrainWorld.xz, terrainNormal),
+    terrainBrushNoise(vTerrainWorld, terrainNormal),
+    terrainDetailCoverage,
     terrainDistance,
     dot(terrainNormal, atmoSunDir),
     atmoAmbientSky

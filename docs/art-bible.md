@@ -238,12 +238,10 @@ dark ground. `?tod=` pins the matching clock midpoint for review.
 - **Terrain, painterly, no textures.** In the shader, on top of the existing
   height and slope bands:
   - Macro variation: 400 m noise shifts grass hue ±6° and value ±6%.
-  - Brush breakup: 35 m noise, value ±4%, streaked down the fall line so it
-    reads as strokes, not static. Gone by 1.5 km.
-  - Rock strata: world-Y sine bands 10–16 m apart, ±6% value, only where the
-    rock weight is above 0.5, jittered by the macro noise so bands wander. A
-    screen-space fade removes bands narrower than a few pixels. (Planned at
-    4–7 m; from flight height those read as pinstripes, A2 #69.)
+  - Brush breakup: 70 m triplanar world-space noise, value ±4%. Rock blends
+    65% of the 400 m macro noise with 35% brush noise for broad, irregular
+    patches instead of contour lines. Snow masks the breakup. It fades as the
+    feature approaches six pixels and is gone by 1.5 km.
   - Sun response: grass tint shifts toward `grass-light` on faces within 30° of
     the sun and toward a blue-green on faces away from it: `grass-shadow`
     leaning 35% toward `ambient-sky`'s hue at `grass-shadow`'s own brightness,

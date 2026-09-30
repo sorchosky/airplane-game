@@ -93,14 +93,16 @@ export function terrainBandWeights(
  * the values, like `noise` above.
  */
 export interface TerrainSurface {
-  /** 400 m macro noise, -1..1: turns the grass hue and shifts the strata */
+  /** 400 m macro noise, -1..1: turns grass hue and broadens rock breakup */
   macro: number
   /** a second, decorrelated macro sample, -1..1: moves the grass value */
   macroValue: number
-  /** brush breakup noise, streaked down the slope, -1..1 */
+  /** triplanar world-space brush breakup noise, -1..1 */
   brush: number
-  /** m from the camera: the brush and the strata fade out with distance */
+  /** m from the camera: the brush breakup fades out with distance */
   distance: number
+  /** 0..1 screen-space coverage after derivative antialiasing */
+  detailCoverage: number
   /** dot(surface normal, direction to the sun), -1..1 */
   sunFacing: number
   /** the lighting preset's ambient sky, linear: the cool side of the sun tint */
@@ -118,31 +120,6 @@ export function rotateHue(c: Rgb, degrees: number): Rgb {
     c[1] * cos + (c[0] - c[2]) * sin + grey,
     c[2] * cos + (c[1] - c[0]) * sin + grey,
   ]
-}
-
-/** The height warp that varies strata spacing has this wavelength, as a multiple of the mean spacing. */
-export const STRATA_WARP_FACTOR = 1.6
-
-/** m, wavelength of the height warp for `config`'s strata spacing. */
-export function strataWarpLength(config: TerrainConfig = TERRAIN_CONFIG): number {
-  return ((config.bands.strataSpacingMin + config.bands.strataSpacingMax) / 2) * STRATA_WARP_FACTOR
-}
-
-/**
- * Strata cycles at height `y`. Its rate swings between 1 / `strataSpacingMax` and
- * 1 / `strataSpacingMin` per metre as `y` climbs, so the bands sit irregularly apart rather than
- * on a ruler; the macro noise shifts the phase so they wave across the landscape.
- */
-export function strataPhase(
-  y: number,
-  macro: number,
-  config: TerrainConfig = TERRAIN_CONFIG,
-): number {
-  const b = config.bands
-  const rate = (1 / b.strataSpacingMin + 1 / b.strataSpacingMax) / 2
-  const swing = (1 / b.strataSpacingMin - 1 / b.strataSpacingMax) / 2
-  const warp = strataWarpLength(config)
-  return y * rate + swing * warp * Math.sin(y / warp) + macro * b.strataJitter
 }
 
 /** cos 60° and cos 30°: grass starts leaning to `grass-light` at 60° from the sun, fully by 30°. */
@@ -209,20 +186,12 @@ export function terrainColorAt(
   }
   let c = mix(grass, p.sand, w.sand)
   c = mix(c, p.rock, w.rock)
-  if (surface) {
-    const strata =
-      smoothstep(b.strataRockWeight, b.strataRockWeight + 0.2, w.rock) *
-      (1 - smoothstep(b.strataFadeStart, b.strataFadeEnd, surface.distance))
-    c = scale(
-      c,
-      1 +
-        b.strataValue * Math.sin(2 * Math.PI * strataPhase(height, surface.macro, config)) * strata,
-    )
-  }
   c = mix(c, p.snow, w.snow)
   if (surface) {
-    const brush = 1 - smoothstep(b.brushFadeStart, b.brushFadeEnd, surface.distance)
-    c = scale(c, 1 + b.brushValue * surface.brush * brush)
+    const distanceFade = 1 - smoothstep(b.brushFadeStart, b.brushFadeEnd, surface.distance)
+    const rockDetail = surface.brush + (surface.macro - surface.brush) * b.rockMacroMix
+    const detail = surface.brush + (rockDetail - surface.brush) * w.rock
+    c = scale(c, 1 + b.brushValue * detail * (1 - w.snow) * distanceFade * surface.detailCoverage)
   }
   return mix(c, mix(p.waterShallow, p.waterDeep, w.waterDepth), w.water)
 }
