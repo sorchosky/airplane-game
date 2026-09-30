@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { heightAt } from './heightfield'
 import { FOLIAGE_MODEL_BUILDERS, triangleCount } from './models/foliage'
 import {
-  altitudeFalloff,
   cellsInRange,
   classifyGround,
   densityReach,
@@ -11,9 +10,7 @@ import {
   GroundPatch,
   growth,
   scatterChunk,
-  scatterGrassTile,
   selectFoliage,
-  selectGrass,
   type ChunkFoliage,
   type HeightSampler,
 } from './scatter'
@@ -69,7 +66,6 @@ describe('scatterChunk', () => {
   it('puts nothing under water even where the whole chunk is lake', () => {
     const lake: HeightSampler = () => config.waterLevel - 5
     expect(allInstances(scatterChunk(0, 0, config, [], lake))).toHaveLength(0)
-    expect(scatterGrassTile(0, 0, config, [], lake)).toHaveLength(0)
   })
 
   it('grows boulders on rock and trees on grass, never the other way round', () => {
@@ -101,28 +97,6 @@ describe('scatterChunk', () => {
     for (const instance of allInstances(chunk)) {
       expect(Math.hypot(instance.x - zone.x, instance.z - zone.z)).toBeGreaterThanOrEqual(50)
     }
-    const cards = scatterGrassTile(1, 1, config, [zone], meadow)
-    for (let c = 0; c < cards.length; c += 4) {
-      const dx = (cards[c] ?? 0) - zone.x
-      const dz = (cards[c + 2] ?? 0) - zone.z
-      expect(Math.hypot(dx, dz)).toBeGreaterThanOrEqual(50)
-    }
-  })
-
-  it('keeps neighbours apart: a jittered grid, not clumps', () => {
-    const cards = scatterGrassTile(0, 0, config, [], meadow)
-    const pitch = f.grassTile / Math.round(f.grassTile / f.grassCell)
-    let closest = Infinity
-    for (let a = 0; a < cards.length; a += 4) {
-      for (let b = a + 4; b < cards.length; b += 4) {
-        const d = Math.hypot(
-          (cards[a] ?? 0) - (cards[b] ?? 0),
-          (cards[a + 2] ?? 0) - (cards[b + 2] ?? 0),
-        )
-        closest = Math.min(closest, d)
-      }
-    }
-    expect(closest).toBeGreaterThanOrEqual(pitch * 0.2 - 1e-6)
   })
 })
 
@@ -186,13 +160,6 @@ describe('falloff', () => {
     expect(growth(1, 0.99)).toBe(1)
     expect(growth(0, 0)).toBe(0)
   })
-
-  it('has no grass at or above the altitude cutoff', () => {
-    expect(altitudeFalloff(0, config)).toBe(1)
-    expect(altitudeFalloff(f.grassAltitudeMax, config)).toBe(0)
-    expect(altitudeFalloff(f.grassAltitudeMax + 50, config)).toBe(0)
-    expect(altitudeFalloff(f.grassAltitudeFade + 20, config)).toBeLessThan(1)
-  })
 })
 
 describe('selection', () => {
@@ -233,13 +200,6 @@ describe('selection', () => {
     expect(total(0.6)).toBeLessThan(total(1))
     expect(total(0.3)).toBeLessThan(total(0.6))
   })
-
-  it('fills the grass buffer only up to its capacity', () => {
-    const tiles = cellsInRange(x, z, f.grassDistance, f.grassTile).map((c) =>
-      scatterGrassTile(c.x, c.z, config),
-    )
-    expect(selectGrass(tiles, x, z, 1, config, new Float32Array(40))).toBe(10)
-  })
 })
 
 describe('budget at medium (density 1)', () => {
@@ -247,18 +207,13 @@ describe('budget at medium (density 1)', () => {
     FOLIAGE_KINDS.map((kind) => [kind, triangleCount(FOLIAGE_MODEL_BUILDERS[kind]().body)]),
   ) as Record<(typeof FOLIAGE_KINDS)[number], number>
 
-  function budget(x: number, y: number, z: number, c: TerrainConfig = config) {
+  function budget(x: number, _y: number, z: number, c: TerrainConfig = config) {
     const chunks = cellsInRange(x, z, c.foliage.foliageDistance, c.foliage.foliageChunk).map(
       (cell) => scatterChunk(cell.x, cell.z, c),
     )
     const { instances, outlined } = selectFoliage(chunks, x, z, 1, c)
-    const tiles = cellsInRange(x, z, c.foliage.grassDistance, c.foliage.grassTile).map((cell) =>
-      scatterGrassTile(cell.x, cell.z, c),
-    )
-    const grass = selectGrass(tiles, x, z, 1, c, new Float32Array(9000 * 4))
-    const grassOn = y - Math.max(heightAt(x, z, c), c.waterLevel) < c.foliage.grassAltitudeMax
-    let triangles = grassOn ? grass * 4 : 0
-    let draws = grassOn && grass > 0 ? 1 : 0
+    let triangles = 0
+    let draws = 0
     for (const kind of FOLIAGE_KINDS) {
       triangles += (instances[kind].length + outlined[kind]) * tris[kind]
       draws += (instances[kind].length > 0 ? 1 : 0) + (outlined[kind] > 0 ? 1 : 0)
@@ -266,7 +221,7 @@ describe('budget at medium (density 1)', () => {
     return { triangles, draws }
   }
 
-  // The worst of the bookmarks: low-pass has the most grass, plateau the most conifers.
+  // The worst of the bookmarks: plateau has the most conifers.
   it.each([
     ['spawn', 1750, 147, 2000],
     ['low-pass', 1750, 47, 1900],

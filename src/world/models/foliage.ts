@@ -4,11 +4,7 @@ import {
   Color,
   ConeGeometry,
   CylinderGeometry,
-  DataTexture,
   IcosahedronGeometry,
-  LinearMipmapLinearFilter,
-  RGBAFormat,
-  UnsignedByteType,
 } from 'three'
 import { mergeGeometries, toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { color } from '../../styles/tokens'
@@ -145,64 +141,4 @@ export const FOLIAGE_MODEL_BUILDERS: Record<FoliageKind, () => FoliageModel> = {
 /** Triangles in a model, for the budget. */
 export function triangleCount(geometry: BufferGeometry): number {
   return (geometry.index?.count ?? geometry.getAttribute('position').count) / 3
-}
-
-/**
- * One grass card: two crossed 1 m quads, base at y = 0, normals straight up so the grass shades
- * like the ground it grows from. `uv.y` runs 0 at the root to 1 at the tip.
- */
-export function buildGrassCard(): BufferGeometry {
-  const positions: number[] = []
-  const uvs: number[] = []
-  for (const angle of [Math.PI / 4, -Math.PI / 4]) {
-    const dx = Math.cos(angle) * 0.5
-    const dz = Math.sin(angle) * 0.5
-    positions.push(-dx, 0, -dz, dx, 0, dz, dx, 1, dz, -dx, 1, -dz)
-    uvs.push(0, 0, 1, 0, 1, 1, 0, 1)
-  }
-  const geometry = new BufferGeometry()
-  geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3))
-  geometry.setAttribute(
-    'normal',
-    new BufferAttribute(new Float32Array(positions.map((_, i) => (i % 3 === 1 ? 1 : 0))), 3),
-  )
-  geometry.setAttribute('uv', new BufferAttribute(new Float32Array(uvs), 2))
-  geometry.setIndex([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7])
-  return geometry
-}
-
-/** Texels along one edge of the grass blade mask. */
-const GRASS_MASK_SIZE = 64
-
-/**
- * Alpha mask of a tuft of blades for the grass cards: tapered blades leaning a little either way,
- * opaque inside. Drawn with `alphaTest`, so edges are crisp, like the rest of the toon look.
- */
-export function buildGrassMask(size = GRASS_MASK_SIZE): DataTexture {
-  const data = new Uint8Array(size * size * 4)
-  const blades = [
-    { root: 0.14, lean: -0.08, width: 0.1, height: 0.72 },
-    { root: 0.3, lean: 0.06, width: 0.12, height: 0.95 },
-    { root: 0.46, lean: -0.04, width: 0.13, height: 0.82 },
-    { root: 0.62, lean: 0.1, width: 0.12, height: 1 },
-    { root: 0.8, lean: 0.03, width: 0.11, height: 0.68 },
-  ]
-  for (let y = 0; y < size; y++) {
-    const v = (y + 0.5) / size
-    for (let x = 0; x < size; x++) {
-      const u = (x + 0.5) / size
-      const inside = blades.some((blade) => {
-        if (v > blade.height) return false
-        const t = v / blade.height
-        const centre = blade.root + blade.lean * t * t
-        return Math.abs(u - centre) < (blade.width / 2) * (1 - t)
-      })
-      data.fill(inside ? 255 : 0, (y * size + x) * 4, (y * size + x) * 4 + 4)
-    }
-  }
-  const texture = new DataTexture(data, size, size, RGBAFormat, UnsignedByteType)
-  texture.minFilter = LinearMipmapLinearFilter
-  texture.generateMipmaps = true
-  texture.needsUpdate = true
-  return texture
 }

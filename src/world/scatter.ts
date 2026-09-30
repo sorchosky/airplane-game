@@ -168,12 +168,6 @@ export function distanceFalloff(
   return 1 - smoothstep(fadeStart * reach, fadeEnd * reach, distance)
 }
 
-/** Share (0..1) of grass drawn at `agl` m above the ground. 0 at `grassAltitudeMax` and up. */
-export function altitudeFalloff(agl: number, config: TerrainConfig): number {
-  const { grassAltitudeFade, grassAltitudeMax } = config.foliage
-  return 1 - smoothstep(grassAltitudeFade, grassAltitudeMax, agl)
-}
-
 /**
  * Scale (0..1) an instance is drawn at, given the share drawn where it stands. Instances whose
  * `keep` is under the share are full size; above it they shrink to nothing over `GROW_SOFTNESS`.
@@ -278,46 +272,10 @@ export function scatterChunk(
   return out
 }
 
-/**
- * Grass cards for one grass tile (`tx`, `tz`), `grassTile` m square, as packed `x, y, z, keep`
- * per card. Grass only grows on the grass band. Deterministic like `scatterChunk`.
- */
-export function scatterGrassTile(
-  tx: number,
-  tz: number,
-  config: TerrainConfig,
-  exclusions: readonly FoliageExclusion[] = [],
-  sample: HeightSampler = heightAt,
-): Float32Array {
-  const f = config.foliage
-  const size = f.grassTile
-  const minX = tx * size
-  const minZ = tz * size
-  const cells = Math.max(1, Math.round(size / f.grassCell))
-  const pitch = size / cells
-  const random = mulberry32(hashString(`${config.seed}:grass:${tx},${tz}`))
-  const ground = new GroundPatch(minX, minZ, size, config, sample)
-  const cards: number[] = []
-  for (let j = 0; j < cells; j++) {
-    for (let i = 0; i < cells; i++) {
-      const jx = random()
-      const jz = random()
-      const keep = random()
-      const x = minX + (i + 0.1 + jx * 0.8) * pitch
-      const z = minZ + (j + 0.1 + jz * 0.8) * pitch
-      if (isExcluded(x, z, exclusions)) continue
-      const { height, slope } = ground.surface(x, z)
-      if (classifyGround(height, slope, config) !== 'grass') continue
-      cards.push(x, height, z, keep)
-    }
-  }
-  return new Float32Array(cards)
-}
-
 // ---------------------------------------------------------------------------------------------
 // Streaming
 
-/** A square cell of the world: a terrain chunk for trees, a grass tile for grass. */
+/** A square cell in the streamed foliage grid. */
 export interface CellRef {
   x: number
   z: number
@@ -419,35 +377,4 @@ export function selectFoliage(
     outlined[kind] = picked.filter((p) => p.d < f.outlineDistance).length
   }
   return { instances, outlined }
-}
-
-/**
- * Packs the grass cards to upload for a plane at (px, pz) into `target` (`x, y, z, keep` per
- * card), up to its capacity. Returns the card count.
- */
-export function selectGrass(
-  tiles: readonly Float32Array[],
-  px: number,
-  pz: number,
-  density: number,
-  config: TerrainConfig,
-  target: Float32Array,
-): number {
-  const f = config.foliage
-  const reach = densityReach(density)
-  const capacity = Math.floor(target.length / 4)
-  let count = 0
-  for (const cards of tiles) {
-    for (let c = 0; c + 3 < cards.length; c += 4) {
-      const x = cards[c] ?? 0
-      const z = cards[c + 2] ?? 0
-      const keep = cards[c + 3] ?? 1
-      const d = distanceToCell(x, z, px, pz, f.grassTile)
-      if (growth(distanceFalloff(d, f.grassFadeStart, f.grassDistance, reach), keep) <= 0) continue
-      if (count >= capacity) return count
-      target.set(cards.subarray(c, c + 4), count * 4)
-      count++
-    }
-  }
-  return count
 }

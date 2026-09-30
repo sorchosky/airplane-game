@@ -268,9 +268,9 @@ dark ground. `?tod=` pins the matching clock midpoint for review.
 ## 6. Outline rules
 
 - Colour `outline` `#1f2a33`, never pure black.
-- World thickness 0.06 m, capped at 3 CSS px, as today; foliage cards use 2 px.
+- World thickness 0.06 m, capped at 3 CSS px, as today.
 - Outlined: plane, trees, bushes, boulders, landmarks. Not outlined: terrain,
-  water, clouds, grass cards, particles, sky.
+  water, clouds, particles, sky.
 - Outlines fade with the haze like the geometry they belong to.
 
 ## 7. VFX language
@@ -284,7 +284,6 @@ never "damage".
 | Wingtip vortices | \|bank\| > 25° or speed > 52 m/s | Ribbon trail per wingtip, 1.5 s, 40% → 0 alpha | 2 draws |
 | Cloud burst | entering a cloud | Screen veil `cloud-top` 30% for 0.4 s, 6 puffs pushed aside | 1 instanced draw |
 | Spray / dust | < 8 m over water / ground | Ground-coloured puffs under the plane, 0.8 s | 1 instanced draw |
-| Grass wind | always, near field | Vertex sway, 0.6 Hz, amplitude scaled by speed and by the plane's downwash | 0 extra draws |
 | Floor pull-up | soft floor engaged | Spray or dust burst plus a low rumble, never a hit | shares spray |
 
 ## 8. UI language
