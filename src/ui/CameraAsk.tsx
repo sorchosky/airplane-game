@@ -1,4 +1,4 @@
-import { color, radius, space, type } from '../styles/tokens'
+import { color, effect, radius, space, type } from '../styles/tokens'
 import { copy } from './copy'
 import { TitleSky } from './TitleSky'
 
@@ -58,8 +58,11 @@ export function CameraAsk({ denied = false, onRetry }: CameraAskProps) {
             gap: space.lg,
             maxWidth: '36ch',
             padding: `${space.xl} ${space.xxl}`,
-            borderRadius: space.md,
+            border: `1px solid ${color.line}`,
+            borderRadius: radius.sharp,
             background: color.surfaceHud,
+            backdropFilter: effect.hudBlur,
+            textShadow: effect.textGlow,
             color: color.textPrimary,
             fontFamily: type.fontBody,
             fontSize: type.tvBody,
@@ -76,7 +79,7 @@ export function CameraAsk({ denied = false, onRetry }: CameraAskProps) {
                 minHeight: 64,
                 padding: `${space.md} ${space.xl}`,
                 borderRadius: radius.sharp,
-                border: `2px solid ${color.accent}`,
+                border: `1px solid ${color.accent}`,
                 background: 'transparent',
                 color: color.textPrimary,
                 fontFamily: type.fontBody,

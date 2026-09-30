@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { color, space, type } from '../../styles/tokens'
+import { color, effect, space, type } from '../../styles/tokens'
 import { copy } from '../../ui/copy'
 import { isTouchDevice, useControlModeStore, type ControlMode } from '../controlModeStore'
 import { useGameStore } from '../gameStore'
@@ -34,11 +34,19 @@ export function ControlSelectScreen() {
         gap: space.xl,
         padding: space.xl,
         background: color.surfaceScrim,
+        backdropFilter: effect.scrimBlur,
         color: color.textPrimary,
         fontFamily: type.fontBody,
       }}
     >
-      <h1 style={{ fontFamily: type.fontDisplay, fontSize: type.tvDisplay, margin: 0 }}>
+      <h1
+        style={{
+          fontFamily: type.fontDisplay,
+          fontSize: type.tvDisplay,
+          margin: 0,
+          textShadow: effect.textGlow,
+        }}
+      >
         {copy.controlSelect.title}
       </h1>
       <div className="control-options">

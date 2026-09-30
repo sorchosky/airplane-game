@@ -290,7 +290,16 @@ export function PauseMenu() {
           )
         })}
       </div>
-      <p style={{ fontSize: type.tvBody, margin: 0, color: color.textMuted }}>{hint}</p>
+      <p
+        style={{
+          fontSize: type.tvBody,
+          margin: 0,
+          color: color.textPrimary,
+          textShadow: effect.textGlow,
+        }}
+      >
+        {hint}
+      </p>
     </>
   )
 }

@@ -1,4 +1,4 @@
-import { color, space, type } from '../../styles/tokens'
+import { color, effect, radius, space, type } from '../../styles/tokens'
 import { useCameraStore } from '../../pose/cameraService'
 import { CameraAsk } from '../../ui/CameraAsk'
 import { copy } from '../../ui/copy'
@@ -25,10 +25,22 @@ export function ErrorScreen() {
         padding: space.xl,
         textAlign: 'center',
         color: color.textPrimary,
-        background: color.surfaceHud,
+        background: color.surfaceScrim,
+        backdropFilter: effect.scrimBlur,
       }}
     >
-      <p style={{ fontSize: type.tvBody, margin: 0, maxWidth: '40ch' }}>
+      <p
+        style={{
+          fontSize: type.tvBody,
+          margin: 0,
+          maxWidth: '40ch',
+          padding: space.xl,
+          border: `1px solid ${color.line}`,
+          borderRadius: radius.sharp,
+          background: color.surfaceHud,
+          backdropFilter: effect.hudBlur,
+        }}
+      >
         {errorMessage ?? copy.error.generic}
       </p>
       <button
@@ -40,9 +52,9 @@ export function ErrorScreen() {
           minHeight: 64,
           minWidth: 200,
           padding: `${space.md} ${space.xl}`,
-          borderRadius: space.md,
-          border: `2px solid ${color.accent}`,
-          background: color.surfaceHud,
+          borderRadius: radius.sharp,
+          border: `1px solid ${color.accent}`,
+          background: 'transparent',
           color: color.textPrimary,
           cursor: 'pointer',
         }}

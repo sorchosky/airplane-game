@@ -1,6 +1,6 @@
 import { type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef } from 'react'
 import { getVideo, useCameraStore } from '../pose/cameraService'
-import { color, effect, size, space } from '../styles/tokens'
+import { color, radius, size, space } from '../styles/tokens'
 import { contractKeyframes, LOCK_IN_CONTRACT_MS, recentLockIn, useLockInStore } from './lockIn'
 import { PoseOverlay, type ControlPreviewState } from './PoseOverlay'
 
@@ -38,7 +38,7 @@ export function CameraPreview({
   const containerRef = useRef<HTMLDivElement>(null)
   // A lost stream leaves its last frame on the element; blank it rather than show a frozen player.
   const lost = useCameraStore((s) => s.status === 'lost')
-  const frameColor = controlState === 'active' ? color.controlActive : color.controlInactive
+  const frameColor = controlState === 'active' ? color.accent : color.controlInactive
 
   useEffect(() => {
     const container = containerRef.current
@@ -105,10 +105,10 @@ export function CameraPreview({
           : { position: 'relative', flexShrink: 0, height: '100%', maxWidth: '100%' }),
         aspectRatio: '4 / 3',
         overflow: 'hidden',
-        border: `1px solid ${color.line}`,
+        border: `1px solid ${frameColor}`,
+        borderRadius: radius.sharp,
         boxShadow: `0 0 20px ${color.glow}`,
-        backdropFilter: effect.hudBlur,
-        background: lost ? color.surfaceScrim : color.textPrimary,
+        background: 'transparent',
       }}
     >
       {overlay ?? <PoseOverlay controlState={controlState} />}

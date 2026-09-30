@@ -7,6 +7,7 @@ import { useInputStore } from '../../input/inputStore'
 import { color, effect, space, type } from '../../styles/tokens'
 import { CameraPreview } from '../../ui/CameraPreview'
 import { copy } from '../../ui/copy'
+import { HairlineRule } from '../../ui/HairlineRule'
 import { useGameStore } from '../gameStore'
 import { createWingsFlow, stepWingsFlow, wingsSpeedProgress, type WingsStep } from '../wingsFlow'
 
@@ -70,10 +71,14 @@ export function WingsPrompts() {
         }}
       >
         {step === 'finished' ? (
-          copy.wings.finished
+          <>
+            <HairlineRule />
+            {copy.wings.finished}
+          </>
         ) : (
           <>
             <span aria-hidden="true">{ICON[step]}</span>
+            <HairlineRule />
             {copy.wings[step]}
           </>
         )}

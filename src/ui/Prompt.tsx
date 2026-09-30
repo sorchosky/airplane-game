@@ -1,15 +1,14 @@
 import { useState } from 'react'
 import type { ControlPrompt } from '../app/controlStateMachine'
-import { color, effect, space, type } from '../styles/tokens'
+import { color, effect, motion, space, type } from '../styles/tokens'
 import { copy } from './copy'
+import { HairlineRule } from './HairlineRule'
 
 const COPY: Record<Exclude<ControlPrompt, null>, string> = {
   'spread-arms': copy.hud.spreadArms,
   'step-into-view': copy.hud.stepIntoView,
   'camera-lost': copy.hud.cameraLost,
 }
-
-const FADE_MS = 200
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -72,10 +71,13 @@ export function Prompt({ prompt }: PromptProps) {
         fontSize: type.tvBody,
         whiteSpace: 'nowrap',
         opacity: shown ? 1 : 0,
-        transition: prefersReducedMotion() ? 'none' : `opacity ${FADE_MS}ms ease-out`,
+        transition: prefersReducedMotion()
+          ? 'none'
+          : `opacity ${motion.promptFadeMs}ms ${motion.promptFadeEase}`,
       }}
     >
       {displayed === 'spread-arms' && <WingIcon />}
+      <HairlineRule />
       <span>{COPY[displayed]}</span>
     </div>
   )
