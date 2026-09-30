@@ -11,6 +11,7 @@ import { usePoseSource } from './poseSource'
 import { useReplaySource } from './replaySource'
 import { hasDebugFlag } from './source'
 import { TouchControls } from './TouchControls'
+import './pauseAction.css'
 
 interface InputSourceProps {
   /**
@@ -53,13 +54,15 @@ export function InputSource({ enableTouchControls }: InputSourceProps) {
           {mode === 'touch' && (
             <button
               type="button"
-              aria-label={copy.pause.title}
+              className="touch-pause-action"
+              aria-label={copy.pause.action}
+              data-testid="touch-pause-action"
+              onPointerDown={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+              }}
               onClick={() => useControlStore.getState().togglePause()}
               style={{
-                position: 'absolute',
-                top: space.md,
-                right: space.md,
-                zIndex: 1,
                 minWidth: space.xxl,
                 minHeight: space.xxl,
                 padding: space.sm,
@@ -71,7 +74,7 @@ export function InputSource({ enableTouchControls }: InputSourceProps) {
                 cursor: 'pointer',
               }}
             >
-              {copy.pause.title}
+              {copy.pause.action}
             </button>
           )}
         </>

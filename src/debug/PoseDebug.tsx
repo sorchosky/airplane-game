@@ -17,7 +17,7 @@ function formatPoint(frame: PoseFrame | null, index: number): string {
  * written straight into the DOM from an animation frame loop, never as React state. The Record
  * button captures detections into a replay fixture and downloads it (`tests/fixtures/replays/`).
  */
-export function PoseDebug() {
+export function PoseDebug({ reserveTouchPause = false }: { reserveTouchPause?: boolean }) {
   const textRef = useRef<HTMLPreElement>(null)
 
   useEffect(() => {
@@ -45,7 +45,9 @@ export function PoseDebug() {
     <div
       style={{
         position: 'fixed',
-        bottom: space.md,
+        bottom: reserveTouchPause
+          ? `calc(${space.xxxl} + ${space.lg} + env(safe-area-inset-bottom))`
+          : space.md,
         right: space.md,
         display: 'flex',
         flexDirection: 'column',
