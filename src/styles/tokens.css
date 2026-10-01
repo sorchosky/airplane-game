@@ -48,6 +48,8 @@
   /* UI */
   --color-surface-hud: rgba(12, 18, 26, 0.8);
   --color-surface-scrim: rgba(12, 18, 26, 0.6);
+  --color-orientation-scrim: rgba(24, 36, 64, 0.72);
+  --color-orientation-backdrop: #182440;
   --color-surface-solid: rgb(12, 18, 26);
   --color-text-primary: #f7f4ec;
   --color-text-muted: #cfd6dc;
@@ -109,6 +111,7 @@
   --motion-prompt-fade-ease: ease;
   --effect-hud-blur: blur(12px);
   --effect-scrim-blur: blur(16px) saturate(80%);
+  --effect-tint-blur: blur(16px);
   --effect-text-glow: 0 0 12px var(--color-glow);
 }
 
@@ -121,6 +124,11 @@ body,
 #root {
   height: 100%;
   margin: 0;
+}
+
+html[data-orientation-prompt],
+html[data-orientation-prompt] body {
+  background: var(--color-orientation-backdrop);
 }
 
 body {

@@ -64,6 +64,10 @@ export const color = {
   // Multi-line copy keeps the denser alpha required for AA; one-line HUD elements use glow alone.
   surfaceHud: 'rgba(12, 18, 26, 0.8)',
   surfaceScrim: 'rgba(12, 18, 26, 0.6)',
+  // Portrait prompt (#155): a cool tint with no desaturation, and the page colour behind it so
+  // the iOS status bar strip matches.
+  orientationScrim: 'rgba(24, 36, 64, 0.72)',
+  orientationBackdrop: '#182440',
   surfaceSolid: 'rgb(12, 18, 26)',
   textPrimary: '#f7f4ec',
   textMuted: '#cfd6dc',
@@ -326,12 +330,16 @@ export const radius = {
 export const effect = {
   hudBlur: 'blur(12px)',
   scrimBlur: 'blur(16px) saturate(80%)',
+  tintBlur: 'blur(16px)',
   textGlow: `0 0 12px ${color.glow}`,
   ringGlow: `drop-shadow(0 0 6px ${color.glow})`,
 } as const
 
 export const motion = {
   promptFadeMs: 400,
+  // Portrait prompt phone turn (#155): rotate, then hold in landscape.
+  rotateCueTurnMs: 1200,
+  rotateCueHoldMs: 1000,
   promptFadeEase: 'ease',
   // Control choice (#154): the corner marks slide `space.sm` inward over this.
   frameSlideMs: 200,
