@@ -333,6 +333,8 @@ export const effect = {
 export const motion = {
   promptFadeMs: 400,
   promptFadeEase: 'ease',
+  // Control choice (#154): the corner marks slide `space.sm` inward over this.
+  frameSlideMs: 200,
 } as const
 
 // HUD element sizing, relative to viewport so it scales with the TV.
@@ -344,4 +346,10 @@ export const size = {
   poseDemoFigure: 'clamp(72px, 8vw, 120px)',
   // Calibration hold-progress ring, beside the one line of guidance.
   holdRing: 'clamp(40px, 4vw, 56px)',
+  // Control choice (#154): the glyph box, and the one hairline weight shared by the glyphs and the
+  // corner marks (2 px at 1080p; the SVG strokes use `vector-effect: non-scaling-stroke`).
+  controlGlyph: 'clamp(96px, 14vw, 240px)',
+  glyphStroke: 'clamp(2px, 0.104vw, 4px)',
+  glyphTrailStroke: '1px',
+  cornerArm: '24px',
 } as const
