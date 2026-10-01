@@ -281,8 +281,8 @@ export function findPlunge(
 
 /**
  * 0..1, how much of a landmark `height` m tall standing on ground `baseHeight` at (x, z) shows over
- * the terrain from the spawn eye. Walks the sightline and finds the steepest terrain elevation
- * angle; the part of the landmark above that line is visible.
+ * the terrain from the spawn eye. Walks the sightline (outside the basin) and finds the steepest
+ * terrain elevation angle; the part of the landmark above that line is visible.
  */
 export function visibleFractionFromSpawn(
   x: number,
@@ -297,9 +297,12 @@ export function visibleFractionFromSpawn(
   const distance = Math.hypot(x - spawn.x, z - spawn.z)
   const steps = Math.max(1, Math.floor(distance / 100))
   let steepest = -Infinity
-  // Stop short of the landmark's own footprint so its own hill doesn't block it.
+  // Stop short of the landmark's own footprint so its own hill doesn't block it. The home basin's
+  // ridge ring (#171) is designed to hide the world from spawn until the route reveals it, so the
+  // walk starts outside it. #173 replaces this search with authored stations.
   for (let i = 1; i < steps - 1; i++) {
     const t = i / steps
+    if (distance * t < terrain.basin.blendRadius) continue
     const ground = Math.max(
       heightAt(spawn.x + (x - spawn.x) * t, spawn.z + (z - spawn.z) * t, terrain),
       terrain.waterLevel,
