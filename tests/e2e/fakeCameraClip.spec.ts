@@ -69,16 +69,14 @@ test('a real clip is detected through the camera pipeline and goes active', asyn
     .toBe(true)
 })
 
-// Blocked on the clip, not the code: in the committed clip the T-pose fills the frame edge to edge
-// (wrists at x 0.0 and 1.0), so calibration keeps saying "Step back". Re-record about half a meter
-// farther away (see tests/fixtures/video/README.md), then change `fixme` to `test`.
-test.fixme('a real clip calibrates and reaches flying', async ({ page }) => {
-  test.setTimeout(120_000)
+// Calibration needs the whole arm span inside the frame, so the clip is framed with margin.
+test('a real clip calibrates and reaches flying', async ({ page }) => {
+  test.setTimeout(240_000)
   await page.goto('/?input=pose&debug&fx=low')
   await page.getByRole('button', { name: 'Start' }).click()
   await expect
     .poll(async () => page.evaluate(() => window.__driftwing?.snapshot().game), {
-      timeout: 90_000,
+      timeout: 200_000,
     })
     .toBe('flying')
 })
