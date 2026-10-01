@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react'
 import { INITIAL_THERMAL_WATCH, stepThermalWatch } from '../app/robustness'
 import { usePerfStore } from '../debug/perfStore'
+import { useThermalStore } from '../debug/thermalStore'
+import {
+  classifyWarm,
+  formatTrace,
+  pushTraceSample,
+  type ThermalTraceSample,
+} from '../debug/thermalTrace'
+import { useQualityStore } from '../render/qualityStore'
 import { color, effect, space, type } from '../styles/tokens'
 import { copy } from './copy'
 
@@ -22,16 +30,32 @@ export function WarmCaption() {
     if (warnedThisSession) return
     let watch = INITIAL_THERMAL_WATCH
     let hideTimer: ReturnType<typeof setTimeout> | undefined
+    let trace: ThermalTraceSample[] = []
+    const mountedMs = performance.now()
+    useThermalStore.setState({ overForMs: 0, fired: null })
     const unsubscribe = usePerfStore.subscribe((perf, previous) => {
       // The probe publishes a new summary about once a second; skip unrelated store writes.
       if (perf.p95Ms === previous.p95Ms && perf.tier === previous.tier) return
-      const result = stepThermalWatch(watch, {
-        p95Ms: perf.p95Ms,
-        tier: perf.tier,
-        nowMs: performance.now(),
-      })
+      const nowMs = performance.now()
+      const result = stepThermalWatch(watch, { p95Ms: perf.p95Ms, tier: perf.tier, nowMs })
       watch = result.state
+      const sample: ThermalTraceSample = {
+        atMs: nowMs - mountedMs,
+        frameMs: perf.frameMs,
+        p95Ms: perf.p95Ms,
+        p99Ms: perf.p99Ms,
+        tier: perf.tier,
+        rung: useQualityStore.getState().rung + 1,
+        dpr: perf.dpr,
+      }
+      trace = pushTraceSample(trace, sample)
+      useThermalStore.setState({
+        overForMs: watch.overSinceMs === null ? 0 : nowMs - watch.overSinceMs,
+      })
       if (!result.warn) return
+      const cause = classifyWarm(sample)
+      useThermalStore.setState({ fired: { sample, cause } })
+      console.info(`[warm-caption] fired, likely ${cause}\n${formatTrace(trace)}`)
       warnedThisSession = true
       unsubscribe()
       setShown(true)

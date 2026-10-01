@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { DEFAULT_THERMAL_WATCH_PARAMS } from '../app/robustness'
 import { usePoseStore } from '../pose/poseStore'
 import { useQualityStore, type QualityChange } from '../render/qualityStore'
 import { color, space, type } from '../styles/tokens'
 import { usePerfStore } from './perfStore'
+import { useThermalStore } from './thermalStore'
 import { useClockStore } from '../world/clockStore'
 import { formatClockMinute } from '../world/gameClock'
 
@@ -13,6 +15,15 @@ function formatChange(change: QualityChange | null, nowMs: number): string {
   if (!change) return 'steady'
   const arrow = change.direction === 'down' ? '↓' : '↑'
   return `${arrow} ${change.label} ${((nowMs - change.atMs) / 1000).toFixed(0)}s ago`
+}
+
+/** The warm-caption watch: how close it is to firing, or what the phone saw when it did. */
+function formatWarm({ overForMs, fired }: ReturnType<typeof useThermalStore.getState>): string {
+  if (fired) {
+    const { sample, cause } = fired
+    return `WARM fired at ${(sample.atMs / 1000).toFixed(0)}s: ${sample.frameMs.toFixed(1)} ms, ${cause}?`
+  }
+  return `warm watch ${(overForMs / 1000).toFixed(0)}/${DEFAULT_THERMAL_WATCH_PARAMS.sustainMs / 1000}s`
 }
 
 /**
@@ -43,6 +54,7 @@ export function PerfHud({ initiallyVisible }: { initiallyVisible: boolean }) {
       const pose = usePoseStore.getState()
       const quality = useQualityStore.getState()
       const clock = useClockStore.getState()
+      const thermal = useThermalStore.getState()
       const { p50, p95, count, cameraStampReal } = perf.latency
       if (textRef.current) {
         const hops =
@@ -62,6 +74,7 @@ export function PerfHud({ initiallyVisible }: { initiallyVisible: boolean }) {
           (quality.pinned
             ? 'rung pinned by ?fx\n'
             : `rung ${quality.rung + 1}/${quality.rungCount}  ${formatChange(quality.lastChange, performance.now())}\n`) +
+          `${formatWarm(thermal)}\n` +
           `pose ${pose.hz.toFixed(1)} Hz  ${pose.inferenceMs.toFixed(1)} ms\n` +
           `time ${formatClockMinute(clock.time.minutes)}\n` +
           hops
