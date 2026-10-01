@@ -12,8 +12,13 @@ export const HALF_HOUR_MINUTES = 30
 export const HALF_HOURS_PER_DAY = MINUTES_PER_DAY / HALF_HOUR_MINUTES
 /** Real seconds per in-game day. `?cycle=<seconds>` overrides it. */
 export const DEFAULT_CYCLE_SECONDS = 300
-/** The very first flight opens on the approved morning look (palette B, #64). */
+/** Screenshot bookmarks without an explicit time keep the approved morning look. */
 export const FIRST_FLIGHT_MINUTES = 7 * 60
+
+/** Minutes since midnight in the device's local time zone. */
+export function localClockMinutes(date: Date): number {
+  return date.getHours() * 60 + date.getMinutes()
+}
 
 /**
  * Clock time `?tod=<phase>` pins, one per phase in #92's table plus #64's `golden` alias. Roughly
@@ -58,6 +63,12 @@ export function formatClock(minutes: number): string {
   return `${pad2(Math.floor(total / 60))}:${pad2(total % 60)}`
 }
 
+/** The current clock minute as `HH:MM`, used by developer diagnostics. */
+export function formatClockMinute(minutes: number): string {
+  const total = Math.floor(wrapMinutes(minutes))
+  return `${pad2(Math.floor(total / 60))}:${pad2(total % 60)}`
+}
+
 /** `HH:MM` (24-hour, `H:MM` allowed) to minutes since midnight, or null if it isn't a valid time. */
 export function parseClockTime(value: string | null): number | null {
   const match = value?.trim().match(/^(\d{1,2}):(\d{2})$/)
@@ -90,12 +101,12 @@ export interface ClockConfig {
 
 /**
  * Starting clock for this page load. Pins, strongest first: `?time=HH:MM`, `?tod=<phase>`, then a
- * `?shot=` capture, which pins the default morning time so bookmarks stay daytime. Otherwise the
- * clock resumes from `saved` (the last flight's time), or 07:00 on a first flight.
+ * `?shot=` capture, which pins the default morning time so bookmarks stay daytime. Otherwise it
+ * starts at the local minute captured once when this page loaded.
  */
 export function resolveClockConfig(
   search: string,
-  saved: number | null,
+  localMinutes: number,
   shotActive: boolean,
 ): ClockConfig {
   const params = new URLSearchParams(search)
@@ -105,30 +116,16 @@ export function resolveClockConfig(
     todClockMinutes(params.get('tod')) ??
     (shotActive ? FIRST_FLIGHT_MINUTES : null)
   if (pin !== null) return { minutes: pin, pinned: true, cycleSeconds }
-  return { minutes: saved ?? FIRST_FLIGHT_MINUTES, pinned: false, cycleSeconds }
+  return { minutes: wrapMinutes(localMinutes), pinned: false, cycleSeconds }
 }
 
-const STORAGE_KEY = 'skyborne.clock.minutes'
+export const CLOCK_STORAGE_KEY = 'skyborne.clock.minutes'
 
-/** Same load/save shape as `audio/audioSettings.ts`: storage as a param, and a try/catch. */
-export function loadClockMinutes(storage: Pick<Storage, 'getItem'> | undefined): number | null {
+/** Remove the pre-#165 resume value. Storage failures must not prevent the clock from starting. */
+export function clearSavedClock(storage: Pick<Storage, 'removeItem'> | undefined): void {
   try {
-    const raw = storage?.getItem(STORAGE_KEY)
-    if (raw === null || raw === undefined) return null
-    const minutes = Number(raw)
-    return Number.isFinite(minutes) ? wrapMinutes(minutes) : null
+    storage?.removeItem(CLOCK_STORAGE_KEY)
   } catch {
-    return null
-  }
-}
-
-export function saveClockMinutes(
-  storage: Pick<Storage, 'setItem'> | undefined,
-  minutes: number,
-): void {
-  try {
-    storage?.setItem(STORAGE_KEY, String(minutes))
-  } catch {
-    // Quota or privacy mode: the clock still runs for this session, it just won't carry over.
+    // Privacy modes can reject storage access. The stale value is ignored regardless.
   }
 }

@@ -2,11 +2,11 @@ import { create } from 'zustand'
 import { activeShot } from '../debug/shots'
 import {
   advanceMinutes,
+  clearSavedClock,
   formatClock,
   halfHourIndex,
-  loadClockMinutes,
+  localClockMinutes,
   resolveClockConfig,
-  saveClockMinutes,
 } from './gameClock'
 
 function storage(): Storage | undefined {
@@ -31,19 +31,18 @@ interface ClockStore {
   pinned: boolean
   cycleSeconds: number
   /**
-   * Advances the clock by `deltaSeconds` of flying time. Writes React-visible state and saves only
-   * when the half hour changes. No-op when pinned.
+   * Advances the clock by `deltaSeconds` of flying time. Writes React-visible state only when the
+   * half hour changes. No-op when pinned.
    */
   tick: (deltaSeconds: number) => void
-  /** Persists the current time, so the next flight (or a reload) resumes from it. */
-  save: () => void
-  /** Re-reads the URL flags and saved time (tests, and a fresh page load). */
-  reset: (search?: string) => void
+  /** Re-reads URL flags and captures a new local time (tests only in normal app usage). */
+  reset: (search?: string, date?: Date) => void
 }
 
-function initialState(search: string) {
+function initialState(search: string, date = new Date()) {
+  clearSavedClock(storage())
   const shotActive = typeof window === 'undefined' ? false : activeShot() !== null
-  const config = resolveClockConfig(search, loadClockMinutes(storage()), shotActive)
+  const config = resolveClockConfig(search, localClockMinutes(date), shotActive)
   return {
     time: { minutes: config.minutes },
     display: formatClock(config.minutes),
@@ -63,12 +62,7 @@ export const useClockStore = create<ClockStore>((set, get) => ({
     time.minutes = advanceMinutes(time.minutes, deltaSeconds, cycleSeconds)
     if (halfHourIndex(time.minutes) !== before) {
       set({ display: formatClock(time.minutes) })
-      get().save()
     }
   },
-  save: () => {
-    const { time, pinned } = get()
-    if (!pinned) saveClockMinutes(storage(), time.minutes)
-  },
-  reset: (search = currentSearch()) => set(initialState(search)),
+  reset: (search = currentSearch(), date = new Date()) => set(initialState(search, date)),
 }))

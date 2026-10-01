@@ -11,8 +11,8 @@ const MAX_CLOCK_STEP_S = 0.25
 
 /**
  * Drives the in-game clock (#94) while the flight scene is up. It advances only in `flying`:
- * pause, the resume countdown (still `paused`) and a hidden tab freeze it. Saves on pause, on quit
- * to title and on unmount, as well as on each half-hour tick (`clockStore.tick`).
+ * pause, the resume countdown (still `paused`) and a hidden tab freeze it. Because the store lives
+ * for the page lifetime, quitting to title holds the current minute without persistence.
  */
 export function useGameClock(): void {
   useEffect(() => {
@@ -21,14 +21,8 @@ export function useGameClock(): void {
       useClockStore.getState().tick(Math.min(deltaMs / 1000, MAX_CLOCK_STEP_S))
     }, FRAME_PRIORITY.clock)
 
-    const unsubscribe = useGameStore.subscribe((game, previous) => {
-      if (previous.state === 'flying' && game.state !== 'flying') useClockStore.getState().save()
-    })
-
     return () => {
       remove()
-      unsubscribe()
-      useClockStore.getState().save()
     }
   }, [])
 }
