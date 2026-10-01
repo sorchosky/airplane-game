@@ -65,10 +65,9 @@
   --color-title-cloud-warm: #ffb988;
   --color-title-cloud-cool: #bab5cc;
   --color-title-text: #e4e9f6;
-  --color-title-text-shadow: #2c4781;
   --color-title-start-border: rgba(228, 233, 246, 0.7);
   --color-title-fade: #fff4e6;
-  --color-title-scrim: rgba(27, 39, 72, 0.4);
+  --color-title-scrim: rgba(27, 39, 72, 0.6);
   --color-title-glow: rgba(27, 39, 72, 0.6);
 
   --space-xs: 4px;
@@ -100,7 +99,6 @@
   --size-camera-preview-width: 20vw;
   --size-calibrate-frame: 12px;
   --size-sun-moon-dial: clamp(104px, 12vh, 168px);
-  --size-pose-demo-figure: clamp(72px, 8vw, 120px);
   --size-hold-ring: clamp(40px, 4vw, 56px);
   --size-control-glyph: clamp(160px, min(24vw, 48vh), 480px);
   --size-glyph-stroke: clamp(2px, min(0.29vw, 0.58vh), 6px);

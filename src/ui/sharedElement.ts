@@ -57,3 +57,22 @@ export function flip(element: HTMLElement, first: Box, options: FlipOptions): An
     easing: options.easing ?? 'cubic-bezier(0.22, 1, 0.36, 1)',
   })
 }
+
+/** The attribute that marks a node a beat transition may move between beats. */
+export const SHARED_ELEMENT_ATTR = 'data-shared-element'
+
+/** The shared elements the front-door stage knows by name. */
+export const SHARED_ELEMENTS = {
+  /** The title wordmark; the Choose beat shrinks it into the running head. */
+  wordmark: 'wordmark',
+} as const
+
+export type SharedElementId = (typeof SHARED_ELEMENTS)[keyof typeof SHARED_ELEMENTS]
+
+/** The node a beat currently shows for `id`, or null when that beat has none. */
+export function findSharedElement(
+  root: ParentNode | null,
+  id: SharedElementId,
+): HTMLElement | null {
+  return root?.querySelector<HTMLElement>(`[${SHARED_ELEMENT_ATTR}="${id}"]`) ?? null
+}

@@ -1,49 +1,40 @@
 import { type CSSProperties, type ReactNode, type Ref } from 'react'
 import { color, radius, space, type } from '../../styles/tokens'
 import { copy } from '../../ui/copy'
-import { PoseDemoFigure } from '../../ui/PoseDemoFigure'
+import { SHARED_ELEMENT_ATTR, SHARED_ELEMENTS } from '../../ui/sharedElement'
 
 // The title's text layers, shared by `TitleScreen` and the Start hand-off (`TitleHandoff`), which
 // lifts a copy of them away over the next screen.
 
-/** The wordmark's shadow sits this far below it (Figma: 8 px at 48 px type). */
-const HERO_SHADOW_OFFSET = '0.1667em'
-/** Figma: the shadow is `title-text-shadow` at 20%. */
-const HERO_SHADOW_OPACITY = 0.2
 /** Start's touch target (the 64 px floor for a phone held at arm's length). */
 const START_HEIGHT = space.xxxl
-/** How far the scrim feathers out above and below the text it sits behind. */
-const SCRIM_FEATHER = space.xxxl
 /** The glow around the wordmark and Start's label: a soft halo, no offset. */
 const TEXT_GLOW = `0 0 0.4em ${color.titleGlow}`
-
-/** The wordmark row: dead center (frame 07), rather than centered as a group with Start. */
-export function WordmarkRow({ children }: { children: ReactNode }) {
-  return (
-    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center' }}>
-      {children}
-    </div>
-  )
-}
+/** The masthead's left inset: the TV margin, or the notch's safe area when that is larger. */
+const MASTHEAD_INSET = `max(${space.xxxl}, env(safe-area-inset-left))`
+/** The scrim reaches this far across, solid through the masthead column then feathering out. */
+const SCRIM_WIDTH = '60vw'
+const SCRIM_SOLID = '70%'
+/** ...and down through the upper half, where the masthead sits. */
+const SCRIM_HEIGHT = '62%'
 
 /**
- * Start hangs below the centered wordmark, with the tagline and pose demonstration (#63) below it.
- * The ref lets the intro settle the whole group in together.
+ * The masthead column in the left third, upper half, over sky: wordmark, rule and Start, top to
+ * bottom and left-aligned, `space.lg` apart. The column is as wide as the wordmark, which is what
+ * the rule spans.
  */
-export function StartRow({ children, ref }: { children: ReactNode; ref?: Ref<HTMLDivElement> }) {
+export function Masthead({ children }: { children: ReactNode }) {
   return (
     <div
-      ref={ref}
       style={{
         position: 'absolute',
-        top: '50%',
-        left: 0,
-        right: 0,
+        top: `max(${space.xl}, 8vh)`,
+        left: MASTHEAD_INSET,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
+        alignItems: 'stretch',
+        width: 'max-content',
         gap: space.lg,
-        paddingTop: `calc(${type.tvHero} / 2 + ${space.lg})`,
       }}
     >
       {children}
@@ -51,26 +42,18 @@ export function StartRow({ children, ref }: { children: ReactNode; ref?: Ref<HTM
   )
 }
 
-/** The one-line tagline beside the looping pose demonstration (#63), under Start. */
-export function StartTagline({ decorative = false }: { decorative?: boolean }) {
+/** The hairline under the wordmark, drawn from its left end by the intro. */
+export function MastheadRule({ ref }: { ref?: Ref<HTMLDivElement> }) {
   return (
     <div
-      aria-hidden={decorative || undefined}
-      style={{ display: 'flex', alignItems: 'center', gap: space.md }}
-    >
-      <PoseDemoFigure />
-      <p
-        style={{
-          margin: 0,
-          fontFamily: type.fontBody,
-          fontSize: type.tvBody,
-          whiteSpace: 'nowrap',
-          textShadow: TEXT_GLOW,
-        }}
-      >
-        {copy.title.tagline}
-      </p>
-    </div>
+      ref={ref}
+      aria-hidden="true"
+      style={{
+        height: 1,
+        background: color.line,
+        transformOrigin: '0 50%',
+      }}
+    />
   )
 }
 
@@ -116,69 +99,71 @@ export function StartButton({ onClick, decorative = false, ref }: StartButtonPro
   )
 }
 
+/** Start sits at the column's left edge at its natural width, not stretched to the rule. */
+export function StartSlot({ children, ref }: { children: ReactNode; ref?: Ref<HTMLDivElement> }) {
+  return (
+    <div ref={ref} style={{ alignSelf: 'flex-start' }}>
+      {children}
+    </div>
+  )
+}
+
 /**
- * A feathered band of `titleScrim` across the wordmark and Start: the contrast assist that keeps
- * them at AA over the sky without a plate. Full strength exactly behind the text, fading out over
- * `SCRIM_FEATHER` above and below.
+ * A left-edge scrim of `titleScrim`: the contrast assist that keeps the wordmark and Start at 3:1
+ * over any sky the lighting presets can put behind the column, without a plate. Solid across the
+ * masthead column, feathering out to the right and above and below.
  */
 export function TitleScrim() {
+  const vertical = 'linear-gradient(180deg, #000 0, #000 55%, transparent 100%)'
   return (
     <div
       aria-hidden="true"
       style={{
         position: 'absolute',
+        top: 0,
         left: 0,
-        right: 0,
-        top: `calc(50% - ${type.tvHero} / 2 - ${SCRIM_FEATHER})`,
-        height: `calc(${type.tvHero} + ${space.lg} + ${START_HEIGHT} + 2 * ${SCRIM_FEATHER})`,
-        background: `linear-gradient(180deg, transparent 0, ${color.titleScrim} ${SCRIM_FEATHER}, ${color.titleScrim} calc(100% - ${SCRIM_FEATHER}), transparent 100%)`,
+        width: SCRIM_WIDTH,
+        height: SCRIM_HEIGHT,
+        background: `linear-gradient(90deg, ${color.titleScrim} 0, ${color.titleScrim} ${SCRIM_SOLID}, transparent 100%)`,
+        maskImage: vertical,
+        WebkitMaskImage: vertical,
         pointerEvents: 'none',
       }}
     />
   )
 }
 
-/** The Driftwing wordmark: the text over its offset Figma shadow, with a soft glow. */
-export function TitleWordmark({ decorative = false }: { decorative?: boolean }) {
+/**
+ * The Driftwing wordmark, a shared element (`SHARED_ELEMENTS.wordmark`): the Choose beat shrinks
+ * this node into the running head. Josefin at the display size, uppercase, with a soft glow.
+ */
+export function TitleWordmark({
+  decorative = false,
+  ref,
+}: {
+  decorative?: boolean
+  ref?: Ref<HTMLHeadingElement>
+}) {
   return (
     <h1
+      ref={ref}
+      {...{ [SHARED_ELEMENT_ATTR]: SHARED_ELEMENTS.wordmark }}
       aria-hidden={decorative || undefined}
       style={{
-        display: 'grid',
         margin: 0,
+        // Letter-spacing also trails the last letter; pull it back so the rule ends at the "G".
+        marginRight: `calc(-1 * ${type.trackingDisplay})`,
         fontFamily: type.fontDisplay,
         fontWeight: type.weightHero,
-        fontSize: type.tvHero,
+        fontSize: type.tvDisplay,
         lineHeight: 1,
+        letterSpacing: type.trackingDisplay,
         textTransform: 'uppercase',
         whiteSpace: 'nowrap',
+        textShadow: TEXT_GLOW,
       }}
     >
-      <span
-        aria-hidden="true"
-        style={{
-          ...heroLayer(type.trackingHeroShadow),
-          color: color.titleTextShadow,
-          opacity: HERO_SHADOW_OPACITY,
-          transform: `translateY(${HERO_SHADOW_OFFSET})`,
-        }}
-      >
-        {copy.title.name}
-      </span>
-      <span style={{ ...heroLayer(type.trackingHero), textShadow: TEXT_GLOW }}>
-        {copy.title.name}
-      </span>
+      {copy.title.name}
     </h1>
   )
-}
-
-/** One of the wordmark's two stacked layers (the text and its shadow share a grid cell). */
-function heroLayer(tracking: string): CSSProperties {
-  return {
-    gridArea: '1 / 1',
-    justifySelf: 'center',
-    letterSpacing: tracking,
-    // Letter-spacing also trails the last letter; indent by the same amount so the word centers.
-    paddingLeft: tracking,
-  }
 }

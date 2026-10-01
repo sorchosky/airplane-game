@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { titleTextBackdrops } from '../ui/titleSkyShader'
+import { cloudOpacity, srgb, titleSkyAt, toHex } from '../ui/titleSkyShader'
 import {
   color,
   effect,
@@ -122,10 +122,6 @@ describe('design tokens', () => {
     expect(contrastRatio(color.textMuted, behindText)).toBeGreaterThanOrEqual(3)
   })
 
-  // #73: the wordmark (tv-hero) and Start (tv-body, 24 px minimum at 600) are both WCAG large
-  // text, so AA is 3:1. They stand on the sky with no plate, only the feathered `titleScrim` band
-  // (plus a `titleGlow` halo, not counted here), so this holds over every colour the animated sky
-  // can put behind them, including the band's travelling light at its peak.
   // #154: focused corner marks are the only focus indicator on the control choice, so they hold
   // 3:1 (WCAG non-text contrast) over the screen's `surfaceHud` backdrop, even over the brightest
   // world colour. The lighter `surfaceScrim` only reaches 2.5:1 there.
@@ -134,24 +130,73 @@ describe('design tokens', () => {
     expect(contrastRatio(color.accent, backdrop)).toBeGreaterThanOrEqual(3)
   })
 
-  it('keeps the title wordmark and Start at WCAG AA (3:1, large text) over the scrimmed sky', () => {
-    const backdrops = titleTextBackdrops()
-    expect(backdrops.length).toBeGreaterThan(100)
-    for (const backdrop of backdrops) {
-      const behindText = compositeOver(color.titleScrim, backdrop)
-      expect(contrastRatio(color.titleText, behindText), backdrop).toBeGreaterThanOrEqual(3)
+  // #158: the wordmark (tv-display) and Start (tv-body, 24 px minimum at 600) are WCAG large text,
+  // so AA is 3:1. They stand over the live world's sky with no plate, only the left-edge
+  // `titleScrim` (plus a `titleGlow` halo, not counted here). The masthead column sits in the upper
+  // half over sky, so the backdrops are every preset's gradient from zenith to horizon and its
+  // haze, the sun's glow, and the sunlit and shadowed cloud tones at full cover.
+  describe('title masthead contrast', () => {
+    const mix = (a: string, b: string, t: number) => compositeOver(withAlpha(b, t), a)
+    const withAlpha = (hex: string, alpha: number) => {
+      const [r, g, b] = srgb(hex).map((c) => Math.round(c * 255))
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`
     }
-  })
 
-  it('records that the title text needs the scrim: the bare sky falls short of 3:1', () => {
-    const worst = Math.min(...titleTextBackdrops().map((b) => contrastRatio(color.titleText, b)))
-    expect(worst).toBeLessThan(3)
-  })
+    function mastheadBackdrops(preset: LightingPreset): string[] {
+      const clear = [
+        ...Array.from({ length: 11 }, (_, i) => mix(preset.skyZenith, preset.skyHorizon, i / 10)),
+        preset.skyHorizon,
+        preset.sunGlow,
+        preset.fog,
+      ]
+      return [
+        ...clear,
+        ...clear.flatMap((c) =>
+          [preset.cloudLight, preset.cloudShadow].map((cloud) => mix(c, cloud, 1)),
+        ),
+      ]
+    }
 
-  it('keeps the title scrim a light touch rather than a plate', () => {
-    const alpha = Number(color.titleScrim.match(/([\d.]+)\)$/)?.[1])
-    expect(alpha).toBeGreaterThan(0)
-    expect(alpha).toBeLessThanOrEqual(0.4)
+    for (const [name, preset] of Object.entries(lightingPresets)) {
+      it(`holds 3:1 for the wordmark and Start over the scrimmed ${name} sky`, () => {
+        for (const backdrop of mastheadBackdrops(preset)) {
+          const behindText = compositeOver(color.titleScrim, backdrop)
+          expect(
+            contrastRatio(color.titleText, behindText),
+            `${name} ${backdrop}`,
+          ).toBeGreaterThanOrEqual(3)
+        }
+      })
+    }
+
+    it('holds 3:1 over the poster sky shown while the world streams in', () => {
+      const warm = color.titleCloudWarm
+      const cool = color.titleCloudCool
+      for (let y = 0; y <= 0.6; y += 0.02) {
+        const sky = toHex(titleSkyAt(y))
+        for (const backdrop of [
+          sky,
+          mix(sky, warm, cloudOpacity()),
+          mix(sky, cool, cloudOpacity()),
+        ]) {
+          const behindText = compositeOver(color.titleScrim, backdrop)
+          expect(contrastRatio(color.titleText, behindText), backdrop).toBeGreaterThanOrEqual(3)
+        }
+      }
+    })
+
+    it('records that the masthead needs the scrim: the bare day sky falls short of 3:1', () => {
+      const worst = Math.min(
+        ...mastheadBackdrops(lightingPresets.day).map((b) => contrastRatio(color.titleText, b)),
+      )
+      expect(worst).toBeLessThan(3)
+    })
+
+    it('keeps the scrim a feathered assist rather than a plate', () => {
+      const alpha = Number(color.titleScrim.match(/([\d.]+)\)$/)?.[1])
+      expect(alpha).toBeGreaterThan(0)
+      expect(alpha).toBeLessThanOrEqual(0.65)
+    })
   })
 
   it('defines a 3-band toon ramp with ascending thresholds inside (0, 1)', () => {
@@ -261,7 +306,6 @@ describe('design tokens', () => {
       'tvCaption',
       'tvHero',
       'trackingHero',
-      'trackingHeroShadow',
       'trackingStart',
     ] as const) {
       expect(

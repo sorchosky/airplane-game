@@ -11,12 +11,12 @@ import {
 } from './titleIntro'
 import { useTitleHandoffStore } from './titleHandoff'
 import {
+  Masthead,
+  MastheadRule,
   StartButton,
-  StartRow,
-  StartTagline,
+  StartSlot,
   TitleScrim,
   TitleWordmark,
-  WordmarkRow,
 } from './TitleText'
 
 const HANDOFF_SKY_MASK = 'linear-gradient(180deg, #000 70%, transparent 100%)'
@@ -98,15 +98,13 @@ export function TitleHandoff() {
       />
       <div ref={textRef} style={{ position: 'absolute', inset: 0 }}>
         <TitleScrim />
-        <WordmarkRow>
-          <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-            <TitleWordmark decorative />
-          </div>
-        </WordmarkRow>
-        <StartRow>
-          <StartButton decorative />
-          <StartTagline decorative />
-        </StartRow>
+        <Masthead>
+          <TitleWordmark decorative />
+          <MastheadRule />
+          <StartSlot>
+            <StartButton decorative />
+          </StartSlot>
+        </Masthead>
       </div>
       <div
         ref={veilRef}
