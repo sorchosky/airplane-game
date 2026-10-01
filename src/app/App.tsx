@@ -24,14 +24,11 @@ import { OrientationPrompt } from '../ui/OrientationPrompt'
 import { setupCameraRecovery } from './cameraRecovery'
 import { useControlModeStore } from './controlModeStore'
 import { useControlStateDriver } from './controlStore'
+import { FrontDoorStage } from './FrontDoorStage'
 import { useGameStore } from './gameStore'
-import { CalibrateScreen } from './screens/CalibrateScreen'
-import { ControlSelectScreen } from './screens/ControlSelectScreen'
-import { ErrorScreen } from './screens/ErrorScreen'
 import { PausedOverlay } from './screens/PausedOverlay'
 import { TitleHandoff } from './screens/TitleHandoff'
 import { useTitleHandoffStore } from './screens/titleHandoff'
-import { TitleScreen } from './screens/TitleScreen'
 import { WingsPrompts } from './screens/WingsPrompts'
 import { isMaterialsSceneMode, isReplayInputMode, isSwatchesMode, mapSizeKm } from './urlFlags'
 import { sceneModeFor, worldIsVisible } from './sceneMode'
@@ -109,11 +106,7 @@ function GameApp() {
       }}
     >
       <WorldLayer mode={sceneMode} covered={!worldIsVisible(state)} />
-      {state === 'title' && <TitleScreen />}
-      {state === 'select' && <ControlSelectScreen />}
-      {state === 'permission' && <TitleScreen />}
-      {state === 'calibrate' && <CalibrateScreen />}
-      {state === 'error' && <ErrorScreen />}
+      <FrontDoorStage />
       {state === 'wings' && <WingsPrompts />}
       {state === 'paused' && <PausedOverlay />}
       {(state === 'flying' || state === 'paused') && <FlightControl hud={!shot} />}

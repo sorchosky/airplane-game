@@ -79,3 +79,18 @@ test('?input=keyboard skips straight to the flight scene', async ({ page }) => {
   await page.getByRole('button', { name: 'Start' }).click()
   await expect(page.locator('[data-testid="world"] canvas[data-engine]')).toBeVisible()
 })
+
+test('Escape and browser back from the control choice return to the title', async ({ page }) => {
+  await page.goto('/')
+  const start = page.getByRole('button', { name: 'Start' })
+  await start.click()
+  await expect(page.getByTestId('control-select')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(start).toBeVisible()
+  await expect(page.getByTestId('control-select')).toHaveCount(0)
+
+  await start.click()
+  await expect(page.getByTestId('control-select')).toBeVisible()
+  await page.goBack()
+  await expect(start).toBeVisible()
+})
