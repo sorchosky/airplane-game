@@ -21,7 +21,7 @@ test('desktop select offers mouse and keyboard fallback, then shows the menu aft
   await expect(page.getByTestId('title-handoff')).toHaveCount(0)
   await page.screenshot({ path: 'test-results/control-select-desktop.png' })
   await page.getByRole('button', { name: /Mouse/ }).click()
-  await expect(page.locator('canvas')).toBeVisible()
+  await expect(page.locator('[data-testid="world"] canvas[data-engine]')).toBeVisible()
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Quit to title' }).click()
   await page.getByRole('button', { name: 'Start' }).click()
@@ -77,5 +77,5 @@ test('coarse primary pointer offers touch and an on-screen pause button', async 
 test('?input=keyboard skips straight to the flight scene', async ({ page }) => {
   await page.goto('/?input=keyboard')
   await page.getByRole('button', { name: 'Start' }).click()
-  await expect(page.locator('canvas')).toBeVisible()
+  await expect(page.locator('[data-testid="world"] canvas[data-engine]')).toBeVisible()
 })

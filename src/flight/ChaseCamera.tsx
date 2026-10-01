@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import type { PerspectiveCamera as ThreePerspectiveCamera } from 'three'
 import { Vector3 } from 'three'
-import { shotCameraPosition, type ShotBookmark } from '../debug/shots'
+import { shotCameraPosition, shotLookTarget, type ShotBookmark } from '../debug/shots'
 import {
   CHASE_CAMERA_PARAMS,
   chaseCameraFov,
@@ -28,7 +28,10 @@ function prefersReducedMotion(): boolean {
  * matching how `Plane` drives its own transform.
  */
 interface ChaseCameraProps {
-  /** `?shot=` bookmark with a camera override: the camera parks at its offset and looks at the plane. */
+  /**
+   * A bookmark with a camera override (`?shot=`, or the title bookmark in attract): the camera
+   * parks at its offset and looks at the plane, or at `lookOffset` from it.
+   */
   shot?: ShotBookmark | null
 }
 
@@ -57,7 +60,9 @@ export function ChaseCamera({ shot = null }: ChaseCameraProps) {
     const { state } = useFlightStore.getState()
     if (shot?.cameraOffset) {
       camera.position.set(...shotCameraPosition(shot))
-      camera.lookAt(state.position)
+      camera.lookAt(...shotLookTarget(shot))
+      // Flying on from a parked camera (the attract world) snaps to the chase position.
+      initialized.current = false
       return
     }
     // Every vector below is a long-lived scratch written in place: a frame allocates nothing.

@@ -11,16 +11,18 @@ import {
   useCameraStore,
 } from '../pose/cameraService'
 import { startPoseService, stopPoseService } from '../pose/poseService'
+import { PerfHud } from '../debug/PerfHud'
 import { PoseDebug } from '../debug/PoseDebug'
+import { ShotReady } from '../debug/ShotReady'
 import { activeShot } from '../debug/shots'
 import { hasDebugFlag } from '../input/source'
 import { copy } from '../ui/copy'
 import { Hud } from '../ui/Hud'
+import { GoldenPathTitle } from '../world/GoldenPath'
 import { OrientationPrompt } from '../ui/OrientationPrompt'
 import { setupCameraRecovery } from './cameraRecovery'
 import { useControlModeStore } from './controlModeStore'
 import { useControlStateDriver } from './controlStore'
-import { FlightScene } from './FlightScene'
 import { useGameStore } from './gameStore'
 import { CalibrateScreen } from './screens/CalibrateScreen'
 import { ControlSelectScreen } from './screens/ControlSelectScreen'
@@ -31,7 +33,9 @@ import { useTitleHandoffStore } from './screens/titleHandoff'
 import { TitleScreen } from './screens/TitleScreen'
 import { WingsPrompts } from './screens/WingsPrompts'
 import { isMaterialsSceneMode, isReplayInputMode, isSwatchesMode } from './urlFlags'
+import { sceneModeFor, worldIsVisible } from './sceneMode'
 import { useGameClock } from './useGameClock'
+import { WorldLayer } from './WorldLayer'
 import { setupWakeLockReacquire } from './wakeLock'
 import { useAccessibilityStore } from './accessibilityStore'
 
@@ -76,7 +80,8 @@ export function App() {
     }
   }, [state, permissionDenied, mode])
 
-  const inFlight = state === 'wings' || state === 'flying' || state === 'paused'
+  const sceneMode = sceneModeFor(state)
+  const inFlight = sceneMode === 'flight'
   // `?shot=` captures the world alone: no prompt, no preview, no touch fallback over it.
   const shot = activeShot() !== null
   const showPoseDebug = hasDebugFlag() && (state === 'calibrate' || inFlight)
@@ -97,19 +102,27 @@ export function App() {
         width: '100vw',
         height: '100vh',
         overflow: 'hidden',
+        // The world sits behind everything at z-index -1; this keeps it inside the app.
+        isolation: 'isolate',
         cursor: inFlight && mode === 'mouse' && !shot ? 'crosshair' : undefined,
       }}
     >
+      <WorldLayer mode={sceneMode} covered={!worldIsVisible(state)} />
       {state === 'title' && <TitleScreen />}
       {state === 'select' && <ControlSelectScreen />}
       {state === 'permission' && <TitleScreen />}
       {state === 'calibrate' && <CalibrateScreen />}
       {state === 'error' && <ErrorScreen />}
-      {inFlight && <FlightScene />}
       {state === 'wings' && <WingsPrompts />}
       {state === 'paused' && <PausedOverlay />}
       {(state === 'flying' || state === 'paused') && <FlightControl hud={!shot} />}
-      <InputSource enableTouchControls={state === 'flying' && !shot} />
+      {/* Attract (title, select, permission, error) attaches no input source; calibrate on does. */}
+      {(inFlight || state === 'calibrate') && (
+        <InputSource enableTouchControls={state === 'flying' && !shot} />
+      )}
+      {inFlight && !shot && <GoldenPathTitle />}
+      <PerfHud initiallyVisible={hasDebugFlag()} />
+      {shot && <ShotReady />}
       {titleHandoff && <TitleHandoff />}
       {showPoseDebug && (
         <PoseDebug reserveTouchPause={state === 'flying' && mode === 'touch' && !shot} />

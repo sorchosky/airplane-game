@@ -40,7 +40,7 @@ test('camera track ending shows "Lost the camera" and recovers by itself', async
 test('hiding the tab pauses the flight and comes back to the pause menu', async ({ page }) => {
   await page.goto('/?input=keyboard')
   await page.getByRole('button', { name: 'Start' }).click()
-  await expect(page.locator('canvas')).toBeVisible()
+  await expect(page.locator('[data-testid="world"] canvas[data-engine]')).toBeVisible()
 
   const setHidden = (hidden: boolean) =>
     page.evaluate((value) => {
@@ -82,8 +82,8 @@ test('a lost WebGL context remounts the canvas and keeps flying', async ({ page 
   await expect(page.locator('[data-context-generation="0"] canvas')).toBeVisible()
 
   await page.evaluate(() => {
-    const canvas = document.querySelector('canvas')
-    const gl = canvas?.getContext('webgl2')
+    const canvas = document.querySelector('[data-testid="world"] canvas[data-engine]')
+    const gl = (canvas as HTMLCanvasElement | null)?.getContext('webgl2')
     gl?.getExtension('WEBGL_lose_context')?.loseContext()
   })
 
