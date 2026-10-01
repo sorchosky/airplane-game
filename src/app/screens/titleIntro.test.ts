@@ -1,31 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import {
-  BAND_BLUR_PX,
-  BAND_FEATHER,
-  BAND_OPACITY,
-  BAND_WIDTH_VW,
+  INTRO_BEZIER,
   LIGHT_SHIFT_MAX,
-  REVEAL_MASK_VW,
-  REVEAL_RAMP_VW,
-  SWEEP_BEZIER,
   TITLE_HANDOFF,
   TITLE_INTRO,
-  bandBlurPx,
-  bandKeyframes,
-  bandLeadingEdgeVw,
-  bandOpacity,
+  WORDMARK_TRACKING_EXTRA_EM,
   cubicBezier,
   finalTitleSkyFrame,
   introDuration,
-  revealEdgeVw,
-  revealMaskPosition,
+  ruleBeginsAt,
+  ruleKeyframes,
   shouldDrawFrame,
   shouldPlayIntro,
   startBeginsAt,
-  sweepEndsAt,
-  sweepProgress,
+  startKeyframes,
   swellTiming,
   titleSkyFrame,
+  wordmarkEndsAt,
+  wordmarkKeyframes,
+  wordmarkProgress,
 } from './titleIntro'
 
 const STEPS = Array.from({ length: 41 }, (_, i) => i / 40)
@@ -36,14 +29,16 @@ describe('title intro timeline', () => {
     expect(TITLE_INTRO.fade).toBeLessThanOrEqual(1400)
   })
 
-  it('sweeps for about 3.2 s, starting before the fade is done', () => {
-    expect(TITLE_INTRO.sweep).toBeGreaterThanOrEqual(3000)
-    expect(TITLE_INTRO.sweep).toBeLessThanOrEqual(3400)
-    expect(TITLE_INTRO.sweepStart).toBeLessThan(TITLE_INTRO.fade)
+  it('eases the wordmark in over 1.2 s, starting before the fade is done', () => {
+    expect(TITLE_INTRO.wordmark).toBe(1200)
+    expect(TITLE_INTRO.wordmarkStart).toBeLessThan(TITLE_INTRO.fade)
   })
 
-  it('brings Start in after the band has left and is done within the 5 s frame strip', () => {
-    expect(startBeginsAt()).toBeGreaterThan(sweepEndsAt())
+  it('draws the rule over 600 ms once the wordmark has settled, then fades Start up last', () => {
+    expect(TITLE_INTRO.rule).toBe(600)
+    expect(ruleBeginsAt()).toBeGreaterThanOrEqual(wordmarkEndsAt())
+    expect(startBeginsAt()).toBeGreaterThanOrEqual(ruleBeginsAt() + TITLE_INTRO.rule)
+    expect(introDuration()).toBe(startBeginsAt() + TITLE_INTRO.startDuration)
     expect(introDuration()).toBeLessThanOrEqual(5000)
   })
 
@@ -59,6 +54,30 @@ describe('title intro timeline', () => {
   })
 })
 
+describe('intro keyframes', () => {
+  it('eases the wordmark tracking in from 0.08em wider while it fades in', () => {
+    const [from, to] = wordmarkKeyframes('0.14em')
+    expect(WORDMARK_TRACKING_EXTRA_EM).toBe(0.08)
+    expect(from?.opacity).toBe(0)
+    expect(from?.letterSpacing).toBe('calc(0.14em + 0.08em)')
+    expect(to?.opacity).toBe(1)
+    expect(to?.letterSpacing).toBe('0.14em')
+  })
+
+  it('draws the rule from its left end to full width', () => {
+    const [from, to] = ruleKeyframes()
+    expect(from?.transform).toBe('scaleX(0)')
+    expect(to?.transform).toBe('scaleX(1)')
+  })
+
+  it('fades Start up from below', () => {
+    const [from, to] = startKeyframes()
+    expect(from?.opacity).toBe(0)
+    expect(String(from?.transform)).toMatch(/translateY\(\d+px\)/)
+    expect(to?.opacity).toBe(1)
+  })
+})
+
 describe('cubicBezier', () => {
   it('matches the CSS keywords at known points', () => {
     const linear = cubicBezier(0, 0, 1, 1)
@@ -69,72 +88,15 @@ describe('cubicBezier', () => {
     expect(easeInOut(0.25) + easeInOut(0.75)).toBeCloseTo(1, 4)
   })
 
-  it('pins the ends and never runs backwards', () => {
-    const ease = cubicBezier(...SWEEP_BEZIER)
+  it('pins the ends and never runs backwards, so the one easing has no bounce', () => {
+    const ease = cubicBezier(...INTRO_BEZIER)
     expect(ease(0)).toBe(0)
     expect(ease(1)).toBe(1)
     let previous = -Infinity
     for (const t of STEPS) {
       expect(ease(t)).toBeGreaterThanOrEqual(previous)
+      expect(ease(t)).toBeLessThanOrEqual(1)
       previous = ease(t)
-    }
-  })
-
-  it('eases the sweep: slower than linear at the start, still gliding at the end', () => {
-    const ease = cubicBezier(...SWEEP_BEZIER)
-    expect(ease(0.15)).toBeLessThan(0.15)
-    expect(ease(0.9)).toBeGreaterThan(0.9)
-  })
-})
-
-describe('title band and reveal', () => {
-  it('starts with the band fully off screen left, so nothing is revealed', () => {
-    expect(bandLeadingEdgeVw(0)).toBeCloseTo(0)
-    expect(revealEdgeVw(0)).toBeLessThanOrEqual(0)
-  })
-
-  it('ends with the band fully off screen right and the whole title revealed', () => {
-    expect(bandLeadingEdgeVw(1) - BAND_WIDTH_VW).toBeCloseTo(100)
-    expect(revealEdgeVw(1) - REVEAL_RAMP_VW).toBeGreaterThanOrEqual(100)
-  })
-
-  it('keeps the whole soft reveal ramp under the band at full blur, past its feathered edge', () => {
-    const feather = BAND_WIDTH_VW * BAND_FEATHER
-    for (const p of STEPS) {
-      const leading = bandLeadingEdgeVw(p)
-      const trailingSolid = leading - BAND_WIDTH_VW + feather
-      expect(revealEdgeVw(p)).toBeLessThanOrEqual(leading - feather)
-      expect(revealEdgeVw(p) - REVEAL_RAMP_VW).toBeGreaterThan(trailingSolid)
-    }
-  })
-
-  it('keeps the reveal mask covering the whole row at every point of the sweep', () => {
-    for (const p of STEPS) {
-      const left = Number.parseFloat(revealMaskPosition(p))
-      expect(left).toBeLessThanOrEqual(0)
-      expect(left + REVEAL_MASK_VW).toBeGreaterThanOrEqual(100)
-    }
-  })
-
-  it('centers the band on screen half way through the sweep (frame 03)', () => {
-    const left = bandLeadingEdgeVw(0.5) - BAND_WIDTH_VW
-    expect(left + BAND_WIDTH_VW / 2).toBeCloseTo(50)
-  })
-
-  it('breathes: blur and opacity are softest at the ends and fullest over the word', () => {
-    expect(bandBlurPx(0)).toBeCloseTo(BAND_BLUR_PX.min)
-    expect(bandBlurPx(1)).toBeCloseTo(BAND_BLUR_PX.min)
-    expect(bandBlurPx(0.5)).toBeCloseTo(BAND_BLUR_PX.max)
-    expect(bandOpacity(0)).toBeCloseTo(BAND_OPACITY.min)
-    expect(bandOpacity(0.5)).toBeCloseTo(BAND_OPACITY.max)
-  })
-
-  it('samples the band into ordered keyframes that span the full travel', () => {
-    const frames = bandKeyframes()
-    expect(frames[0]?.offset).toBe(0)
-    expect(frames.at(-1)?.offset).toBe(1)
-    for (let i = 1; i < frames.length; i += 1) {
-      expect(Number(frames[i]?.offset)).toBeGreaterThan(Number(frames[i - 1]?.offset))
     }
   })
 })
@@ -145,22 +107,17 @@ describe('title sky frames', () => {
     expect(titleSkyFrame(introDuration() + 5000)).toEqual(finalTitleSkyFrame())
   })
 
-  it('lights the sky only during the sweep, peaking with the band over the word', () => {
-    expect(titleSkyFrame(TITLE_INTRO.sweepStart - 1).light).toBe(0)
+  it('lights the sky only while the wordmark eases in, peaking half way', () => {
+    expect(titleSkyFrame(TITLE_INTRO.wordmarkStart - 1).light).toBe(0)
     expect(finalTitleSkyFrame().light).toBe(0)
-    const midSweepMs = TITLE_INTRO.sweepStart + TITLE_INTRO.sweep / 2
-    const mid = titleSkyFrame(midSweepMs)
-    expect(mid.light).toBeCloseTo(LIGHT_SHIFT_MAX * Math.sin(Math.PI * sweepProgress(midSweepMs)))
+    const midMs = TITLE_INTRO.wordmarkStart + TITLE_INTRO.wordmark / 2
+    const mid = titleSkyFrame(midMs)
+    expect(mid.light).toBeCloseTo(LIGHT_SHIFT_MAX * Math.sin(Math.PI * wordmarkProgress(midMs)))
     expect(mid.light).toBeLessThanOrEqual(LIGHT_SHIFT_MAX)
   })
 
-  it('moves the light across the screen with the band', () => {
-    let previous = -Infinity
-    for (let t = TITLE_INTRO.sweepStart; t <= sweepEndsAt(); t += 200) {
-      const { lightX } = titleSkyFrame(t)
-      expect(lightX).toBeGreaterThanOrEqual(previous)
-      previous = lightX
-    }
+  it('keeps the light over the masthead column in the left third', () => {
+    expect(titleSkyFrame(TITLE_INTRO.wordmarkStart + 300).lightX).toBeLessThan(1 / 3)
   })
 
   it('caps the redraw at 30 fps on a 60 Hz display', () => {
@@ -179,11 +136,11 @@ describe('title sky frames', () => {
 })
 
 describe('title swell', () => {
-  it('rises with the sweep, peaks as the band crosses the word, and releases after Start', () => {
+  it('rises with the wordmark, peaks half way through it, and releases after Start', () => {
     const { start, peak, end } = swellTiming()
-    expect(start * 1000).toBe(TITLE_INTRO.sweepStart)
+    expect(start * 1000).toBe(TITLE_INTRO.wordmarkStart)
     expect(peak).toBeGreaterThan(start)
-    expect(peak * 1000).toBeLessThan(sweepEndsAt())
+    expect(peak * 1000).toBeLessThan(wordmarkEndsAt())
     expect(end * 1000).toBeGreaterThan(introDuration())
   })
 })

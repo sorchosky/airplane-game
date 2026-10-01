@@ -1,100 +1,66 @@
-// Title intro timeline, from the Figma "Driftwing" storyboard (frames 01–07), made cinematic (#73):
+// Title intro timeline (#158): the editorial masthead over the live flyby.
 //
 //   01  sky only, faded up from warm white; the cirrus is already drifting
-//   02  a frosted band (backdrop blur) sweeps in from the left; letters fade in under it
-//   03  the band is centered over the full word, at its blurriest, the light swelling with it
-//   04  the band leaves to the right, the word left behind it is crisp
-//   05  title alone
-//   06  Start fades in 8px low and blurred
-//   07  Start settles, sharp; the sky stops animating and holds this frame
+//   02  the wordmark fades in while its tracking eases in from slightly wider
+//   03  the hairline rule draws left to right under it
+//   04  Start fades up last; the sky stops animating and holds this frame
 //
-//   ms   0 ──── 900 ─────────────────────────── 4100 ── 4250 ───── 4950
+//   ms   0 ──── 900 ───── 2100 ── 2700 ─────── 3400
 //        fade (0–1200)
-//                 sweep (eased, 3.2 s) ────────────┘      Start ─────┘
-//        cirrus drifts (≤ 30 fps) ─────────────────────────────────────┘
+//                 wordmark ──┘
+//                            rule ──┘
+//                                   Start ─────┘
+//        cirrus drifts (≤ 30 fps) ────────────────┘
 //
-// The band and the title reveal are two separate animations that must stay locked together: the
-// reveal edge trails the band's leading (right) edge, so letters only ever appear inside the
-// blur. Both run over the same duration, span and easing, so they can't drift apart. The eased
-// curve is mirrored here in `sweepProgress` so the sky's light shift follows the same band.
-//
-// All positions are in vw because the band, the title row and the reveal mask share the viewport
-// width.
+// Every step uses the one easing (`INTRO_EASING`), with no overshoot. The steps run in sequence so
+// the rule never measures a wordmark that is still tracking in.
 
 /** ms */
 export const TITLE_INTRO = {
-  /** Frame 01: fade up from warm white into the sky. */
+  /** Fade up from warm white into the sky. */
   fade: 1200,
-  /** When the sweep begins; it overlaps the tail of the fade so the sky never sits idle. */
-  sweepStart: 900,
-  /** Frames 02–04: the band crosses the screen. */
-  sweep: 3200,
-  /** Pause between the band leaving (frame 05) and Start appearing. */
-  startDelay: 150,
-  /** Frames 06–07. */
+  /** When the wordmark begins; it overlaps the tail of the fade so the sky never sits idle. */
+  wordmarkStart: 900,
+  /** Wordmark fade and tracking ease. */
+  wordmark: 1200,
+  /** The rule draws left to right. */
+  rule: 600,
+  /** Start fades up. */
   startDuration: 700,
 } as const
 
-/** Sweep easing: a slow lift-off and a long glide out, rather than a constant-speed pass. */
-export const SWEEP_BEZIER = [0.45, 0, 0.2, 1] as const
-export const SWEEP_EASING = `cubic-bezier(${SWEEP_BEZIER.join(', ')})`
+/** The single easing for the whole intro: a quick start and a long settle, no bounce. */
+export const INTRO_EASING = 'cubic-bezier(0.33, 0, 0.2, 1)'
+export const INTRO_BEZIER = [0.33, 0, 0.2, 1] as const
 
-/** The white fades off quickly and lets the sky settle in. */
-export const FADE_EASING = 'cubic-bezier(0.33, 0, 0.2, 1)'
+/** The wordmark's tracking eases in from this much wider than `trackingDisplay`. */
+export const WORDMARK_TRACKING_EXTRA_EM = 0.08
 
-/** Strong ease-out: Start arrives quickly and settles, rather than easing in from a standstill. */
-export const START_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)'
-
-/** Band width as a share of the screen: 573 px of the 874 px Figma frame. */
-export const BAND_WIDTH_VW = (573 / 874) * 100
-
-/**
- * The band's blur breathes between these over the sweep: soft as it enters, fullest over the word
- * (Figma's 8 px sits in between), soft again as it leaves.
- */
-export const BAND_BLUR_PX = { min: 3, max: 10 } as const
-/** The band's opacity breathes with its blur. */
-export const BAND_OPACITY = { min: 0.55, max: 1 } as const
-/** Each side edge of the band feathers out over this share of its width, so it has no hard edge. */
-export const BAND_FEATHER = 0.1
-/** Keyframes the breathing curve is sampled into (the browser interpolates linearly between). */
-const BAND_SAMPLES = 12
-
-export const START_BLUR_PX = 2
-/** Start rises this far (Figma 06 → 07: 72 → 64 px below center). */
+/** Start rises this far while it fades up. */
 export const START_RISE_PX = 8
-
-/** Band's left edge in vw: fully off screen left → fully off screen right. */
-export const BAND_TRAVEL_VW = { from: -BAND_WIDTH_VW, to: 100 } as const
-
-/**
- * The reveal's fully transparent edge trails the band's leading edge by this much, so it always
- * sits where the band is at full blur, past the band's feathered edge.
- */
-export const REVEAL_INSET_VW = 8
-/** The reveal fades letters in over this width, rather than cutting them at a hard edge. */
-export const REVEAL_RAMP_VW = 10
-/**
- * The reveal mask is this wide, so it covers the whole row at every edge position in the sweep.
- * It's opaque on its left half (ramping out just before the middle) and transparent on its right.
- */
-export const REVEAL_MASK_VW = 400
 
 /** Cirrus drift, in the shader's cloud-space units per second: the far layer and a faster near one. */
 export const CIRRUS_DRIFT = { far: 0.05, near: 0.14 } as const
-/** Peak of the warm light that travels across the sky with the band (0..1 mix toward cloud warm). */
+/** Peak of the warm light that swells behind the masthead with the wordmark (0..1 mix toward cloud warm). */
 export const LIGHT_SHIFT_MAX = 0.14
+/** Where that light is centered across the screen: the middle of the masthead column. */
+export const MASTHEAD_LIGHT_X = 0.17
 /** The sky redraws at most this often while it animates. */
 export const TITLE_SKY_MAX_FPS = 30
 
-/** When the sweep ends, ms after mount. */
-export function sweepEndsAt(): number {
-  return TITLE_INTRO.sweepStart + TITLE_INTRO.sweep
+/** When the wordmark ends, ms after mount. */
+export function wordmarkEndsAt(): number {
+  return TITLE_INTRO.wordmarkStart + TITLE_INTRO.wordmark
+}
+
+/** When the rule starts drawing, ms after mount. */
+export function ruleBeginsAt(): number {
+  return wordmarkEndsAt()
 }
 
 /** When Start begins, ms after mount. */
 export function startBeginsAt(): number {
-  return sweepEndsAt() + TITLE_INTRO.startDelay
+  return ruleBeginsAt() + TITLE_INTRO.rule
 }
 
 /** Whole intro length, ms. The sky animates until this point, then holds. */
@@ -136,100 +102,39 @@ export function cubicBezier(x1: number, y1: number, x2: number, y2: number): (t:
   }
 }
 
-const sweepEase = cubicBezier(...SWEEP_BEZIER)
+const introEase = cubicBezier(...INTRO_BEZIER)
 
-/** Eased sweep progress 0..1 at `tMs` after mount (0 before the sweep, 1 after it). */
-export function sweepProgress(tMs: number): number {
-  return sweepEase((tMs - TITLE_INTRO.sweepStart) / TITLE_INTRO.sweep)
+/** Eased wordmark progress 0..1 at `tMs` after mount (0 before it starts, 1 once it has settled). */
+export function wordmarkProgress(tMs: number): number {
+  return introEase((tMs - TITLE_INTRO.wordmarkStart) / TITLE_INTRO.wordmark)
 }
 
-/** Where the band's leading (right) edge is, in vw, at sweep progress 0..1. */
-export function bandLeadingEdgeVw(progress: number): number {
-  const left = BAND_TRAVEL_VW.from + (BAND_TRAVEL_VW.to - BAND_TRAVEL_VW.from) * progress
-  return left + BAND_WIDTH_VW
-}
-
-/** Where the title is fully transparent from, in vw, at sweep progress 0..1. */
-export function revealEdgeVw(progress: number): number {
-  return bandLeadingEdgeVw(progress) - REVEAL_INSET_VW
-}
-
-/** 0 at both ends of the sweep, 1 half way: the shape of the band's breathing and the light. */
+/** 0 at both ends, 1 half way: the shape of the light's swell. */
 export function breath(progress: number): number {
   return Math.sin(Math.PI * Math.min(1, Math.max(0, progress)))
-}
-
-export function bandBlurPx(progress: number): number {
-  return BAND_BLUR_PX.min + (BAND_BLUR_PX.max - BAND_BLUR_PX.min) * breath(progress)
-}
-
-export function bandOpacity(progress: number): number {
-  return BAND_OPACITY.min + (BAND_OPACITY.max - BAND_OPACITY.min) * breath(progress)
-}
-
-/**
- * The band's keyframes, in (already eased) progress space: it moves linearly across them while the
- * animation's easing sets the pace, so blur and opacity breathe with where the band is on screen.
- */
-export function bandKeyframes(): Keyframe[] {
-  return Array.from({ length: BAND_SAMPLES + 1 }, (_, i) => {
-    const p = i / BAND_SAMPLES
-    const left = BAND_TRAVEL_VW.from + (BAND_TRAVEL_VW.to - BAND_TRAVEL_VW.from) * p
-    const blur = `blur(${bandBlurPx(p).toFixed(2)}px)`
-    return {
-      offset: p,
-      transform: `translateX(${left.toFixed(3)}vw)`,
-      backdropFilter: blur,
-      webkitBackdropFilter: blur,
-      opacity: bandOpacity(p).toFixed(3),
-    }
-  })
-}
-
-/** CSS mask for the band: feathered at both side edges. */
-export function bandMask(): string {
-  const f = `${(BAND_FEATHER * 100).toFixed(1)}%`
-  return `linear-gradient(90deg, transparent 0, #000 ${f}, #000 calc(100% - ${f}), transparent 100%)`
-}
-
-/** CSS mask image for the title row: opaque, a soft ramp, then transparent (see `REVEAL_MASK_VW`). */
-export function revealMask(): string {
-  const half = REVEAL_MASK_VW / 2
-  return `linear-gradient(90deg, #000 ${half - REVEAL_RAMP_VW}vw, transparent ${half}vw)`
-}
-
-/** Mask position that puts the reveal's transparent edge at `revealEdgeVw(progress)`. */
-export function revealMaskPosition(progress: number): string {
-  return `${(revealEdgeVw(progress) - REVEAL_MASK_VW / 2).toFixed(3)}vw 0`
-}
-
-/**
- * The reveal's keyframes carry the whole mask (image, size and repeat are the same at both ends),
- * so the element's static style has none and the settled title is unmasked once they're dropped.
- */
-export function revealKeyframes(): Keyframe[] {
-  const mask = revealMask()
-  const size = `${REVEAL_MASK_VW}vw 100%`
-  return [0, 1].map((p) => ({
-    maskImage: mask,
-    webkitMaskImage: mask,
-    maskSize: size,
-    webkitMaskSize: size,
-    maskRepeat: 'no-repeat',
-    webkitMaskRepeat: 'no-repeat',
-    maskPosition: revealMaskPosition(p),
-    webkitMaskPosition: revealMaskPosition(p),
-  }))
 }
 
 export function fadeKeyframes(): Keyframe[] {
   return [{ opacity: 1 }, { opacity: 0 }]
 }
 
+/** The wordmark fades in while its tracking eases from `trackingDisplay` + 0.08em to `trackingDisplay`. */
+export function wordmarkKeyframes(tracking: string): Keyframe[] {
+  return [
+    { opacity: 0, letterSpacing: `calc(${tracking} + ${WORDMARK_TRACKING_EXTRA_EM}em)` },
+    { opacity: 1, letterSpacing: tracking },
+  ]
+}
+
+/** The rule draws from its left end. It sits at full width in its static style. */
+export function ruleKeyframes(): Keyframe[] {
+  return [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }]
+}
+
 export function startKeyframes(): Keyframe[] {
   return [
-    { opacity: 0, transform: `translateY(${START_RISE_PX}px)`, filter: `blur(${START_BLUR_PX}px)` },
-    { opacity: 1, transform: 'translateY(0)', filter: 'blur(0)' },
+    { opacity: 0, transform: `translateY(${START_RISE_PX}px)` },
+    { opacity: 1, transform: 'translateY(0)' },
   ]
 }
 
@@ -237,7 +142,7 @@ export function startKeyframes(): Keyframe[] {
 export interface TitleSkyFrame {
   /** Seconds of cirrus drift (each layer multiplies this by its own rate). */
   drift: number
-  /** Where the travelling light is centered, 0..1 across the screen. */
+  /** Where the warm light is centered, 0..1 across the screen. */
   lightX: number
   /** How strong it is, 0..`LIGHT_SHIFT_MAX`. */
   light: number
@@ -249,13 +154,11 @@ export interface TitleSkyFrame {
  */
 export function titleSkyFrame(tMs: number): TitleSkyFrame {
   const t = Math.min(Math.max(tMs, 0), introDuration())
-  const p = sweepProgress(t)
-  const inSweep = t > TITLE_INTRO.sweepStart && t < sweepEndsAt()
-  const bandCenterVw = bandLeadingEdgeVw(p) - BAND_WIDTH_VW / 2
+  const inReveal = t > TITLE_INTRO.wordmarkStart && t < wordmarkEndsAt()
   return {
     drift: t / 1000,
-    lightX: bandCenterVw / 100,
-    light: inSweep ? LIGHT_SHIFT_MAX * breath(p) : 0,
+    lightX: MASTHEAD_LIGHT_X,
+    light: inReveal ? LIGHT_SHIFT_MAX * breath(wordmarkProgress(t)) : 0,
   }
 }
 
@@ -264,14 +167,11 @@ export function finalTitleSkyFrame(): TitleSkyFrame {
   return titleSkyFrame(introDuration())
 }
 
-/**
- * The audio swell, seconds after the intro starts: it rises under the sweep, peaks as the band
- * crosses the word (frame 03), and releases once Start has settled.
- */
+/** The audio swell, seconds after the intro starts: it rises with the wordmark and releases after Start. */
 export function swellTiming(): { start: number; peak: number; end: number } {
   return {
-    start: TITLE_INTRO.sweepStart / 1000,
-    peak: (TITLE_INTRO.sweepStart + TITLE_INTRO.sweep * 0.5) / 1000,
+    start: TITLE_INTRO.wordmarkStart / 1000,
+    peak: (TITLE_INTRO.wordmarkStart + TITLE_INTRO.wordmark * 0.5) / 1000,
     end: (introDuration() + 1200) / 1000,
   }
 }

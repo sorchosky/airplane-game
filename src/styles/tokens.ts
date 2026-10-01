@@ -87,13 +87,12 @@ export const color = {
   titleCloudWarm: '#ffb988',
   titleCloudCool: '#bab5cc',
   titleText: '#e4e9f6',
-  titleTextShadow: '#2c4781',
   titleStartBorder: 'rgba(228, 233, 246, 0.7)',
-  // #73: the warm white the intro fades up from, and the contrast assist that keeps the wordmark
-  // and Start at AA without a plate: a feathered darkening band across the wordmark's row and a
+  // #73: the warm white the intro fades up from. #158: the contrast assist that keeps the wordmark
+  // and Start at 3:1 without a plate: a left-edge feathered scrim behind the masthead column and a
   // soft glow in the same deep blue.
   titleFade: '#fff4e6',
-  titleScrim: 'rgba(27, 39, 72, 0.4)',
+  titleScrim: 'rgba(27, 39, 72, 0.6)',
   titleGlow: 'rgba(27, 39, 72, 0.6)',
 } as const
 
@@ -129,10 +128,9 @@ export const type = {
   weightHero: 400,
   weightStart: 600,
   trackingDisplay: '0.14em',
-  // Wordmark tracking, its offset shadow's (wider, so it reads as cast onto the clouds) and
-  // Start's, all as the Figma ratios (28.8 / 33.6 / 4.2 px at 48 / 48 / 14 px).
+  // Tracking for the paused and golden-path heroes, and for Start (Figma ratios 28.8 / 4.2 px at
+  // 48 / 14 px). The title wordmark itself uses `trackingDisplay`.
   trackingHero: '0.6em',
-  trackingHeroShadow: '0.7em',
   trackingStart: '0.3em',
   // The wordmark: 48px on the 874px-wide Figma frame, capped for large TVs.
   tvHero: 'clamp(2.5rem, 5.5vw, 6rem)',
@@ -353,7 +351,6 @@ export const size = {
   // The calibrate preview's frame (#63): a cool edge the player can find from ~2 m.
   calibrateFrame: '12px',
   // Title pose demonstration (arms out, tilt, arms up) under Start.
-  poseDemoFigure: 'clamp(72px, 8vw, 120px)',
   // Calibration hold-progress ring, beside the one line of guidance.
   holdRing: 'clamp(40px, 4vw, 56px)',
   // Control choice (#154): the glyph box (bounded by height too, so both frames fit a landscape

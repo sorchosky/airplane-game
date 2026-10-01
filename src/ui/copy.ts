@@ -5,9 +5,6 @@ export const copy = {
   title: {
     name: 'Driftwing',
     start: 'Start',
-    tagline: 'Fly with your arms. Cast to a TV.',
-    // Screen-reader text for the looping pose demonstration under Start.
-    demoLabel: 'Arms out to fly, lean to turn, raise your arms to climb',
   },
 
   controlSelect: {

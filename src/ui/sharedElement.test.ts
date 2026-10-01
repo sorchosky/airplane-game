@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { flipTransform, flipTransformCss } from './sharedElement'
+import {
+  SHARED_ELEMENTS,
+  SHARED_ELEMENT_ATTR,
+  findSharedElement,
+  flipTransform,
+  flipTransformCss,
+} from './sharedElement'
 
 describe('flipTransform', () => {
   it('is the identity when nothing moved', () => {
@@ -31,5 +37,16 @@ describe('flipTransform', () => {
     expect(flipTransformCss({ translateX: 1, translateY: 2, scaleX: 3, scaleY: 4 })).toBe(
       'translate(1px, 2px) scale(3, 4)',
     )
+  })
+})
+
+describe('findSharedElement', () => {
+  it('finds the marked node under a root, and returns null when there is none', () => {
+    const root = {
+      querySelector: (selector: string) =>
+        selector === `[${SHARED_ELEMENT_ATTR}="wordmark"]` ? ({ tag: 'h1' } as never) : null,
+    } as ParentNode
+    expect(findSharedElement(root, SHARED_ELEMENTS.wordmark)).toEqual({ tag: 'h1' })
+    expect(findSharedElement(null, SHARED_ELEMENTS.wordmark)).toBeNull()
   })
 })

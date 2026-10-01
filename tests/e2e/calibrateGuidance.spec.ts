@@ -49,28 +49,6 @@ async function serveFixture(page: Page, landmarks: Point[] | null): Promise<void
   )
 }
 
-test('title shows the tagline and the looping pose demonstration', async ({ page }) => {
-  await page.goto('/?input=pose')
-  await expect(page.getByText('Fly with your arms. Cast to a TV.')).toBeVisible()
-  const demo = page.getByTestId('pose-demo')
-  await expect(demo).toBeVisible()
-  // The loop moves the arms.
-  const arms = demo.locator('polyline').first()
-  const first = await arms.getAttribute('points')
-  await expect.poll(() => arms.getAttribute('points'), { timeout: 5_000 }).not.toBe(first)
-  await page.waitForTimeout(3200)
-  await page.screenshot({ path: 'test-results/63-title.png' })
-})
-
-test('the pose demonstration holds still under reduced motion', async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.goto('/?input=pose')
-  const arms = page.getByTestId('pose-demo').locator('polyline').first()
-  const first = await arms.getAttribute('points')
-  await page.waitForTimeout(1500)
-  expect(await arms.getAttribute('points')).toBe(first)
-})
-
 test('camera ask frame shows while the browser prompt is open', async ({ page }) => {
   await page.addInitScript(() => {
     navigator.mediaDevices.getUserMedia = () => new Promise<MediaStream>(() => undefined)
