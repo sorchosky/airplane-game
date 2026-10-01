@@ -1,9 +1,10 @@
 import { Canvas } from '@react-three/fiber'
 import { useCallback, useLayoutEffect, useMemo, useState } from 'react'
 import { PerfProbe } from '../debug/PerfProbe'
-import { activeShot, shotFlightState, titleBookmark } from '../debug/shots'
+import { activeShot, shotFlightState } from '../debug/shots'
 import { ChaseCamera } from '../flight/ChaseCamera'
 import { Plane } from '../flight/Plane'
+import { TitleCamera } from '../flight/TitleCamera'
 import { FlightVfx } from '../flight/FlightVfx'
 import { useFlightStore } from '../flight/flightStore'
 import { PostFX } from '../render/PostFX'
@@ -24,7 +25,7 @@ import { useWorldStore } from './worldStore'
 
 interface FlightSceneProps {
   /**
-   * `attract`: plane parked at the title bookmark with a fixed camera, nothing steps, frames
+   * `attract`: the scripted title flyby (or a `?shot=` bookmark), the sim doesn't step, frames
    * capped. `flight`: the normal sim and chase camera. The canvas is the same one in both.
    */
   mode: SceneMode
@@ -39,8 +40,15 @@ interface FlightSceneProps {
 export function FlightScene({ mode, covered = false }: FlightSceneProps) {
   const shot = useMemo(() => activeShot(), [])
   const attract = mode === 'attract'
-  // The bookmark the plane is parked at: `?shot=` always, the title bookmark while in attract.
-  const parked = shot ?? (attract ? titleBookmark() : null)
+  // The title flyby (#157) flies the plane in attract, except under a `?shot=` for another view.
+  const flyby = attract && (shot === null || shot.name === 'title')
+  // `?shot=title` and reduced motion hold the loop at its named frame.
+  const frozen = useMemo(
+    () => shot !== null || window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    [shot],
+  )
+  // The bookmark the plane is parked at: `?shot=` always, unless the flyby is flying it.
+  const parked = flyby ? null : shot
   const paused = useGameStore((s) => s.state === 'paused')
   // Bumped when the GPU drops the WebGL context (backgrounded tab on iOS, driver reset, too many
   // contexts). A new key remounts the canvas with a fresh renderer; the flight, input and game
@@ -68,7 +76,10 @@ export function FlightScene({ mode, covered = false }: FlightSceneProps) {
   // back what reads the plane's position when it mounts (the golden path) until the reset is in.
   const [spawned, setSpawned] = useState(false)
   useLayoutEffect(() => {
-    if (parked) {
+    if (flyby) {
+      // The flyby writes the plane's state every frame; there is no sim to reset.
+      setSpawned(false)
+    } else if (parked) {
       const { params } = useFlightStore.getState()
       useFlightStore.setState({ state: shotFlightState(parked, params.cruiseSpeed) })
       setSpawned(false)
@@ -76,7 +87,7 @@ export function FlightScene({ mode, covered = false }: FlightSceneProps) {
       useFlightStore.getState().reset()
       setSpawned(true)
     }
-  }, [parked])
+  }, [parked, flyby])
 
   return (
     <>
@@ -89,9 +100,9 @@ export function FlightScene({ mode, covered = false }: FlightSceneProps) {
         style={{ width: '100%', height: '100%', display: 'block' }}
       >
         <Atmosphere />
-        <ChaseCamera shot={parked} />
-        <Plane paused={paused || parked !== null} />
-        <FlightVfx paused={paused || parked !== null} />
+        {flyby ? <TitleCamera frozen={frozen} /> : <ChaseCamera shot={parked} />}
+        <Plane paused={paused || parked !== null} scripted={flyby} frozen={frozen} />
+        <FlightVfx paused={paused || parked !== null || flyby} />
         {parked === null && spawned && <GoldenPath paused={paused} />}
         <Terrain />
         <Foliage />

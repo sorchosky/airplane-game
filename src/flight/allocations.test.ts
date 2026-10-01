@@ -14,6 +14,7 @@ import {
 } from './cameraMath'
 import { DEFAULT_FLIGHT_PARAMS, createInitialFlightState, step } from './flightModel'
 import { NEUTRAL_DEFLECTIONS, dampDeflections, targetDeflections } from './planeRig'
+import { createTitleFlybyPose, scriptedControl, titleFlyby } from './titleFlyby'
 
 /**
  * The hot path must not allocate per frame (docs/perf.md). Each case runs a function the way
@@ -51,6 +52,7 @@ const CEILING_BYTES = {
   rig: 32, // measured 16
   audio: 16, // measured 0
   armLine: 16, // measured 0
+  flyby: 144, // measured 96: Vector3, Quaternion and pose field stores (V8 boxing, see above)
 } as const
 
 function heapGrowthPerCall(fn: () => void): number {
@@ -138,5 +140,23 @@ describe('hot path allocations', () => {
       armLine(landmarks, video, canvas, points)
     })
     expect(growth).toBeLessThan(CEILING_BYTES.armLine)
+  })
+
+  it.skipIf(!canMeasure)('title flyby frame allocates no objects', () => {
+    const pose = createTitleFlybyPose()
+    const control: ControlInput = {
+      roll: 0,
+      pitch: 0,
+      active: true,
+      confidence: 1,
+      source: 'replay',
+    }
+    let t = 0
+    const growth = heapGrowthPerCall(() => {
+      t += 1 / 60
+      titleFlyby(t, 0.3, pose)
+      scriptedControl(pose.bankRate, control)
+    })
+    expect(growth).toBeLessThan(CEILING_BYTES.flyby)
   })
 })
