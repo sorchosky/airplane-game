@@ -1,0 +1,1 @@
+- 2026-10-01 · world · Stars use a per-star normalized brightness rank and the clock's astronomical sun elevation, fading brightest-to-faintest from 2° to 14° below the horizon with overlapping 8° individual fades · this keeps stars off the daylight sky, gives every star just over 20 in-game minutes to fade at dawn and dusk, and preserves one point-cloud draw

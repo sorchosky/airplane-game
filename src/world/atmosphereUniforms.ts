@@ -28,6 +28,7 @@ export interface AtmosphereUniforms {
   atmoCloudTop: { value: Float32Array }
   atmoCloudShade: { value: Float32Array }
   atmoNight: { value: Float32Array }
+  atmoSunElevation: { value: Float32Array }
   atmoGradeShadow: { value: Float32Array }
   atmoGradeHighlight: { value: Float32Array }
   atmoGradeAmounts: { value: Float32Array }
@@ -47,6 +48,7 @@ export const atmosphereUniforms: AtmosphereUniforms = {
   atmoCloudTop: vec3(),
   atmoCloudShade: vec3(),
   atmoNight: { value: new Float32Array(1) },
+  atmoSunElevation: { value: new Float32Array(1) },
   atmoGradeShadow: vec3(),
   atmoGradeHighlight: vec3(),
   atmoGradeAmounts: { value: new Float32Array(2) },
@@ -116,6 +118,7 @@ export function applyBlendedLighting(sample: BlendedLighting): void {
   copyColor(u.atmoCloudShade.value, sample.colors.cloudShadow, true)
   u.atmoSunDir.value.set(sample.direction)
   u.atmoNight.value[0] = sample.nightAmount
+  u.atmoSunElevation.value[0] = sample.sunElevation
   copyColor(u.atmoGradeShadow.value, sample.colors.gradeShadow)
   copyColor(u.atmoGradeHighlight.value, sample.colors.gradeHighlight)
   u.atmoGradeAmounts.value[0] = sample.gradeShadowAmount
