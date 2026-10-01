@@ -1,9 +1,11 @@
-import { useThree } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { Bloom, EffectComposer, Vignette, wrapEffect } from '@react-three/postprocessing'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Camera, Scene } from 'three'
+import { useFrontDoorLookStore } from '../app/frontDoorLookStore'
 import { activeLighting } from '../world/lightingPreset'
 import { DisplayRenderPass } from './DisplayRenderPass'
+import { FrontDoorBlurPass } from './FrontDoorBlurPass'
 import { GodRaysEffect } from './GodRaysEffect'
 import { gradeParams, POST_FX, postFxConfig } from './postFx'
 import { useQualityStore } from './qualityStore'
@@ -25,6 +27,8 @@ const createRenderPass = (scene: Scene, camera: Camera) => new DisplayRenderPass
  * the canvas.
  */
 export function PostFX() {
+  const blurPass = useMemo(() => new FrontDoorBlurPass(), [])
+  useEffect(() => () => blurPass.dispose(), [blurPass])
   const tier = useQualityStore((s) => s.tier)
   const [reducedMotion] = useState(prefersReducedMotion)
   const config = postFxConfig(tier, { reducedMotion })
@@ -33,11 +37,14 @@ export function PostFX() {
   return (
     <>
       <FrameInfoManualReset />
+      <FrontDoorBlur pass={blurPass} />
       <EffectComposer
         multisampling={POST_FX.multisampling}
         renderPass={createRenderPass}
         enableNormalPass={false}
       >
+        {/* First among the effects: the composer sends the last pass to the screen. */}
+        <primitive object={blurPass} />
         <Bloom
           mipmapBlur
           luminanceThreshold={POST_FX.bloom.threshold}
@@ -66,5 +73,16 @@ function FrameInfoManualReset() {
       gl.info.autoReset = previous
     }
   }, [gl])
+  return null
+}
+
+/**
+ * Feeds the front door's blur strength (#159) to the pass each frame, from the look store the
+ * Start timeline writes. Reading the store here, not through React, keeps it off the render path.
+ */
+function FrontDoorBlur({ pass }: { pass: FrontDoorBlurPass }) {
+  useFrame(() => {
+    pass.strength = useFrontDoorLookStore.getState().blur
+  })
   return null
 }

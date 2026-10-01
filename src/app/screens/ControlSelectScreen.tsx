@@ -1,4 +1,4 @@
-import { color, effect, space, type } from '../../styles/tokens'
+import { color, space, type } from '../../styles/tokens'
 import { ControlChoice } from '../../ui/ControlChoice'
 import { isTouchDevice, useControlModeStore, type ControlMode } from '../controlModeStore'
 import { useGameStore } from '../gameStore'
@@ -28,9 +28,8 @@ export function ControlSelectScreen() {
         alignItems: 'center',
         justifyContent: 'center',
         padding: space.xl,
-        // Dark enough that the accent corner marks hold 3:1 over any world colour (tokens.test.ts).
-        background: color.surfaceHud,
-        backdropFilter: effect.scrimBlur,
+        // No plate and no backdrop filter: the world behind is blurred and scrimmed in the render
+        // pipeline (#159), which is what keeps the corner marks at 3:1 (tokens.test.ts).
         color: color.textPrimary,
         fontFamily: type.fontBody,
       }}

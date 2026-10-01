@@ -31,6 +31,7 @@ const REQUIRED_COLOR_ROLES = [
   'controlInactive',
   'surfaceHud',
   'surfaceScrim',
+  'frontDoorScrim',
   'textPrimary',
   'textMuted',
   'accent',
@@ -82,7 +83,9 @@ describe('design tokens', () => {
       const value = color[role]
       expect(value, `color.${role}`).toBeDefined()
       expect(value, `color.${role} should be a hex or rgba() string`).toMatch(
-        ['surfaceHud', 'surfaceScrim', 'line', 'glow'].includes(role) ? RGBA : HEX,
+        ['surfaceHud', 'surfaceScrim', 'frontDoorScrim', 'line', 'glow'].includes(role)
+          ? RGBA
+          : HEX,
       )
     }
   })
@@ -123,10 +126,10 @@ describe('design tokens', () => {
   })
 
   // #154: focused corner marks are the only focus indicator on the control choice, so they hold
-  // 3:1 (WCAG non-text contrast) over the screen's `surfaceHud` backdrop, even over the brightest
-  // world colour. The lighter `surfaceScrim` only reaches 2.5:1 there.
-  it('keeps the focused control-choice corner marks at 3:1 over the screen backdrop', () => {
-    const backdrop = compositeOverSurfaceHud(color.snow)
+  // 3:1 (WCAG non-text contrast) over the blurred world under the pipeline's `frontDoorScrim`
+  // (#159), even over the brightest world colour. The lighter `surfaceScrim` only reaches 2.5:1.
+  it('keeps the focused control-choice corner marks at 3:1 over the scrimmed world', () => {
+    const backdrop = compositeOver(color.frontDoorScrim, color.snow)
     expect(contrastRatio(color.accent, backdrop)).toBeGreaterThanOrEqual(3)
   })
 
@@ -319,6 +322,7 @@ describe('design tokens', () => {
     expect(css.includes(`--weight-start: ${type.weightStart};`)).toBe(true)
     expect(css.includes(`--effect-hud-blur: ${effect.hudBlur};`)).toBe(true)
     expect(css.includes(`--effect-scrim-blur: ${effect.scrimBlur};`)).toBe(true)
+    expect(css.includes(`--effect-still-blur: ${effect.stillBlur};`)).toBe(true)
   })
 
   it('loads exactly the Google Fonts weights the tokens use (no unused/missing weights)', () => {

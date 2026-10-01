@@ -1,4 +1,4 @@
-import { type Ref, useEffect, useImperativeHandle, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   finalTitleSkyFrame,
   introDuration,
@@ -24,15 +24,9 @@ function compile(gl: WebGL2RenderingContext, kind: number, source: string): WebG
   return shader
 }
 
-export interface TitleSkyHandle {
-  /** The current frame as an image URL, for the Start hand-off's still. Null if nothing drew. */
-  snapshot: () => string | null
-}
-
 interface TitleSkyProps {
   /** `performance.now()` when the intro started, or null to show the settled frame. */
   introStart: number | null
-  ref?: Ref<TitleSkyHandle>
 }
 
 /**
@@ -42,35 +36,12 @@ interface TitleSkyProps {
  * band); after that, or with no intro, it holds the settled frame and redraws only on resize. The
  * CSS gradient under it shows if WebGL2 fails.
  */
-export function TitleSky({ introStart, ref }: TitleSkyProps) {
+export function TitleSky({ introStart }: TitleSkyProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const drawnRef = useRef(false)
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      snapshot: () => {
-        const canvas = canvasRef.current
-        if (!canvas || !drawnRef.current) return null
-        try {
-          return canvas.toDataURL('image/jpeg', 0.9)
-        } catch {
-          return null
-        }
-      },
-    }),
-    [],
-  )
 
   useEffect(() => {
     const canvas = canvasRef.current
-    // `preserveDrawingBuffer` keeps the last frame readable for the hand-off snapshot; the canvas
-    // is idle once the intro ends, so the extra copy costs nothing then.
-    const gl = canvas?.getContext('webgl2', {
-      antialias: false,
-      alpha: false,
-      preserveDrawingBuffer: true,
-    })
+    const gl = canvas?.getContext('webgl2', { antialias: false, alpha: false })
     if (!canvas || !gl) return
 
     const vertex = compile(gl, gl.VERTEX_SHADER, TITLE_SKY_VERTEX)
@@ -112,7 +83,6 @@ export function TitleSky({ introStart, ref }: TitleSkyProps) {
       gl.uniform1f(driftLocation, frame.drift)
       gl.uniform2f(lightLocation, frame.lightX, frame.light)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
-      drawnRef.current = true
     }
 
     draw()

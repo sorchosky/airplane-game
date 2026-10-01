@@ -27,8 +27,6 @@ import { useControlStateDriver } from './controlStore'
 import { FrontDoorStage } from './FrontDoorStage'
 import { useGameStore } from './gameStore'
 import { PausedOverlay } from './screens/PausedOverlay'
-import { TitleHandoff } from './screens/TitleHandoff'
-import { useTitleHandoffStore } from './screens/titleHandoff'
 import { WingsPrompts } from './screens/WingsPrompts'
 import { isMaterialsSceneMode, isReplayInputMode, isSwatchesMode, mapSizeKm } from './urlFlags'
 import { sceneModeFor, worldIsVisible } from './sceneMode'
@@ -49,7 +47,6 @@ function GameApp() {
   const state = useGameStore((s) => s.state)
   const mode = useControlModeStore((s) => s.controlMode)
   const permissionDenied = useGameStore((s) => s.permissionDenied)
-  const titleHandoff = useTitleHandoffStore((s) => s.still !== null)
   const highContrast = useAccessibilityStore((s) => s.highContrast)
 
   useEffect(() => setupWakeLockReacquire(), [])
@@ -117,7 +114,6 @@ function GameApp() {
       {inFlight && !shot && <GoldenPathTitle />}
       <PerfHud initiallyVisible={hasDebugFlag()} />
       {shot && <ShotReady />}
-      {titleHandoff && <TitleHandoff />}
       {showPoseDebug && (
         <PoseDebug reserveTouchPause={state === 'flying' && mode === 'touch' && !shot} />
       )}

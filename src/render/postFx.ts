@@ -1,4 +1,4 @@
-import type { LightingPreset } from '../styles/tokens'
+import { color, type LightingPreset } from '../styles/tokens'
 import type { QualityTier } from './qualityStore'
 
 // Post-processing tunables. Values act on the scene as it would appear on the canvas (tone
@@ -46,6 +46,21 @@ export const POST_FX = {
     glowRadius: 0.3,
     /** Added light at full strength, in the linear buffer. Subtle: a hint of shafts, not a haze. */
     strength: 0.18,
+  },
+  /**
+   * The front door's blur (#159, art bible §8): the scene downsampled to a quarter of the canvas
+   * and blurred with a few Kawase taps, then mixed back by one strength uniform with 20 %
+   * desaturation and the cool scrim tint, the same treatment as pause and countdown.
+   */
+  frontDoorBlur: {
+    resolutionScale: 0.25,
+    /** Kawase tap offsets in texels of the downsampled buffer, one blur step each. */
+    kawaseOffsets: [0.5, 1.5, 2.5, 2.5],
+    desaturation: 0.2,
+    /** The cool scrim, display sRGB with alpha: the pause scrim's tint at the 70 % the focus marks need. */
+    scrim: color.frontDoorScrim,
+    /** Below this strength the pass is switched off and costs nothing. */
+    minStrength: 0.001,
   },
   /**
    * MSAA samples for the composer's scene buffer. The canvas's own antialiasing is bypassed when
@@ -188,4 +203,55 @@ export function godRayFade(forwardDotSun: number, sunU: number, sunV: number): n
   const facing = smoothstep(0.05, 0.45, forwardDotSun)
   const offscreen = Math.max(Math.abs(sunU - 0.5), Math.abs(sunV - 0.5))
   return facing * (1 - smoothstep(0.5, 1.1, offscreen))
+}
+
+/** Parses `rgb()` or `rgba()` into display sRGB 0..1 and alpha. */
+export function parseRgba(css: string): { rgb: Rgb; alpha: number } {
+  const parts = /rgba?\(([^)]+)\)/
+    .exec(css)?.[1]
+    ?.split(',')
+    .map((p) => Number.parseFloat(p))
+  if (!parts || parts.length < 3 || parts.some((p) => Number.isNaN(p))) {
+    throw new Error(`Not an rgb() colour: ${css}`)
+  }
+  return {
+    rgb: [parts[0]! / 255, parts[1]! / 255, parts[2]! / 255],
+    alpha: parts[3] ?? 1,
+  }
+}
+
+export const srgbToLinear = (c: number): number =>
+  c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+
+/** What the front door's blur composite uses: the scrim's linear tint and its alpha. */
+export function frontDoorScrim(): { tint: Rgb; alpha: number } {
+  const { rgb, alpha } = parseRgba(POST_FX.frontDoorBlur.scrim)
+  return { tint: [srgbToLinear(rgb[0]), srgbToLinear(rgb[1]), srgbToLinear(rgb[2])], alpha }
+}
+
+/** Whether the front door blur pass should run at `strength`. At 0 it is switched off entirely. */
+export function frontDoorBlurActive(strength: number): boolean {
+  return strength > POST_FX.frontDoorBlur.minStrength
+}
+
+/**
+ * The blur composite on one linear pixel, mirroring `FrontDoorBlurPass`'s shader (keep the two in
+ * step): the blurred colour mixed in by `strength`, desaturated 20 % and tinted by the scrim, each
+ * scaled by `strength` so strength 0 returns the scene untouched.
+ */
+export function frontDoorComposite(scene: Rgb, blurred: Rgb, strength: number): Rgb {
+  const s = Math.min(1, Math.max(0, strength))
+  const { desaturation } = POST_FX.frontDoorBlur
+  const { tint, alpha } = frontDoorScrim()
+  const mixed: Rgb = [
+    scene[0] + (blurred[0] - scene[0]) * s,
+    scene[1] + (blurred[1] - scene[1]) * s,
+    scene[2] + (blurred[2] - scene[2]) * s,
+  ]
+  const l = luma(mixed)
+  const out = mixed.map((c, i) => {
+    const desat = c + (l - c) * desaturation * s
+    return desat + (tint[i]! - desat) * alpha * s
+  })
+  return [out[0]!, out[1]!, out[2]!]
 }

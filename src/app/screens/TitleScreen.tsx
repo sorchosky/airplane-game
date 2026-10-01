@@ -5,7 +5,6 @@ import { color, type } from '../../styles/tokens'
 import { selectedInputSource, useControlModeStore } from '../controlModeStore'
 import { useGameStore } from '../gameStore'
 import { tryLockLandscape } from '../orientation'
-import { useWorldStore } from '../worldStore'
 import { acquireWakeLock } from '../wakeLock'
 import {
   INTRO_EASING,
@@ -19,7 +18,6 @@ import {
   swellTiming,
   wordmarkKeyframes,
 } from './titleIntro'
-import { useTitleHandoffStore } from './titleHandoff'
 import {
   Masthead,
   MastheadRule,
@@ -47,13 +45,6 @@ export function TitleScreen() {
     tryLockLandscape()
     // AudioContext creation/resume must happen inside this click handler (autoplay policy).
     void resumeAudioEngine()
-
-    // The camera sinks through the cirrus into whatever mounts next (see `TitleHandoff`). Only
-    // while the poster is still up: once the live world has taken over there is no sky to sink.
-    if (!prefersReducedMotion()) {
-      const still = useWorldStore.getState().posterSnapshot?.() ?? null
-      if (still) useTitleHandoffStore.getState().begin(still)
-    }
 
     const source = selectedInputSource()
     if (useControlModeStore.getState().inputOverride === null) {

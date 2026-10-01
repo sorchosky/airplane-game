@@ -1,5 +1,5 @@
-import { Canvas } from '@react-three/fiber'
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react'
+import { Canvas, useThree } from '@react-three/fiber'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { PerfProbe } from '../debug/PerfProbe'
 import { activeShot, shotFlightState } from '../debug/shots'
 import { ChaseCamera } from '../flight/ChaseCamera'
@@ -18,6 +18,7 @@ import { Terrain } from '../world/Terrain'
 import { Water } from '../world/Water'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import { AttractFrames } from './AttractFrames'
+import { useFrontDoorLookStore } from './frontDoorLookStore'
 import { useGameStore } from './gameStore'
 import type { SceneMode } from './sceneMode'
 import { WorldWatcher } from './WorldWatcher'
@@ -112,9 +113,39 @@ export function FlightScene({ mode, covered = false }: FlightSceneProps) {
         <QualityGovernor paused={attract} />
         <PostFX />
         <WorldWatcher />
+        <StillCapture />
         {attract && <AttractFrames covered={covered} />}
       </Canvas>
       <CloudVeil />
     </>
   )
+}
+
+/** The still is drawn at this fraction of the canvas: it is blurred anyway, and it is cheap to hold. */
+const STILL_SCALE = 0.25
+
+/**
+ * Registers how the low tier (no composer) takes its still of the world for the front door blur
+ * (#159): one render and a downscaled copy into a 2D canvas, in the same task so the drawing
+ * buffer is still there to read. The blur itself is CSS on that still, applied once.
+ */
+function StillCapture() {
+  const { gl, scene, camera } = useThree()
+  useEffect(() => {
+    const capture = (target: HTMLCanvasElement): boolean => {
+      const source = gl.domElement
+      const width = Math.max(1, Math.round(source.width * STILL_SCALE))
+      const height = Math.max(1, Math.round(source.height * STILL_SCALE))
+      const context = target.getContext('2d')
+      if (!context) return false
+      gl.render(scene, camera)
+      target.width = width
+      target.height = height
+      context.drawImage(source, 0, 0, width, height)
+      return true
+    }
+    useFrontDoorLookStore.getState().setCaptureStill(capture)
+    return () => useFrontDoorLookStore.getState().setCaptureStill(null)
+  }, [gl, scene, camera])
+  return null
 }

@@ -64,6 +64,9 @@ export const color = {
   // Multi-line copy keeps the denser alpha required for AA; one-line HUD elements use glow alone.
   surfaceHud: 'rgba(12, 18, 26, 0.8)',
   surfaceScrim: 'rgba(12, 18, 26, 0.6)',
+  // The control choice's scrim, applied in the render pipeline over the blurred world (#159). 70 %
+  // is the least that keeps the accent corner marks at 3:1 over the brightest world colour.
+  frontDoorScrim: 'rgba(12, 18, 26, 0.7)',
   // Portrait prompt (#155): a cool tint with no desaturation, and the page colour behind it so
   // the iOS status bar strip matches.
   orientationScrim: 'rgba(24, 36, 64, 0.72)',
@@ -329,6 +332,8 @@ export const effect = {
   hudBlur: 'blur(12px)',
   scrimBlur: 'blur(16px) saturate(80%)',
   tintBlur: 'blur(16px)',
+  // The low tier's frozen world still (#159): blurred once, 20 % desaturated, never a backdrop filter.
+  stillBlur: 'blur(8px) saturate(80%)',
   textGlow: `0 0 12px ${color.glow}`,
   ringGlow: `drop-shadow(0 0 6px ${color.glow})`,
 } as const

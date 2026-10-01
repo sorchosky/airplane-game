@@ -1,6 +1,7 @@
 import { addAfterEffect, addEffect, useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
 import { ATTRACT_MAX_FPS, attractShouldRender, createFrameLimiter } from '../render/attractFrames'
+import { useFrontDoorLookStore } from './frontDoorLookStore'
 import { useWorldStore } from './worldStore'
 
 function prefersReducedMotion(): boolean {
@@ -47,7 +48,8 @@ export function AttractFrames({ covered }: AttractFramesProps) {
       raf = requestAnimationFrame(tick)
       const render = attractShouldRender({
         hidden: document.hidden,
-        covered: coveredRef.current,
+        // The low tier holds the world on its blurred still (#159), so nothing is drawn under it.
+        covered: coveredRef.current || useFrontDoorLookStore.getState().held,
         reducedMotion,
         ready: useWorldStore.getState().status === 'ready',
         framesSinceReady: framesSinceReady.current,
@@ -55,7 +57,11 @@ export function AttractFrames({ covered }: AttractFramesProps) {
       if (render && limiter.due(now, lastCost)) invalidate()
     }
     raf = requestAnimationFrame(tick)
+    // A held frame (reduced motion) still has to redraw when the look jumps to its static blur.
+    // Otherwise the limiter above paces the frames, and the look moving must not outrun it.
+    const offLook = reducedMotion ? useFrontDoorLookStore.subscribe(() => invalidate()) : null
     return () => {
+      offLook?.()
       cancelAnimationFrame(raf)
       offBefore()
       offAfter()
