@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { color, lightingPresets, space, type } from '../styles/tokens'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
+import { ROUTE } from '../world/route'
 import type { WorldMapResult } from './worldMap.worker'
 import { hillshade, worldToMapPixel, type MapBounds } from './worldMapMath'
 
@@ -156,7 +157,11 @@ function drawMap(
   drawRouteOverlay(context, route, bounds)
 }
 
-export function WorldMap({ sizeKm, route = [] }: WorldMapProps) {
+const AUTHORED_ROUTE = Array.from({ length: 512 }, (_, index) =>
+  ROUTE.pointAt((index / 512) * ROUTE.length),
+)
+
+export function WorldMap({ sizeKm, route = AUTHORED_ROUTE }: WorldMapProps) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const [status, setStatus] = useState('Sampling terrain…')
 

@@ -248,6 +248,6 @@ export function createRoute(points: readonly RouteControlPoint[]): Route {
   return { length, pointAt, tangentAt, nearest }
 }
 
-import { PLACEHOLDER_ROUTE_POINTS } from './routePoints'
+import { ROUTE_POINTS } from './routePoints'
 
-export const ROUTE = createRoute(PLACEHOLDER_ROUTE_POINTS)
+export const ROUTE = createRoute(ROUTE_POINTS)
