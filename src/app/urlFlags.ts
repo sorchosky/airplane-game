@@ -27,3 +27,11 @@ export function isSwatchesMode(): boolean {
 export function isMaterialsSceneMode(): boolean {
   return new URLSearchParams(window.location.search).get('scene') === 'materials'
 }
+
+/** `?map[=<km>]` replaces the game with the world-authoring map. */
+export function mapSizeKm(): number | null {
+  const params = new URLSearchParams(window.location.search)
+  if (!params.has('map')) return null
+  const value = Number(params.get('map'))
+  return Number.isFinite(value) && value > 0 ? Math.min(40, Math.max(1, value)) : 16
+}
