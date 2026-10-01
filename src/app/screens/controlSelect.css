@@ -1,55 +1,168 @@
-.control-options {
+.control-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xl);
+  max-width: 100%;
+}
+
+.control-title {
+  margin: 0;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-display);
+  /* Tracking trails the last letter; pad the start to keep the line optically centred. */
+  padding-inline-start: var(--tracking-display);
+  text-shadow: var(--effect-text-glow);
+}
+
+.control-frames {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: var(--space-lg);
-  width: 100%;
-  max-width: 824px;
+  gap: var(--space-xl);
 }
 
-.control-option {
+/* A viewfinder frame: no border and no fill, only four corner marks. */
+.control-frame {
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: var(--space-md);
-  flex: 1 1 320px;
-  max-width: 400px;
-  min-width: 0;
-  min-height: 160px;
-  padding: var(--space-md);
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-sharp);
-  background: transparent;
+  align-items: center;
+  gap: var(--space-lg);
+  width: calc(var(--size-control-glyph) + 2 * var(--space-xxl));
+  min-width: 64px;
+  min-height: 64px;
+  padding: var(--space-xl) var(--space-xxl);
+  border: 0;
+  background: none;
   color: var(--color-text-primary);
-  text-align: left;
+  font: inherit;
   cursor: pointer;
-  text-shadow: 0 0 12px var(--color-glow);
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.control-corner {
+  position: absolute;
+  width: var(--size-corner-arm);
+  height: var(--size-corner-arm);
+  border: 0 solid var(--color-line);
+  pointer-events: none;
   transition:
-    border-color 160ms ease,
-    background-color 160ms ease,
-    transform 160ms ease;
+    transform var(--motion-frame-slide) ease,
+    border-color var(--motion-frame-slide) ease;
 }
 
-.control-option:hover,
-.control-option:focus-visible {
+.control-corner[data-corner='tl'] {
+  top: 0;
+  left: 0;
+  border-top-width: var(--size-frame-stroke);
+  border-left-width: var(--size-frame-stroke);
+}
+
+.control-corner[data-corner='tr'] {
+  top: 0;
+  right: 0;
+  border-top-width: var(--size-frame-stroke);
+  border-right-width: var(--size-frame-stroke);
+}
+
+.control-corner[data-corner='bl'] {
+  bottom: 0;
+  left: 0;
+  border-bottom-width: var(--size-frame-stroke);
+  border-left-width: var(--size-frame-stroke);
+}
+
+.control-corner[data-corner='br'] {
+  bottom: 0;
+  right: 0;
+  border-bottom-width: var(--size-frame-stroke);
+  border-right-width: var(--size-frame-stroke);
+}
+
+/* Focus (and selection, which is focus on tap) is the corner marks turning accent and sliding
+   8 px inward. */
+.control-frame:focus .control-corner {
   border-color: var(--color-accent);
-  background: var(--color-surface-hud);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 0 20px var(--color-glow);
 }
 
-.control-option:focus-visible {
-  outline: 4px solid var(--color-text-primary);
-  outline-offset: var(--space-sm);
+.control-frame:focus .control-corner[data-corner='tl'] {
+  transform: translate(var(--space-sm), var(--space-sm));
 }
 
-.control-option:active {
-  transform: scale(0.98);
+.control-frame:focus .control-corner[data-corner='tr'] {
+  transform: translate(calc(-1 * var(--space-sm)), var(--space-sm));
 }
 
+.control-frame:focus .control-corner[data-corner='bl'] {
+  transform: translate(var(--space-sm), calc(-1 * var(--space-sm)));
+}
+
+.control-frame:focus .control-corner[data-corner='br'] {
+  transform: translate(calc(-1 * var(--space-sm)), calc(-1 * var(--space-sm)));
+}
+
+/* iOS keeps :hover after a tap, so hover only styles devices that really hover. */
+@media (hover: hover) {
+  .control-frame:hover .control-corner {
+    border-color: var(--color-accent);
+  }
+
+  .control-frame:hover .control-corner[data-corner='tl'] {
+    transform: translate(var(--space-sm), var(--space-sm));
+  }
+
+  .control-frame:hover .control-corner[data-corner='tr'] {
+    transform: translate(calc(-1 * var(--space-sm)), var(--space-sm));
+  }
+
+  .control-frame:hover .control-corner[data-corner='bl'] {
+    transform: translate(var(--space-sm), calc(-1 * var(--space-sm)));
+  }
+
+  .control-frame:hover .control-corner[data-corner='br'] {
+    transform: translate(calc(-1 * var(--space-sm)), calc(-1 * var(--space-sm)));
+  }
+}
+
+/* Identical glyph boxes with the glyphs sitting on the bottom edge, so labels share a baseline. */
+.control-glyph-box {
+  display: flex;
+  align-items: flex-end;
+  width: var(--size-control-glyph);
+  aspect-ratio: 240 / 112;
+}
+
+.control-glyph {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  stroke-width: var(--size-glyph-stroke);
+}
+
+.control-glyph * {
+  vector-effect: non-scaling-stroke;
+}
+
+.control-label {
+  font-family: var(--font-body);
+  font-size: var(--type-tv-body);
+  font-weight: var(--weight-start);
+  letter-spacing: var(--tracking-start);
+  /* Tracking trails the last letter; pad the start to keep the label optically centred. */
+  padding-inline-start: var(--tracking-start);
+  text-transform: uppercase;
+  text-shadow: var(--effect-text-glow);
+}
+
+/* Reduced motion: the marks change colour without sliding (the glyphs hold a static key pose). */
 @media (prefers-reduced-motion: reduce) {
-  .control-option {
-    transition: none;
+  .control-corner,
+  .control-frame:focus .control-corner,
+  .control-frame:hover .control-corner {
+    /* Beats the per-corner slide rules above. */
+    transform: none !important;
   }
 }

@@ -11,13 +11,10 @@ export const copy = {
   },
 
   controlSelect: {
-    title: 'Choose your controls',
-    camera: 'Camera',
-    cameraHint: 'Stand back, arms out like wings',
+    title: 'How will you fly?',
+    camera: 'Motion',
     mouse: 'Mouse',
-    mouseHint: 'Move the mouse to steer.',
     touch: 'Touch',
-    touchHint: 'Drag anywhere to steer',
   },
 
   // Storyboard frame 01: shown while the browser's camera prompt is open, and again if it's denied.

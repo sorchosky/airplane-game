@@ -126,6 +126,14 @@ describe('design tokens', () => {
   // text, so AA is 3:1. They stand on the sky with no plate, only the feathered `titleScrim` band
   // (plus a `titleGlow` halo, not counted here), so this holds over every colour the animated sky
   // can put behind them, including the band's travelling light at its peak.
+  // #154: focused corner marks are the only focus indicator on the control choice, so they hold
+  // 3:1 (WCAG non-text contrast) over the screen's `surfaceHud` backdrop, even over the brightest
+  // world colour. The lighter `surfaceScrim` only reaches 2.5:1 there.
+  it('keeps the focused control-choice corner marks at 3:1 over the screen backdrop', () => {
+    const backdrop = compositeOverSurfaceHud(color.snow)
+    expect(contrastRatio(color.accent, backdrop)).toBeGreaterThanOrEqual(3)
+  })
+
   it('keeps the title wordmark and Start at WCAG AA (3:1, large text) over the scrimmed sky', () => {
     const backdrops = titleTextBackdrops()
     expect(backdrops.length).toBeGreaterThan(100)

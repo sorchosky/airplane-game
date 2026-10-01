@@ -7,7 +7,7 @@ test('title screen shows Start then control selection and camera calibration', a
 
   await start.click()
   await expect(page.getByTestId('control-select')).toBeVisible()
-  await page.getByRole('button', { name: /Camera/ }).click()
+  await page.getByRole('button', { name: /Motion/ }).click()
   await expect(page.getByTestId('calibration-guidance')).toBeVisible()
 })
 
