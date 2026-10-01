@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createRoute, ROUTE } from './route'
 import { ROUTE_POINTS } from './routePoints'
+import { TERRAIN_CONFIG } from './terrainConfig'
 
 describe('route', () => {
   it('is continuous where it closes', () => {
@@ -16,6 +17,29 @@ describe('route', () => {
       expect(point.valleyWidth).toBeLessThanOrEqual(600)
     }
     expect(ROUTE_POINTS[0]).toMatchObject({ x: 1750, z: 2000 })
+  })
+
+  it('aims the spawn through a navigable outbound cut', () => {
+    const spawn = ROUTE_POINTS[0]!
+    const cut = ROUTE_POINTS[1]!
+    const heading = -0.245
+    const distance = Math.hypot(cut.x - spawn.x, cut.z - spawn.z)
+    const forward = { x: -Math.sin(heading), z: -Math.cos(heading) }
+    const alignment = ((cut.x - spawn.x) * forward.x + (cut.z - spawn.z) * forward.z) / distance
+
+    expect(alignment).toBeGreaterThan(0.999)
+    expect(cut.valleyWidth).toBeGreaterThanOrEqual(250)
+  })
+
+  it('marks four low control points for river stretches', () => {
+    const riverPoints = ROUTE_POINTS.filter(
+      ({ floorHeight }) => floorHeight <= TERRAIN_CONFIG.waterLevel + 4,
+    )
+
+    expect(riverPoints).toHaveLength(4)
+    expect(riverPoints.every(({ floorHeight }) => floorHeight >= TERRAIN_CONFIG.waterLevel)).toBe(
+      true,
+    )
   })
 
   it('is parameterized uniformly by arc length', () => {
