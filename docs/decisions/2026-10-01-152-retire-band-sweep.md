@@ -1,0 +1,1 @@
+- 2026-10-01 · ui · The frosted band sweep and the wordmark's offset shadow layer retire. The wordmark reveals with a tracking-in fade. Supersedes the 2026-09-26 band entries and the #73 sweep entry · the band's backdrop blur cannot sit over the live canvas (see the front-door blur entry), and a tracking-in fade needs no second layer

@@ -1,0 +1,1 @@
+- 2026-10-01 · render · Front-door blur is rendered in the pipeline (downsampled blur pass) on `medium` and `high`. On `low` the world freezes to a still blurred once. No `backdrop-filter` over the live canvas · CSS backdrop blur over a WebGL canvas is costly and unreliable on mobile GPUs, and a downsampled pass is cheap and consistent

@@ -26,29 +26,34 @@ guidance and flight starts at full speed with no practice.
 Times are targets for a first-timer who has never seen the game. Each frame
 lists what is on screen, what the player does, and what tells them it worked.
 
-### 00 Title (0–6 s)
+The front door is one continuous scene over the live world. A persistent stage
+maps game states to beats and transitions elements in place instead of
+mounting separate screens. See `docs/decisions/2026-10-01-152-*.md`.
 
-Cinematic sky, wordmark sweeps in under the frosted band, Start settles.
-Beneath Start, one line in `tv-body`: *"Fly with your arms. Cast to a TV."*
-plus a 3-frame looping silhouette (arms out, tilt, arms up) at 24 fps in
-`text-muted`. The silhouette is the pose demonstration: the player sees the
-whole control scheme before touching anything. Start is the only tap in the
-game.
+| Beat | Game state | On screen |
+|---|---|---|
+| 0 Poster | `title` booting | `TitleSky` still |
+| 1 Masthead | `title` | Flyby, masthead (wordmark, hairline rule, Start) in the left third |
+| 2 Choose | `select` | Blurred world, running head, header, two viewfinder frames (Motion, Touch) |
+| 3a Position | `permission`, `calibrate` | Motion frame becomes the calibration frame, figure becomes the target |
+| 3b Touch | `select` → `flying` | Tap ring expands as blur clears |
+| 4 Flight | `wings`, `flying` | Chase camera, corner preview on the Motion path |
 
-### 01 Camera ask (6–9 s)
+Beats 0 and 1 (0–6 s): the poster gives way to the flyby, the wordmark reveals
+with a tracking-in fade and Start settles. No tagline and no silhouette. Start
+is the first tap.
 
-The sky stays. A single frame in the UI language: camera icon, *"We need your
-camera to see you fly. Nothing leaves your phone."* The browser prompt opens
-on top. On deny: the same frame with *"Allow the camera in your browser
-settings"* and Try again. No raw error text, ever.
+Beat 2: Start blurs the world and brings up the control choice. Motion's
+animated glyph teaches the body controls before the player commits. The
+control choice is the last touch.
 
-### 02 Get in position (9–20 s)
-
-The mirrored preview goes near full-bleed with a 12 px cool frame. Over the
-player, the detected skeleton in `accent` (shoulders, elbows, wrists, hips,
-head). Over the frame, a target silhouette in `line` at 40%: the T-pose the
-player should fill, sized for two metres. One line of copy switches with the
-check that fails, and the failing limb pulses in `control-inactive`:
+Beat 3a (9–23 s): the camera ask (*"We need your camera to see you fly.
+Nothing leaves your phone."*) appears in the same frame. On deny: *"Allow the
+camera in your browser settings"* and Try again, never raw error text. Then
+the mirrored preview fills the frame with the detected skeleton in `accent`
+and a target T-pose in `line` at 40%, sized for two metres. One line of copy
+switches with the check that fails, and the failing limb pulses in
+`control-inactive`:
 
 | Check | Copy | Visual |
 |---|---|---|
@@ -58,11 +63,11 @@ check that fails, and the failing limb pulses in `control-inactive`:
 | Arms not out | *"Spread your arms like wings"* | Arm segments of the target pulse; the player's arm segments show in inactive grey |
 | Holding | *"Hold…"* | Skeleton turns fully accent, ring fills |
 
-### 03 Lock-in (20–23 s)
-
-Ring completes: a chime, the skeleton flashes white once and the frame
+On lock-in a chime plays, the skeleton flashes white once and the frame
 contracts to the corner preview over 600 ms while the world fades up behind
-it. A caption for the chime (*"Locked"*) shows for players with captions on.
+it. A caption (*"Locked"*) shows for players with captions on.
+
+Beat 3b: Touch skips calibration. A tap ring expands as the blur clears.
 
 ### 04 Wings (23–50 s)
 

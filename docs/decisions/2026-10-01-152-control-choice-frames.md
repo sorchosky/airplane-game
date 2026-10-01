@@ -1,0 +1,1 @@
+- 2026-10-01 · ui · Control choice uses corner-mark viewfinder frames with no fill, one hairline glyph family, and labels in Start's treatment (Work Sans 600, uppercase, 0.3em). The camera mode is labelled "Motion" to players. Focus turns the corner marks `accent` and slides them 8 px inward · owner's mockup, and one treatment links the choice to Start and the viewfinder language

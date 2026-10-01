@@ -1,0 +1,1 @@
+- 2026-10-01 · art · The uppercase tracked display treatment extends from the wordmark to front-door section headers at `tv-title`. Narrowly supersedes the title-only rule in `docs/art-direction.md` · the control-choice header needs the same airy voice as the wordmark, and `tv-title` keeps hierarchy below it
