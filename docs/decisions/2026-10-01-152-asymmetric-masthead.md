@@ -1,0 +1,1 @@
+- 2026-10-01 · ui · Asymmetric masthead: wordmark, hairline rule and Start sit in the left third over sky, inset by the safe area, with the plane in the right two thirds and text never on the plane's screen path. Supersedes the centred wordmark layout · keeps the type legible and the plane unobstructed, and reads as an editorial cover

@@ -1,0 +1,1 @@
+- 2026-10-01 · ui · The tagline and pose silhouette leave the title. Body-control teaching lives in the Motion option's animated glyph. Supersedes the tagline and silhouette in `docs/experience.md` frame 00 · the teaching moment belongs where the player chooses Motion, not on a screen that is only a poster

@@ -86,7 +86,7 @@ Flight code only reads `ControlInput`. It never imports from `pose/`. Pose code 
 - **No React state at frame rate.** Per-frame values live in Zustand stores and are read with `store.getState()` inside `useFrame`. React re-renders only on state-machine or UI changes.
 - **Units.** Meters, seconds, radians. Y up. Plane forward is -Z.
 - **Tokens only.** No raw hex colors, font sizes or spacing in components. Import from `src/styles/tokens`. Spacing is on an 8pt grid.
-- **Hands-free after Start.** After the player taps Start they are ~2m away. No screen after that may require touch. Pause and resume are gestures.
+- **Hands-free after the control choice.** After the player picks a control option they are ~2m away. The control choice is the last touch: no screen after it may require touch. Pause and resume are gestures.
 - **10-foot UI.** The game is viewed on a TV. Use the TV type scale in tokens. Minimum body text is the `tv-body` token. Prompts must be legible from a couch.
 - **Mirrored preview.** The camera preview is mirrored (selfie view). Gesture math works in mirrored space so "tilt right" on screen banks right.
 - **URL flags** for dev and testing: `?input=keyboard|pose|replay`, `?replay=<fixture>`, `?debug` (perf HUD, pose debug). Keyboard input must always work in dev.

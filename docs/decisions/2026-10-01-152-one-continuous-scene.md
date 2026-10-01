@@ -1,0 +1,1 @@
+- 2026-10-01 · ui · The front door is one continuous scene over the live world. A persistent stage maps game states to beats (Poster, Masthead, Choose, Position, Flight) and transitions elements in place instead of mounting separate screens · owner request for a flow that progresses with each choice

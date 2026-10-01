@@ -143,13 +143,15 @@ horizon. The body carries the contrast against the ground and water
   Helvetica/Akzidenz-Grotesk family, at TV viewing distance. Both are Google
   Fonts, SIL Open Font License 1.1 (free for commercial use, no attribution
   required), loaded via the Google Fonts CSS API in `tokens.css`.
-- **Main title treatment:** the game's title (and nothing else) is set in
+- **Main title treatment:** the game's title is set in
   `tv-display`, uppercase, with wide tracking (`type.trackingDisplay =
   0.14em`) — an airy, mid-century poster wordmark rather than a giant fantasy
   logo. The rest of the type ramp leans smaller and tighter than a typical
   "hero game title" scale on purpose, in keeping with that restraint;
   hierarchy comes from the uppercase/tracking treatment and font pairing, not
-  from one element being enormous.
+  from one element being enormous. Exception: front-door section headers use
+  the same uppercase tracked treatment at `tv-title`, see
+  `docs/decisions/2026-10-01-152-display-treatment-headers.md`.
 - **Type scale:** `tv-display` / `tv-title` / `tv-body` / `tv-caption`, all
   `clamp()`-sized so they scale with viewport but never shrink past a legible
   floor. `tv-body` (`clamp(1.5rem, 2vw, 1.875rem)`) is the minimum size for

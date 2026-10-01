@@ -1,0 +1,1 @@
+- 2026-10-01 · ui · The title is a live flyby at the active lighting preset. `TitleSky` remains only as the boot poster and failure fallback. Supersedes the 2026-09-26 `TitleSky` background entry · the world is already the best sky we have, and one scene reads as one game
