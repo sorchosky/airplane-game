@@ -80,14 +80,19 @@ const HEAD_CONTOUR =
   'C106 19.5 112.2 11.5 120 11.5 C127.8 11.5 134 19.5 133.6 30.2 ' +
   'C135 32.5 134.4 36.2 132.4 36.5 C132 40.5 130 44 127 47'
 /**
- * The left half from the neck: shoulder, an arm held straight out that tapers to a rounded hand
- * (no fingers), the armpit and the torso side, open at the waist. Mirrored for the right half.
+ * The left half from the neck, after the owner's mockup: sloped shoulder, an arm held straight out
+ * that tapers from shoulder to wrist, an open hand (thumb up, three splayed finger tips), the
+ * armpit and the torso side, open at the waist. Mirrored for the right half.
  */
 const BODY_HALF_CONTOUR =
-  'M113 47 L112.6 50.4 C110 52.6 104 52.8 97 53.2 L27 55.4 ' +
-  'C22 55.4 17.5 54.6 12.5 55 C7 55.4 4 57 4 58.6 C4 60.4 7 61.8 12.5 62 ' +
-  'C17.5 62.2 22 61.4 27 61.2 L91 64 C94.6 64.2 96.6 66 96.6 69 ' +
-  'C96.4 84 98.4 98 100 110'
+  'M113 47 L112.6 50.4 C110.4 52.2 105.6 52.6 99 52.8 C92 53 86 53 80 53.4 L62 54 ' +
+  'C56 54.2 50 54.2 44 54.6 L30 55 ' +
+  'C27.6 55 26 54 24.6 52.4 L21 48.4 C19.6 47 17.4 48.2 18.6 50 L21.4 54.2 ' +
+  'C17 53.4 12 51.8 7.6 51.4 C4.6 51.2 4.2 54.6 7 55.2 L12.6 56.2 ' +
+  'L6.4 57 C3.4 57.4 3.6 60.8 6.6 60.8 L12.6 60.4 ' +
+  'L7.4 62.6 C4.8 63.2 5.6 66.4 8.4 66 C13 65.2 18 63.6 22 63 C25 62.6 27.6 62.6 30 62.6 ' +
+  'C38 63 44 63.4 50 63.8 C58 64.2 66 64.8 76 65.4 C84 65.8 88 66 91 66.2 ' +
+  'C94.6 66.6 96.4 68 96.6 70.6 C96.4 85 98.4 98 100 110'
 
 export function MotionGlyph({ svgRef }: { svgRef?: Ref<SVGSVGElement> }) {
   const rigRef = useRef<SVGGElement | null>(null)

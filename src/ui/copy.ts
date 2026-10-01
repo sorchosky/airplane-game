@@ -11,7 +11,7 @@ export const copy = {
   },
 
   controlSelect: {
-    title: 'How will you fly',
+    title: 'How will you fly?',
     camera: 'Motion',
     mouse: 'Mouse',
     touch: 'Touch',
