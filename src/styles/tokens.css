@@ -99,8 +99,9 @@
   --size-calibrate-frame: 12px;
   --size-pose-demo-figure: clamp(72px, 8vw, 120px);
   --size-hold-ring: clamp(40px, 4vw, 56px);
-  --size-control-glyph: clamp(96px, 14vw, 240px);
-  --size-glyph-stroke: clamp(2px, 0.104vw, 4px);
+  --size-control-glyph: clamp(160px, min(24vw, 48vh), 480px);
+  --size-glyph-stroke: clamp(2px, min(0.29vw, 0.58vh), 6px);
+  --size-frame-stroke: 2px;
   --size-glyph-trail-stroke: 1px;
   --size-corner-arm: 24px;
   --motion-frame-slide: 200ms;

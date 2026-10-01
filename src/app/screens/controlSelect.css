@@ -30,10 +30,10 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-lg);
-  width: calc(var(--size-control-glyph) + 2 * var(--space-xl));
+  width: calc(var(--size-control-glyph) + 2 * var(--space-xxl));
   min-width: 64px;
   min-height: 64px;
-  padding: var(--space-xl);
+  padding: var(--space-xl) var(--space-xxl);
   border: 0;
   background: none;
   color: var(--color-text-primary);
@@ -57,29 +57,29 @@
 .control-corner[data-corner='tl'] {
   top: 0;
   left: 0;
-  border-top-width: var(--size-glyph-stroke);
-  border-left-width: var(--size-glyph-stroke);
+  border-top-width: var(--size-frame-stroke);
+  border-left-width: var(--size-frame-stroke);
 }
 
 .control-corner[data-corner='tr'] {
   top: 0;
   right: 0;
-  border-top-width: var(--size-glyph-stroke);
-  border-right-width: var(--size-glyph-stroke);
+  border-top-width: var(--size-frame-stroke);
+  border-right-width: var(--size-frame-stroke);
 }
 
 .control-corner[data-corner='bl'] {
   bottom: 0;
   left: 0;
-  border-bottom-width: var(--size-glyph-stroke);
-  border-left-width: var(--size-glyph-stroke);
+  border-bottom-width: var(--size-frame-stroke);
+  border-left-width: var(--size-frame-stroke);
 }
 
 .control-corner[data-corner='br'] {
   bottom: 0;
   right: 0;
-  border-bottom-width: var(--size-glyph-stroke);
-  border-right-width: var(--size-glyph-stroke);
+  border-bottom-width: var(--size-frame-stroke);
+  border-right-width: var(--size-frame-stroke);
 }
 
 /* Focus (and selection, which is focus on tap) is the corner marks turning accent and sliding
@@ -132,7 +132,7 @@
   display: flex;
   align-items: flex-end;
   width: var(--size-control-glyph);
-  aspect-ratio: 160 / 128;
+  aspect-ratio: 240 / 112;
 }
 
 .control-glyph {

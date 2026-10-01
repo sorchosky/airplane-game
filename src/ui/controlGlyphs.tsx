@@ -17,7 +17,7 @@ import { size } from '../styles/tokens'
 
 /**
  * The control choice glyph family (#154): one hairline contour style (a single stroke token, round
- * caps and joins, `currentColor`, no fills) in a shared 160 × 128 viewBox, bottom-aligned so the
+ * caps and joins, `currentColor`, no fills) in a shared 240 × 112 viewBox, bottom-aligned so the
  * labels below share a baseline. Loops are Web Animations built from `controlGlyphMotion.ts`
  * (transforms and opacity only); reduced motion keeps the static key pose.
  */
@@ -29,7 +29,7 @@ function GlyphSvg({ svgRef, children }: { svgRef?: Ref<SVGSVGElement>; children:
     <svg
       ref={svgRef}
       className="control-glyph"
-      viewBox="0 0 160 128"
+      viewBox="0 0 240 112"
       preserveAspectRatio="xMidYMax meet"
       aria-hidden="true"
       focusable="false"
@@ -74,9 +74,20 @@ function useGlyphLoops(build: () => Loop[]) {
 
 const rotate = (deg: number) => ({ transform: `rotate(${deg}deg)` })
 
-/** Head, neck, shoulder contour and straight arms ending in a rounded taper; torso open at the waist. */
-const ARM_CONTOUR =
-  'M75 54 C70 58 64 60 58 60 L18 62 A4 4 0 0 0 18 70 L58 71 C62 72 64 75 64 80 L66 118'
+/** Skull, ears and jaw, open at the neck. */
+const HEAD_CONTOUR =
+  'M113 47 C110 44 108 40.5 107.6 36.5 C105.6 36.2 105 32.5 106.4 30.2 ' +
+  'C106 19.5 112.2 11.5 120 11.5 C127.8 11.5 134 19.5 133.6 30.2 ' +
+  'C135 32.5 134.4 36.2 132.4 36.5 C132 40.5 130 44 127 47'
+/**
+ * The left half from the neck: shoulder, an arm held straight out that tapers to a rounded hand
+ * (no fingers), the armpit and the torso side, open at the waist. Mirrored for the right half.
+ */
+const BODY_HALF_CONTOUR =
+  'M113 47 L112.6 50.4 C110 52.6 104 52.8 97 53.2 L27 55.4 ' +
+  'C22 55.4 17.5 54.6 12.5 55 C7 55.4 4 57 4 58.6 C4 60.4 7 61.8 12.5 62 ' +
+  'C17.5 62.2 22 61.4 27 61.2 L91 64 C94.6 64.2 96.6 66 96.6 69 ' +
+  'C96.4 84 98.4 98 100 110'
 
 export function MotionGlyph({ svgRef }: { svgRef?: Ref<SVGSVGElement> }) {
   const rigRef = useRef<SVGGElement | null>(null)
@@ -106,28 +117,27 @@ export function MotionGlyph({ svgRef }: { svgRef?: Ref<SVGSVGElement> }) {
 
   return (
     <GlyphSvg svgRef={svgRef}>
-      {/* Everything rotates about the waist point (80, 118). */}
-      <g transform="translate(80 118)">
+      {/* Everything rotates about the waist point (120, 110). */}
+      <g transform="translate(120 110)">
         <g
           ref={(node) => {
             rigRef.current = node
           }}
           style={rotate(0)}
         >
-          <g transform="translate(-80 -118)">
-            <path d={ARM_CONTOUR} />
-            <path d={ARM_CONTOUR} transform="translate(160 0) scale(-1 1)" />
+          <g transform="translate(-120 -110)">
+            <path d={BODY_HALF_CONTOUR} />
+            <path d={BODY_HALF_CONTOUR} transform="translate(240 0) scale(-1 1)" />
             {/* The head counter-tilts about the base of the neck. */}
-            <g transform="translate(80 54)">
+            <g transform="translate(120 50)">
               <g
                 ref={(node) => {
                   headRef.current = node
                 }}
                 style={rotate(0)}
               >
-                <g transform="translate(-80 -54)">
-                  <circle cx="80" cy="32" r="14" />
-                  <path d="M75 45 V54 M85 45 V54" />
+                <g transform="translate(-120 -50)">
+                  <path d={HEAD_CONTOUR} />
                 </g>
               </g>
             </g>
@@ -138,12 +148,18 @@ export function MotionGlyph({ svgRef }: { svgRef?: Ref<SVGSVGElement> }) {
   )
 }
 
-// Index finger with a fingertip at the top, drawn in the same contour style; the wrist is open.
+// Index finger up with its tip at the origin, three folded fingers stepping down to the right, the
+// thumb out to the left and a rounded heel, in the same contour style as the figure.
 const HAND_CONTOUR =
-  'M-5 6 A5 5 0 0 1 5 6 L5 24 C9 22 14 22 14 27 C18 26 22 27 22 32 L22 44 C22 54 14 60 8 62 ' +
-  'M-5 6 V30 C-12 28 -20 32 -20 38 C-20 42 -16 44 -12 42 L-8 44 C-8 52 -6 58 -4 62'
+  'M-6.5 50 V6.5 A6.5 6.5 0 0 1 6.5 6.5 V24 ' +
+  'C6.5 19.5 9.2 17 12.5 17 C15.8 17 18.5 19.5 18.5 23 ' +
+  'C18.8 20.6 21.2 19.6 24.5 19.6 C27.8 19.6 30.5 22 30.5 25.5 ' +
+  'C30.9 23.4 33.2 22.6 36 22.6 C39.4 22.6 42 25 42 28.5 V48 ' +
+  'C42 64 33 79 20 79 H11 C5 79 0.5 76.4 -2.6 72.4 L-17 55 ' +
+  'C-20.5 50.5 -14 44 -6.5 50 ' +
+  'M6.5 24 V36 M18.5 23 V34 M30.5 25.5 V36'
 // A cursor arrow with its tip at the origin.
-const CURSOR_CONTOUR = 'M0 0 L0 36 L9 28 L15 42 L21 39 L15 26 L27 26 Z'
+const CURSOR_CONTOUR = 'M0 0 V52 L13 40.5 L22 60 L30 56.4 L21.2 37.4 H38 Z'
 
 const px = (value: number) => `${value}px`
 
@@ -196,8 +212,8 @@ function PointerGlyph({ kind, svgRef }: { kind: 'touch' | 'mouse'; svgRef?: Ref<
   })
 
   // The contact point: the fingertip when pressed, or the cursor tip.
-  const contactX = isTouch ? 80 : 68
-  const contactY = isTouch ? 62 : 52
+  const contactX = isTouch ? 106 : 101
+  const contactY = isTouch ? 21 : 56
 
   return (
     <GlyphSvg svgRef={svgRef}>
@@ -224,7 +240,7 @@ function PointerGlyph({ kind, svgRef }: { kind: 'touch' | 'mouse'; svgRef?: Ref<
             ref={(node) => {
               refs.dot.current = node
             }}
-            r="2"
+            r="2.5"
             style={dotStyle(still)}
           />
         )}
@@ -235,7 +251,7 @@ function PointerGlyph({ kind, svgRef }: { kind: 'touch' | 'mouse'; svgRef?: Ref<
           style={handStyle(still)}
         >
           {/* Raised 6 px at rest; the press brings the tip down onto the contact point. */}
-          <g transform={isTouch ? 'translate(0 -7)' : 'translate(0 -6)'}>
+          <g transform={isTouch ? 'translate(0 -6) scale(1.2)' : 'translate(0 -6)'}>
             <path d={isTouch ? HAND_CONTOUR : CURSOR_CONTOUR} />
           </g>
         </g>

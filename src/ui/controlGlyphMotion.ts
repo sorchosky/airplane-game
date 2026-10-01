@@ -1,6 +1,6 @@
 /**
  * Keyframes for the control choice glyphs (#154): the Motion figure's tilt and the Touch and Mouse
- * tap-and-drag loops. Pure functions of time in user units of the glyphs' 160 × 128 viewBox, so the
+ * tap-and-drag loops. Pure functions of time in user units of the glyphs' 240 × 112 viewBox, so the
  * beats are unit tested and the components only project a frame onto transforms and opacity.
  */
 
