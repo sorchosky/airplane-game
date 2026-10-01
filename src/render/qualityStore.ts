@@ -35,6 +35,12 @@ function initialTier(): QualityTier {
   return getFxFlag() ?? defaultQualityTier(isMobileDevice())
 }
 
+/** The pixel ratio the governor's top rung starts at: the screen's own, capped for mobile. */
+function initialDpr(): number {
+  if (typeof window === 'undefined') return 1
+  return Math.min(TERRAIN_CONFIG.maxPixelRatio, window.devicePixelRatio || 1)
+}
+
 export interface QualityChange {
   direction: 'down' | 'up'
   /** What the new rung changed, e.g. `dpr 1` or `post medium`. */
@@ -63,7 +69,7 @@ interface QualityStore {
 
 export const useQualityStore = create<QualityStore>((set) => ({
   tier: initialTier(),
-  dpr: 1,
+  dpr: initialDpr(),
   foliageDensity: 1,
   viewDistance: TERRAIN_CONFIG.viewDistance,
   appliedViewDistance: TERRAIN_CONFIG.viewDistance,

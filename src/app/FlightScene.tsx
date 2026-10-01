@@ -9,6 +9,7 @@ import { FlightVfx } from '../flight/FlightVfx'
 import { useFlightStore } from '../flight/flightStore'
 import { PostFX } from '../render/PostFX'
 import { QualityGovernor } from '../render/QualityGovernor'
+import { useQualityStore } from '../render/qualityStore'
 import { CloudVeil } from '../ui/CloudVeil'
 import { Atmosphere } from '../world/Atmosphere'
 import { Foliage } from '../world/Foliage'
@@ -16,7 +17,6 @@ import { GoldenPath } from '../world/GoldenPath'
 import { Landmarks } from '../world/Landmarks'
 import { Terrain } from '../world/Terrain'
 import { Water } from '../world/Water'
-import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import { AttractFrames } from './AttractFrames'
 import { useFrontDoorLookStore } from './frontDoorLookStore'
 import { useGameStore } from './gameStore'
@@ -41,6 +41,9 @@ interface FlightSceneProps {
 export function FlightScene({ mode, covered = false }: FlightSceneProps) {
   const shot = useMemo(() => activeShot(), [])
   const attract = mode === 'attract'
+  // The governor owns the pixel ratio. R3F re-applies the Canvas `dpr` prop on every render, so
+  // passing a fixed range here would undo the governor's step whenever this component re-rendered.
+  const dpr = useQualityStore((s) => s.dpr)
   // The title flyby (#157) flies the plane in attract, except under a `?shot=` for another view.
   const flyby = attract && (shot === null || shot.name === 'title')
   // `?shot=title` and reduced motion hold the loop at its named frame.
@@ -97,7 +100,7 @@ export function FlightScene({ mode, covered = false }: FlightSceneProps) {
         data-context-generation={contextGeneration}
         ref={canvasRef}
         frameloop={attract ? 'demand' : 'always'}
-        dpr={[1, TERRAIN_CONFIG.maxPixelRatio]}
+        dpr={dpr}
         style={{ width: '100%', height: '100%', display: 'block' }}
       >
         <Atmosphere />
