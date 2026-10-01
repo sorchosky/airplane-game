@@ -5,13 +5,14 @@ import {
   HALF_HOURS_PER_DAY,
   MINUTES_PER_DAY,
   advanceMinutes,
+  clearSavedClock,
   formatClock,
+  formatClockMinute,
   halfHourIndex,
-  loadClockMinutes,
+  localClockMinutes,
   parseClockTime,
   parseCycleSeconds,
   resolveClockConfig,
-  saveClockMinutes,
   todClockMinutes,
 } from './gameClock'
 
@@ -45,7 +46,7 @@ describe('advanceMinutes', () => {
   })
 
   it('follows a loop length changed by ?cycle=', () => {
-    const cycle = resolveClockConfig('?cycle=20', null, false).cycleSeconds
+    const cycle = resolveClockConfig('?cycle=20', 0, false).cycleSeconds
     expect(cycle).toBe(20)
     expect(advanceMinutes(0, 10, cycle)).toBeCloseTo(720)
     expect(run(0, 20, cycle)).toBeCloseTo(0, 6)
@@ -109,6 +110,32 @@ describe('formatClock', () => {
   })
 })
 
+describe('localClockMinutes', () => {
+  it.each([
+    [new Date(2026, 0, 15, 0, 7), 7],
+    [new Date(2026, 6, 4, 13, 45), 13 * 60 + 45],
+    [new Date(2026, 11, 31, 23, 59), 23 * 60 + 59],
+  ])('reads local calendar fields from %s', (date, expected) => {
+    expect(localClockMinutes(date)).toBe(expected)
+  })
+
+  it('follows the local clock across a daylight-saving offset change', () => {
+    const before = new Date('2026-03-08T01:59:00-05:00')
+    const after = new Date('2026-03-08T03:00:00-04:00')
+    const deviceOffsetMinutes = before.getTimezoneOffset()
+    const expectedBefore =
+      (((6 * 60 + 59 - deviceOffsetMinutes) % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY
+    const expectedAfter =
+      (((7 * 60 - after.getTimezoneOffset()) % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY
+    expect(localClockMinutes(before)).toBe(expectedBefore)
+    expect(localClockMinutes(after)).toBe(expectedAfter)
+  })
+
+  it('formats an exact developer-facing minute', () => {
+    expect(formatClockMinute(13 * 60 + 47.9)).toBe('13:47')
+  })
+})
+
 describe('URL flags', () => {
   it('parses ?time=HH:MM', () => {
     expect(parseClockTime('07:00')).toBe(420)
@@ -138,16 +165,12 @@ describe('URL flags', () => {
 })
 
 describe('resolveClockConfig', () => {
-  it('opens a first flight at 07:00', () => {
-    expect(resolveClockConfig('', null, false)).toEqual({
-      minutes: 420,
+  it('starts every session from the captured local minute', () => {
+    expect(resolveClockConfig('', 13 * 60 + 47, false)).toEqual({
+      minutes: 13 * 60 + 47,
       pinned: false,
       cycleSeconds: 300,
     })
-  })
-
-  it('resumes from the saved time', () => {
-    expect(resolveClockConfig('', 1000.5, false).minutes).toBe(1000.5)
   })
 
   it('pins ?time= over ?tod= over ?shot=', () => {
@@ -173,38 +196,20 @@ describe('resolveClockConfig', () => {
   })
 })
 
-describe('persistence', () => {
-  function memoryStorage() {
-    const items = new Map<string, string>()
-    return {
-      getItem: (key: string) => items.get(key) ?? null,
-      setItem: (key: string, value: string) => void items.set(key, value),
-    }
-  }
-
-  it('round-trips the saved time', () => {
-    const storage = memoryStorage()
-    expect(loadClockMinutes(storage)).toBeNull()
-    saveClockMinutes(storage, 812.25)
-    expect(loadClockMinutes(storage)).toBe(812.25)
-  })
-
+describe('stale persistence', () => {
   it('survives blocked storage', () => {
     const blocked = {
-      getItem: () => {
+      removeItem: () => {
         throw new Error('SecurityError')
       },
-      setItem: () => {
-        throw new Error('QuotaExceededError')
-      },
     }
-    expect(loadClockMinutes(blocked)).toBeNull()
-    expect(() => saveClockMinutes(blocked, 10)).not.toThrow()
-    expect(loadClockMinutes(undefined)).toBeNull()
+    expect(() => clearSavedClock(blocked)).not.toThrow()
+    expect(() => clearSavedClock(undefined)).not.toThrow()
   })
 
-  it('rejects a corrupt saved value', () => {
-    expect(loadClockMinutes({ getItem: () => 'abc' })).toBeNull()
-    expect(loadClockMinutes({ getItem: () => '1500' })).toBe(60)
+  it('clears the legacy key', () => {
+    const removed: string[] = []
+    clearSavedClock({ removeItem: (key) => void removed.push(key) })
+    expect(removed).toEqual(['skyborne.clock.minutes'])
   })
 })

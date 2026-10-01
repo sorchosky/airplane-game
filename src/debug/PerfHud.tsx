@@ -3,6 +3,8 @@ import { usePoseStore } from '../pose/poseStore'
 import { useQualityStore, type QualityChange } from '../render/qualityStore'
 import { color, space, type } from '../styles/tokens'
 import { usePerfStore } from './perfStore'
+import { useClockStore } from '../world/clockStore'
+import { formatClockMinute } from '../world/gameClock'
 
 const TOGGLE_KEYS = new Set(['f', 'F'])
 
@@ -40,6 +42,7 @@ export function PerfHud({ initiallyVisible }: { initiallyVisible: boolean }) {
       const perf = usePerfStore.getState()
       const pose = usePoseStore.getState()
       const quality = useQualityStore.getState()
+      const clock = useClockStore.getState()
       const { p50, p95, count, cameraStampReal } = perf.latency
       if (textRef.current) {
         const hops =
@@ -60,6 +63,7 @@ export function PerfHud({ initiallyVisible }: { initiallyVisible: boolean }) {
             ? 'rung pinned by ?fx\n'
             : `rung ${quality.rung + 1}/${quality.rungCount}  ${formatChange(quality.lastChange, performance.now())}\n`) +
           `pose ${pose.hz.toFixed(1)} Hz  ${pose.inferenceMs.toFixed(1)} ms\n` +
+          `time ${formatClockMinute(clock.time.minutes)}\n` +
           hops
       }
       frame = requestAnimationFrame(tick)
