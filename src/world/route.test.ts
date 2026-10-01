@@ -72,16 +72,26 @@ describe('route', () => {
   })
 
   it('answers 100k nearby queries in under 50 ms', () => {
-    const point = ROUTE.pointAt(ROUTE.length * 0.37)
+    const queries = Array.from({ length: 256 }, (_, i) => {
+      const point = ROUTE.pointAt((i * ROUTE.length) / 256)
+      return {
+        x: point.x + Math.sin(i * 19) * 24,
+        z: point.z + Math.cos(i * 23) * 24,
+      }
+    })
     let checksum = 0
     // Exclude one-time JIT compilation from the steady-state query benchmark.
     for (let i = 0; i < 10_000; i++) {
-      checksum += ROUTE.nearest(point.x + 12, point.z - 7).s
+      const query = queries[i & 255]!
+      checksum += ROUTE.nearest(query.x, query.z).s
     }
     let elapsed = Infinity
     for (let run = 0; run < 3; run++) {
       const start = performance.now()
-      for (let i = 0; i < 100_000; i++) checksum += ROUTE.nearest(point.x + 12, point.z - 7).s
+      for (let i = 0; i < 100_000; i++) {
+        const query = queries[i & 255]!
+        checksum += ROUTE.nearest(query.x, query.z).s
+      }
       elapsed = Math.min(elapsed, performance.now() - start)
     }
     expect(checksum).toBeGreaterThan(0)
