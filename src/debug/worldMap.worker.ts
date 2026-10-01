@@ -24,7 +24,7 @@ interface WorkerScope {
 const scope = self as unknown as WorkerScope
 scope.onmessage = ({ data }) => {
   const spawn = findSpawnPoint(TERRAIN_CONFIG)
-  const landmarks = placeLandmarks(TERRAIN_CONFIG, undefined, spawn)
+  const landmarks = placeLandmarks(TERRAIN_CONFIG)
   const arch = landmarks.find((landmark) => landmark.kind === 'arch')
   const route = arch
     ? createGoldenPathRoute({ x: spawn.x, y: spawn.groundHeight + 120, z: spawn.z }, arch)

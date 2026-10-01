@@ -95,8 +95,8 @@ function buildLandmarkMeshes(landmarks: readonly Landmark[]): LandmarkMeshes {
 }
 
 /**
- * The five landmarks (#76): tower, arch, waterfall, giant tree and ruins, placed on the horizon
- * around spawn by `placeLandmarks`. Four draw calls in all: every solid model merged into one toon
+ * The five landmarks (#76): tower, arch, waterfall, giant tree and ruins, placed at their route
+ * stations (#173) by `placeLandmarks`. Four draw calls in all: every solid model merged into one toon
  * mesh plus its outline hull, the waterfall's ribbon, and its instanced mist.
  */
 export function Landmarks() {
