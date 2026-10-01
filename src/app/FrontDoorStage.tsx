@@ -8,6 +8,12 @@ import { useGameStore } from './gameStore'
 import { CalibrateScreen } from './screens/CalibrateScreen'
 import { ControlSelectScreen } from './screens/ControlSelectScreen'
 import { ErrorScreen } from './screens/ErrorScreen'
+import {
+  createChooseExit,
+  createPositionExit,
+  FLIGHT_TRANSITION,
+  flightBlur,
+} from './screens/flightTransition'
 import { createPositionTimeline, type PositionTimeline } from './screens/positionTimeline'
 import { createStartTimeline, type StartTimeline } from './screens/startTimeline'
 import { restingLook, sampleStartTimeline } from './screens/startTransition'
@@ -78,9 +84,10 @@ interface StageRefs {
 }
 
 /**
- * The stage's transitions (#159). Masthead → Choose is the Start timeline, played forward as the
- * enter and backward as the exit of a Back, and nothing else moves yet (hard cuts). Reduced motion
- * crossfades the whole stage instead, and the timeline just jumps to its end.
+ * The stage's transitions. Masthead → Choose is the Start timeline (#159), played forward as the
+ * enter and backward as the exit of a Back; Choose → Position is the Position timeline (#160); and
+ * either into flight plays its exit (#161) while the world's blur ramps out. Reduced motion
+ * crossfades the whole stage instead, and the timelines just jump to their ends.
  */
 function stagePlayer(refs: StageRefs): BeatPlayer {
   const fade = (from: number, to: number): BeatAnimation | null => {
@@ -95,6 +102,12 @@ function stagePlayer(refs: StageRefs): BeatPlayer {
   return {
     exit(beat) {
       if (reducedMotion()) return fade(1, 0)
+      const root = refs.root.current
+      if (refs.target.current === 'flight' && root) {
+        const mode = useControlModeStore.getState().controlMode
+        if (beat === 'choose' && mode !== 'camera') return createChooseExit(root, mode)
+        if (beat === 'position') return createPositionExit(root)
+      }
       const position = refs.position.current
       if (beat === 'position' && refs.target.current === 'choose' && position) {
         position.playBackward()
@@ -158,6 +171,39 @@ function useLookDriver(settle: () => void) {
   }
   useEffect(() => halt, [])
   return { drive, halt }
+}
+
+/**
+ * Into flight (#161): the world's blur ramps out from wherever it is over `blurMs` (the reduced
+ * motion crossfade's 200 ms under reduced motion) as soon as the game reaches flight, alongside the
+ * beat's exit and the camera's glide. Returns whether a ramp is running, for the stage's resting
+ * look not to cut it short.
+ */
+function useFlightBlurRamp(beat: Beat): { current: boolean } {
+  const running = useRef(false)
+  useLayoutEffect(() => {
+    if (beat !== 'flight') return
+    const from = useFrontDoorLookStore.getState().blur
+    if (from <= 0) return
+    const duration = reducedMotion() ? FLIGHT_TRANSITION.reducedMs : FLIGHT_TRANSITION.blurMs
+    const lean = useFrontDoorLookStore.getState().lean
+    const start = performance.now()
+    let raf = 0
+    running.current = true
+    const tick = () => {
+      const elapsed = performance.now() - start
+      const blur = flightBlur(elapsed, from, duration)
+      useFrontDoorLookStore.getState().setLook(blur > 0 ? lean : 0, blur)
+      if (blur > 0) raf = requestAnimationFrame(tick)
+      else running.current = false
+    }
+    tick()
+    return () => {
+      cancelAnimationFrame(raf)
+      running.current = false
+    }
+  }, [beat])
+  return running
 }
 
 /** The beat being shown, lagging the game state while the old beat plays its exit. */
@@ -277,6 +323,7 @@ export function FrontDoorStage() {
 
   // The controller learns of a change in a layout effect, so the target is set before it runs.
   targetRef.current = beat
+  const blurRamp = useFlightBlurRamp(beat)
 
   // Build or drop the Start timeline as the Choose beat comes and goes.
   useLayoutEffect(() => {
@@ -293,6 +340,8 @@ export function FrontDoorStage() {
       halt()
       pendingRef.current?.attach(null)
       pendingRef.current = null
+      // Into flight the blur ramps out on its own clock (#161).
+      if (shown === 'flight' && blurRamp.current) return
       const { lean, blur } = restingLook(shown)
       useFrontDoorLookStore.getState().setLook(lean, blur)
       return
@@ -382,7 +431,11 @@ export function FrontDoorStage() {
           <ControlSelectScreen />
         </div>
       )}
-      {shown === 'position' && <CalibrateScreen />}
+      {shown === 'position' && (
+        <div data-front-door="position" style={{ position: 'absolute', inset: 0 }}>
+          <CalibrateScreen />
+        </div>
+      )}
       {masthead && <RunningHeadTarget ref={runningHeadRef} />}
     </div>
   )

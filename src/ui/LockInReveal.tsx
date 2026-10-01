@@ -11,7 +11,7 @@ import {
 
 /**
  * The flight half of the lock-in (#63, storyboard frame 03): right after calibration the world
- * fades up from the calibrate screen's dark over the same 600 ms the corner preview contracts, and
+ * fades up from the calibrate screen's dark over the same 700 ms the corner preview contracts, and
  * the chime's caption shows when captions are on. Renders nothing on any other mount.
  */
 export function LockInReveal() {
