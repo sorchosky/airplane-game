@@ -1,0 +1,1 @@
+2026-10-01 · robustness · Commit the owner's on-device gesture recording as `tests/fixtures/replays/device-gestures.json`, landmarks rounded to 3 decimals (visibility 2) and `worldLandmarks` dropped · real-pose regression input for the interpreter, about 2 MB instead of 9 MB, and nothing in the gesture pipeline reads world landmarks
