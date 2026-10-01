@@ -2,17 +2,21 @@ import { PerspectiveCamera } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import type { PerspectiveCamera as ThreePerspectiveCamera } from 'three'
-import { Vector3 } from 'three'
+import { Quaternion, Vector3 } from 'three'
 import { shotCameraPosition, shotLookTarget, type ShotBookmark } from '../debug/shots'
 import {
+  CAMERA_HANDOFF_S,
   CHASE_CAMERA_PARAMS,
   chaseCameraFov,
   chaseCameraOrientation,
   dampVector3,
   desiredCameraPosition,
   framedLookAt,
+  handoffBlendWeight,
+  handoffCameraPose,
   reducedMotionChaseCameraParams,
 } from './cameraMath'
+import { flybyHandoff } from './flybyHandoff'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import { useFlightStore } from './flightStore'
 import { cameraShake, speedVfxIntensity } from './flightVfxMath'
@@ -42,6 +46,10 @@ export function ChaseCamera({ shot = null }: ChaseCameraProps) {
   const desiredPosition = useRef(new Vector3())
   const aim = useRef(new Vector3())
   const initialized = useRef(false)
+  // The glide in from the title camera (#161): seconds into it, or null when there is none.
+  const glide = useRef<number | null>(null)
+  const chaseOrientation = useRef(new Quaternion())
+  const reducedMotion = useMemo(prefersReducedMotion, [])
 
   // Read once per mount: a live media-query listener isn't worth it for a setting that doesn't
   // change mid-session in practice, and keeps this component free of extra subscriptions.
@@ -79,6 +87,10 @@ export function ChaseCamera({ shot = null }: ChaseCameraProps) {
       smoothedPosition.current.copy(desired)
       smoothedLookAt.current.copy(desiredLookAt)
       initialized.current = true
+      // Taking over from the title flyby glides in from its camera; reduced motion cuts (the
+      // world is still blurred as it does, and the blur fading out is the crossfade).
+      glide.current = flybyHandoff.cameraValid && !reducedMotion ? 0 : null
+      flybyHandoff.cameraValid = false
     } else {
       dampVector3(
         smoothedPosition.current,
@@ -119,7 +131,25 @@ export function ChaseCamera({ shot = null }: ChaseCameraProps) {
       camera.quaternion,
     )
 
-    const fov = chaseCameraFov(state.speed, params)
+    let fov = chaseCameraFov(state.speed, params)
+    if (glide.current !== null) {
+      const weight = handoffBlendWeight(glide.current)
+      chaseOrientation.current.copy(camera.quaternion)
+      desiredPosition.current.copy(camera.position)
+      handoffCameraPose(
+        state.position,
+        state.heading,
+        flybyHandoff.cameraOffset,
+        flybyHandoff.cameraLookOffset,
+        desiredPosition.current,
+        chaseOrientation.current,
+        weight,
+        camera.position,
+        camera.quaternion,
+      )
+      fov = flybyHandoff.fov + (fov - flybyHandoff.fov) * weight
+      glide.current = weight >= 1 ? null : glide.current + Math.min(delta, CAMERA_HANDOFF_S / 10)
+    }
     if (Math.abs(camera.fov - fov) > 1e-3) {
       camera.fov = fov
       camera.updateProjectionMatrix()

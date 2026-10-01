@@ -14,8 +14,11 @@ export interface Rect {
   height: number
 }
 
-/** The preview contracts to the corner, and the world fades up, over this long. */
-export const LOCK_IN_CONTRACT_MS = 600
+/**
+ * The preview contracts to the corner, and the world fades up, over this long: the Motion path's
+ * shared-element move into flight (#161).
+ */
+export const LOCK_IN_CONTRACT_MS = 700
 /** The skeleton flashes white for this long before the handoff. */
 export const LOCK_IN_FLASH_MS = 160
 /** The chime's caption stays up this long, when captions are on. */

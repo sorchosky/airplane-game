@@ -1,6 +1,7 @@
-import { PerspectiveCamera, Vector3 } from 'three'
+import { PerspectiveCamera, Quaternion, Vector3 } from 'three'
 import { describe, expect, it } from 'vitest'
 import {
+  CAMERA_HANDOFF_S,
   CHASE_CAMERA_PARAMS,
   chaseCameraFov,
   chaseCameraOrientation,
@@ -8,7 +9,11 @@ import {
   desiredCameraPosition,
   expDamp,
   framedLookAt,
+  fromHeadingFrame,
+  handoffBlendWeight,
+  handoffCameraPose,
   reducedMotionChaseCameraParams,
+  toHeadingFrame,
 } from './cameraMath'
 
 describe('expDamp', () => {
@@ -215,5 +220,105 @@ describe('chaseCameraOrientation', () => {
     const q = chaseCameraOrientation(cameraPosition, lookAtPosition, 0, 0.25)
     const up = new Vector3(0, 1, 0).applyQuaternion(q)
     expect(up.x).toBeCloseTo(0, 5)
+  })
+})
+
+describe('title → chase hand-off (#161)', () => {
+  it('blends over 1.2 s with no velocity step at either end', () => {
+    expect(CAMERA_HANDOFF_S).toBe(1.2)
+    expect(handoffBlendWeight(0)).toBe(0)
+    expect(handoffBlendWeight(CAMERA_HANDOFF_S)).toBe(1)
+    expect(handoffBlendWeight(CAMERA_HANDOFF_S * 2)).toBe(1)
+    expect(handoffBlendWeight(-1)).toBe(0)
+    expect(handoffBlendWeight(CAMERA_HANDOFF_S / 2)).toBeCloseTo(0.5, 6)
+    // Smoothstep: the slope is zero at both ends.
+    const h = 1e-4
+    expect(handoffBlendWeight(h) / h).toBeLessThan(0.01)
+    expect((1 - handoffBlendWeight(CAMERA_HANDOFF_S - h)) / h).toBeLessThan(0.01)
+    // Monotonic in between.
+    let last = 0
+    for (let t = 0; t <= CAMERA_HANDOFF_S; t += 0.05) {
+      const w = handoffBlendWeight(t)
+      expect(w).toBeGreaterThanOrEqual(last)
+      last = w
+    }
+  })
+
+  it('a zero duration lands at once', () => {
+    expect(handoffBlendWeight(0, 0)).toBe(1)
+  })
+
+  it('round-trips offsets through the heading frame', () => {
+    for (const heading of [0, 0.7, -2.1, Math.PI]) {
+      const world = new Vector3(3, 4, -5)
+      const local = toHeadingFrame(world, heading)
+      const back = fromHeadingFrame(local, heading)
+      expect(back.distanceTo(world)).toBeLessThan(1e-9)
+    }
+  })
+
+  it('puts "behind" behind the plane at any heading', () => {
+    // Forward is (-sin h, 0, -cos h): 10 m behind at heading 0 is +Z.
+    const local = new Vector3(0, 2, -10)
+    expect(fromHeadingFrame(local, 0).toArray()).toEqual([0, 2, 10])
+    const turned = fromHeadingFrame(local, Math.PI / 2)
+    expect(turned.x).toBeCloseTo(10, 9)
+    expect(turned.z).toBeCloseTo(0, 9)
+  })
+
+  it('starts at the title pose, carried with the plane, and ends at the chase pose', () => {
+    const plane = new Vector3(100, 150, -40)
+    const heading = 0.4
+    const titleOffset = new Vector3(0, 3.5, -13)
+    const titleLook = new Vector3(0, 1.5, 0)
+    const chasePosition = new Vector3(110, 160, -30)
+    const chaseOrientation = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), 0.3)
+    const position = new Vector3()
+    const orientation = new Quaternion()
+
+    handoffCameraPose(
+      plane,
+      heading,
+      titleOffset,
+      titleLook,
+      chasePosition,
+      chaseOrientation,
+      0,
+      position,
+      orientation,
+    )
+    const expected = fromHeadingFrame(titleOffset, heading).add(plane)
+    expect(position.distanceTo(expected)).toBeLessThan(1e-9)
+    // Looks from the title position toward the title look target.
+    const forward = new Vector3(0, 0, -1).applyQuaternion(orientation)
+    const toLook = fromHeadingFrame(titleLook, heading).add(plane).sub(expected).normalize()
+    expect(forward.dot(toLook)).toBeCloseTo(1, 6)
+
+    handoffCameraPose(
+      plane,
+      heading,
+      titleOffset,
+      titleLook,
+      chasePosition,
+      chaseOrientation,
+      1,
+      position,
+      orientation,
+    )
+    expect(position.distanceTo(chasePosition)).toBeLessThan(1e-9)
+    expect(Math.abs(orientation.dot(chaseOrientation))).toBeCloseTo(1, 9)
+  })
+
+  it('moves the title pose with the plane mid-glide, so the plane is not left behind', () => {
+    const titleOffset = new Vector3(0, 3.5, -13)
+    const titleLook = new Vector3()
+    const out = new Vector3()
+    const q = new Quaternion()
+    const a = new Vector3(0, 100, 0)
+    const b = new Vector3(0, 100, -45)
+    handoffCameraPose(a, 0, titleOffset, titleLook, a, q.clone(), 0, out, q)
+    const first = out.clone()
+    handoffCameraPose(b, 0, titleOffset, titleLook, b, q.clone(), 0, out, q)
+    expect(out.clone().sub(first).distanceTo(b.clone().sub(a))).toBeLessThan(1e-9)
   })
 })

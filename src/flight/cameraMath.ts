@@ -160,3 +160,68 @@ export function chaseCameraFov(speed: number, params: ChaseCameraParams): number
   const t = span <= 0 ? 0 : clamp((speed - params.fovMinSpeed) / span, 0, 1)
   return params.fovBase + (params.fovMax - params.fovBase) * t
 }
+
+/** s the camera takes to glide from the title framing into the chase camera (#161). */
+export const CAMERA_HANDOFF_S = 1.2
+
+/**
+ * How far into the title → chase glide the camera is, 0 (title framing) .. 1 (chase camera), at
+ * `elapsed` s of `duration`. Smoothstep, so the glide leaves and lands with no velocity step.
+ */
+export function handoffBlendWeight(elapsed: number, duration: number = CAMERA_HANDOFF_S): number {
+  if (duration <= 0) return 1
+  const x = clamp(elapsed / duration, 0, 1)
+  return x * x * (3 - 2 * x)
+}
+
+/**
+ * Expresses a world-space offset from the plane in its heading frame (yaw only), as
+ * [right, up, forward] in `out`'s x, y, z. The inverse of `fromHeadingFrame`.
+ */
+export function toHeadingFrame(offset: Vector3, heading: number, out: Vector3 = new Vector3()) {
+  const sin = Math.sin(heading)
+  const cos = Math.cos(heading)
+  // right = (cos h, 0, -sin h), forward = (-sin h, 0, -cos h); see flightModel.ts.
+  return out.set(offset.x * cos - offset.z * sin, offset.y, -offset.x * sin - offset.z * cos)
+}
+
+/** Turns a heading-frame [right, up, forward] offset back into a world-space one, into `out`. */
+export function fromHeadingFrame(local: Vector3, heading: number, out: Vector3 = new Vector3()) {
+  const sin = Math.sin(heading)
+  const cos = Math.cos(heading)
+  const { x: right, y: up, z: forward } = local
+  return out.set(right * cos - forward * sin, up, -right * sin - forward * cos)
+}
+
+// Scratch for `handoffCameraPose`; never escapes the function.
+const AXIS_UP = new Vector3(0, 1, 0)
+const handoffFromScratch = new Vector3()
+const handoffLookScratch = new Vector3()
+const handoffMatrixScratch = new Matrix4()
+const handoffQuatScratch = new Quaternion()
+
+/**
+ * The title camera's pose carried along with the plane, blended into the chase camera's pose by
+ * `weight` (0 = title, 1 = chase). The title pose is kept as offsets in the plane's heading frame,
+ * so it turns with the plane rather than being left behind in world space. Position lerps and
+ * orientation slerps, into `outPosition` and `outOrientation`, which must not be the chase inputs.
+ */
+export function handoffCameraPose(
+  planePosition: Vector3,
+  heading: number,
+  titleOffset: Vector3,
+  titleLookOffset: Vector3,
+  chasePosition: Vector3,
+  chaseOrientation: Quaternion,
+  weight: number,
+  outPosition: Vector3,
+  outOrientation: Quaternion,
+): void {
+  const w = clamp(weight, 0, 1)
+  const from = fromHeadingFrame(titleOffset, heading, handoffFromScratch).add(planePosition)
+  const look = fromHeadingFrame(titleLookOffset, heading, handoffLookScratch).add(planePosition)
+  handoffMatrixScratch.lookAt(from, look, AXIS_UP)
+  handoffQuatScratch.setFromRotationMatrix(handoffMatrixScratch)
+  outOrientation.slerpQuaternions(handoffQuatScratch, chaseOrientation, w)
+  outPosition.lerpVectors(from, chasePosition, w)
+}

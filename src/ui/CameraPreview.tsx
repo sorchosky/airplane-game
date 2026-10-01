@@ -64,6 +64,9 @@ export function CameraPreview({
     container.prepend(video)
 
     return () => {
+      // Into flight the corner preview mounts while the calibrate frame plays its exit (#161), and
+      // has already taken the video: only hand back a video this preview still holds.
+      if (video.parentElement !== container) return
       video.style.position = 'fixed'
       video.style.top = '0'
       video.style.left = '0'
