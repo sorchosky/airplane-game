@@ -7,7 +7,8 @@ import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import { ContactShadow } from './ContactShadow'
 import { useFlightStore } from './flightStore'
 import { PlaneModel } from './PlaneModel'
-import { createTitleFlybyPose, titleFlyby, titleFlybyTime } from './titleFlyby'
+import { flybyHandoff } from './flybyHandoff'
+import { titleFlyby, titleFlybyTime } from './titleFlyby'
 import { WingtipVortices } from './WingtipVortices'
 
 interface PlaneProps {
@@ -28,16 +29,17 @@ interface PlaneProps {
  */
 export function Plane({ paused, scripted = false, frozen = false }: PlaneProps) {
   const groupRef = useRef<Group>(null)
-  const pose = useRef(createTitleFlybyPose())
 
   useFrame((frameState, delta) => {
     if (scripted) {
       const { state } = useFlightStore.getState()
+      // Into the shared hand-off record, so flight can take over from exactly this pose (#161).
       const flown = titleFlyby(
         titleFlybyTime(frameState.clock.elapsedTime, frozen),
         0,
-        pose.current,
+        flybyHandoff.pose,
       )
+      flybyHandoff.planeValid = true
       state.position.copy(flown.position)
       state.orientation.copy(flown.orientation)
       state.bank = flown.bank

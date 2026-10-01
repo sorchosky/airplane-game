@@ -11,6 +11,13 @@ import {
   type FlightState,
 } from './flightModel'
 import {
+  autopilotInput,
+  flightStateFromFlyby,
+  flybyHandoff,
+  levelledOff,
+  withinHandoffEnvelope,
+} from './flybyHandoff'
+import {
   createFloorContactTracker,
   trackFloorContact,
   type FloorContactEvent,
@@ -60,9 +67,23 @@ export function onBoost(listener: BoostListener): () => void {
   return () => boostListeners.delete(listener)
 }
 
+// The input the sim flies on while it levels off after a hand-off; written in place each tick.
+const levelOffInput: ControlInput = {
+  roll: 0,
+  pitch: 0,
+  active: false,
+  confidence: 1,
+  source: 'keyboard',
+}
+
 interface FlightStore {
   state: FlightState
   params: FlightParams
+  /**
+   * The plane was handed over outside the autopilot's safe envelope (#161): the sim flies with
+   * `active: false` until it has levelled off, then the player's input takes over.
+   */
+  levellingOff: boolean
   /**
    * Advances the simulation. Called once per frame from `Plane`'s `useFrame`. `groundHeight` is
    * the terrain height under the plane, for the soft floor.
@@ -71,6 +92,12 @@ interface FlightStore {
   /** Keeps Wings at a gentle glide, then ramps the last prompt into cruise. */
   setPracticeProgress: (progress: number | null) => void
   reset: () => void
+  /**
+   * Flight begins from the title flyby (#161): the sim takes over the scripted plane where it was
+   * last drawn, levelling off first if that pose is outside the safe envelope. `groundHeight` is
+   * the terrain height under the plane. Falls back to `reset` when the flyby never drew.
+   */
+  takeOverFromFlyby: (groundHeight: number) => void
 }
 
 // Frame-rate values live here, not in React state -- read via `useFlightStore.getState()` inside
@@ -81,6 +108,7 @@ interface FlightStore {
 export const useFlightStore = create<FlightStore>((set, get) => ({
   state: createInitialFlightState(DEFAULT_FLIGHT_PARAMS, spawnPosition()),
   params: DEFAULT_FLIGHT_PARAMS,
+  levellingOff: false,
   setPracticeProgress: (progress) => {
     if (progress === null) {
       set({ params: DEFAULT_FLIGHT_PARAMS })
@@ -98,14 +126,16 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
           }
         : get().params
     params.cruiseSpeed = target
-    if (fraction === 0 && get().params === DEFAULT_FLIGHT_PARAMS) get().state.speed = target
     if (get().params !== params) set({ params })
   },
   tick: (input, dt, groundHeight) => {
-    const { state, params } = get()
+    const { state, params, levellingOff } = get()
     const wasBoosting = state.boosting
     const boostTime = state.boostTime
-    step(state, input, dt, params, groundHeight, state)
+    const flown = levellingOff ? autopilotInput(input, levelOffInput) : input
+    step(state, flown, dt, params, groundHeight, state)
+    // Flips once per hand-off, so it can go through `set`.
+    if (levellingOff && levelledOff(state)) set({ levellingOff: false })
     const event = trackFloorContact(floorContact, state.floorContact)
     if (event) for (const listener of floorContactListeners) listener(event)
     if (state.boosting !== wasBoosting) {
@@ -115,5 +145,15 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
       for (const listener of boostListeners) listener(boostEvent)
     }
   },
-  reset: () => set({ state: createInitialFlightState(get().params, spawnPosition()) }),
+  reset: () =>
+    set({ state: createInitialFlightState(get().params, spawnPosition()), levellingOff: false }),
+  takeOverFromFlyby: (groundHeight) => {
+    if (!flybyHandoff.planeValid) {
+      get().reset()
+      return
+    }
+    const { state, params } = get()
+    flightStateFromFlyby(flybyHandoff.pose, params, state)
+    set({ levellingOff: !withinHandoffEnvelope(state, groundHeight, params) })
+  },
 }))

@@ -4,6 +4,7 @@ import { useRef } from 'react'
 import type { PerspectiveCamera as ThreePerspectiveCamera } from 'three'
 import { useFrontDoorLookStore } from '../app/frontDoorLookStore'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
+import { recordTitleCamera } from './flybyHandoff'
 import { TITLE_FLYBY, createTitleFlybyPose, titleFlyby, titleFlybyTime } from './titleFlyby'
 
 interface TitleCameraProps {
@@ -31,6 +32,8 @@ export function TitleCamera({ frozen }: TitleCameraProps) {
     )
     camera.position.copy(flown.cameraPosition)
     camera.lookAt(flown.cameraLookAt)
+    // Where the chase camera glides in from when flight takes over (#161).
+    recordTitleCamera(flown, camera.fov)
   })
 
   return (

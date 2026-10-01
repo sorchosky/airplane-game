@@ -1,5 +1,5 @@
 import { Canvas, useThree } from '@react-three/fiber'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { PerfProbe } from '../debug/PerfProbe'
 import { activeShot, shotFlightState } from '../debug/shots'
 import { ChaseCamera } from '../flight/ChaseCamera'
@@ -16,6 +16,7 @@ import { GoldenPath } from '../world/GoldenPath'
 import { Landmarks } from '../world/Landmarks'
 import { Terrain } from '../world/Terrain'
 import { Water } from '../world/Water'
+import { surfaceHeightAt } from '../world/heightfield'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import { AttractFrames } from './AttractFrames'
 import { useFrontDoorLookStore } from './frontDoorLookStore'
@@ -72,11 +73,15 @@ export function FlightScene({ mode, covered = false }: FlightSceneProps) {
     )
   }, [])
 
-  // Park the plane at the bookmark before the first frame, and put it back at the spawn when
-  // flight begins. `?shot=` keeps its bookmark in flight too, with the sim frozen. `spawned` holds
-  // back what reads the plane's position when it mounts (the golden path) until the reset is in.
+  // Park the plane at the bookmark before the first frame. When flight begins the sim takes over
+  // the flyby plane where it was last drawn (#161), or starts at the spawn without one. `?shot=`
+  // keeps its bookmark in flight too, with the sim frozen. `spawned` holds back what reads the
+  // plane's position when it mounts (the golden path) until the plane is placed.
   const [spawned, setSpawned] = useState(false)
+  const wasFlyby = useRef(false)
   useLayoutEffect(() => {
+    const fromFlyby = wasFlyby.current
+    wasFlyby.current = flyby
     if (flyby) {
       // The flyby writes the plane's state every frame; there is no sim to reset.
       setSpawned(false)
@@ -84,6 +89,10 @@ export function FlightScene({ mode, covered = false }: FlightSceneProps) {
       const { params } = useFlightStore.getState()
       useFlightStore.setState({ state: shotFlightState(parked, params.cruiseSpeed) })
       setSpawned(false)
+    } else if (fromFlyby) {
+      const { x, z } = useFlightStore.getState().state.position
+      useFlightStore.getState().takeOverFromFlyby(surfaceHeightAt(x, z, TERRAIN_CONFIG))
+      setSpawned(true)
     } else {
       useFlightStore.getState().reset()
       setSpawned(true)
