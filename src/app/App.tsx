@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useAudioEngine } from '../audio/useAudioEngine'
 import { MaterialsScene } from '../debug/MaterialsScene'
 import { Swatches } from '../debug/Swatches'
+import { WorldMap } from '../debug/WorldMap'
 import { InputSource } from '../input/InputSource'
 import {
   getVideo,
@@ -32,7 +33,7 @@ import { TitleHandoff } from './screens/TitleHandoff'
 import { useTitleHandoffStore } from './screens/titleHandoff'
 import { TitleScreen } from './screens/TitleScreen'
 import { WingsPrompts } from './screens/WingsPrompts'
-import { isMaterialsSceneMode, isReplayInputMode, isSwatchesMode } from './urlFlags'
+import { isMaterialsSceneMode, isReplayInputMode, isSwatchesMode, mapSizeKm } from './urlFlags'
 import { sceneModeFor, worldIsVisible } from './sceneMode'
 import { useGameClock } from './useGameClock'
 import { WorldLayer } from './WorldLayer'
@@ -47,7 +48,7 @@ function FlightControl({ hud }: { hud: boolean }) {
   return hud ? <Hud /> : null
 }
 
-export function App() {
+function GameApp() {
   const state = useGameStore((s) => s.state)
   const mode = useControlModeStore((s) => s.controlMode)
   const permissionDenied = useGameStore((s) => s.permissionDenied)
@@ -130,4 +131,9 @@ export function App() {
       <OrientationPrompt />
     </div>
   )
+}
+
+export function App() {
+  const mapKm = mapSizeKm()
+  return mapKm === null ? <GameApp /> : <WorldMap sizeKm={mapKm} />
 }
