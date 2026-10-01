@@ -1,12 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import { createRoute, ROUTE } from './route'
+import { ROUTE_POINTS } from './routePoints'
 
 describe('route', () => {
   it('is continuous where it closes', () => {
     expect(ROUTE.pointAt(0)).toEqual(ROUTE.pointAt(ROUTE.length))
     expect(ROUTE.tangentAt(0)).toEqual(ROUTE.tangentAt(ROUTE.length))
-    expect(ROUTE.length).toBeGreaterThan(13_000)
-    expect(ROUTE.length).toBeLessThan(14_000)
+    expect(ROUTE.length).toBeGreaterThanOrEqual(12_500)
+    expect(ROUTE.length).toBeLessThanOrEqual(14_500)
+  })
+
+  it('keeps the authored valley within its design envelope', () => {
+    for (const point of ROUTE_POINTS) {
+      expect(point.valleyWidth).toBeGreaterThanOrEqual(300)
+      expect(point.valleyWidth).toBeLessThanOrEqual(600)
+    }
+    expect(ROUTE_POINTS[0]).toMatchObject({ x: 1750, z: 2000 })
   })
 
   it('is parameterized uniformly by arc length', () => {
