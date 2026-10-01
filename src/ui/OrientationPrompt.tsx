@@ -1,8 +1,8 @@
-import { useEffect, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { useControlStore } from '../app/controlStore'
 import { useGameStore } from '../app/gameStore'
 import { PORTRAIT_QUERY } from '../app/orientation'
-import { color, effect, radius, space, type } from '../styles/tokens'
+import { color, effect, motion, size, space, type } from '../styles/tokens'
 import { copy } from './copy'
 
 function subscribe(onChange: () => void): () => void {
@@ -15,28 +15,50 @@ function isPortrait(): boolean {
   return window.matchMedia(PORTRAIT_QUERY).matches
 }
 
-/** A phone turning from landscape to portrait. Inherits `currentColor`. */
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
+
+/**
+ * A phone outline turning 90° clockwise into landscape, holding, and looping. Inherits
+ * `currentColor`. Reduced motion shows the landscape end state.
+ */
 function RotateIcon() {
+  const ref = useRef<SVGSVGElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el || window.matchMedia(REDUCED_MOTION_QUERY).matches) return
+    const turn = motion.rotateCueTurnMs
+    const total = turn + motion.rotateCueHoldMs
+    const animation = el.animate(
+      [
+        { transform: 'rotate(0deg)', offset: 0, easing: 'ease-in-out' },
+        { transform: 'rotate(90deg)', offset: turn / total },
+        { transform: 'rotate(90deg)', offset: 1 },
+      ],
+      { duration: total, iterations: Infinity },
+    )
+    return () => animation.cancel()
+  }, [])
+
   return (
     <svg
+      ref={ref}
       viewBox="0 0 96 96"
       width={96}
       height={96}
       aria-hidden="true"
       fill="none"
       stroke="currentColor"
-      strokeWidth={4}
       strokeLinecap="round"
       strokeLinejoin="round"
+      style={{
+        strokeWidth: size.glyphStroke,
+        transform: 'rotate(90deg)',
+        filter: effect.ringGlow,
+      }}
     >
-      {/* Portrait phone, dimmed: where the player is now. */}
-      <rect x="14" y="8" width="32" height="56" rx="5" opacity={0.45} />
-      {/* Landscape phone: where it should be. */}
-      <rect x="30" y="52" width="58" height="32" rx="5" />
-      <line x1="80" y1="62" x2="80" y2="74" />
-      {/* Turn arrow. */}
-      <path d="M58 14 A24 24 0 0 1 80 38" />
-      <path d="M72 36 L80 40 L86 32" />
+      <rect x="32" y="12" width="32" height="72" rx="6" vectorEffect="non-scaling-stroke" />
+      <line x1="42" y1="76" x2="54" y2="76" vectorEffect="non-scaling-stroke" />
     </svg>
   )
 }
@@ -54,6 +76,21 @@ export function OrientationPrompt() {
     if (portrait && flying) useControlStore.getState().forcePause()
   }, [portrait, flying])
 
+  // Paint the page behind the prompt (and the browser chrome colour) to match the scrim, so the
+  // iOS status bar area has no stray strip.
+  useEffect(() => {
+    if (!portrait) return
+    const root = document.documentElement
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+    const previous = meta?.content
+    root.setAttribute('data-orientation-prompt', '')
+    if (meta) meta.content = color.orientationBackdrop
+    return () => {
+      root.removeAttribute('data-orientation-prompt')
+      if (meta && previous !== undefined) meta.content = previous
+    }
+  }, [portrait])
+
   if (!portrait) return null
 
   return (
@@ -62,7 +99,7 @@ export function OrientationPrompt() {
       aria-label={copy.orientation.title}
       data-testid="orientation-prompt"
       style={{
-        position: 'absolute',
+        position: 'fixed',
         inset: 0,
         display: 'flex',
         flexDirection: 'column',
@@ -71,41 +108,26 @@ export function OrientationPrompt() {
         gap: space.lg,
         padding: space.xl,
         textAlign: 'center',
-        background: color.surfaceScrim,
-        backdropFilter: effect.scrimBlur,
+        background: color.orientationScrim,
+        backdropFilter: effect.tintBlur,
+        WebkitBackdropFilter: effect.tintBlur,
         color: color.textPrimary,
+        textShadow: effect.textGlow,
       }}
     >
-      <div
+      <RotateIcon />
+      <h2
         style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: space.lg,
-          maxWidth: '36ch',
-          padding: space.xl,
-          border: `1px solid ${color.line}`,
-          borderRadius: radius.sharp,
-          background: color.surfaceHud,
-          backdropFilter: effect.hudBlur,
-          textShadow: effect.textGlow,
+          fontFamily: type.fontDisplay,
+          fontWeight: type.weightDisplay,
+          fontSize: type.tvTitle,
+          margin: 0,
+          maxWidth: '20ch',
+          textWrap: 'balance',
         }}
       >
-        <RotateIcon />
-        <h2
-          style={{
-            fontFamily: type.fontDisplay,
-            fontWeight: type.weightDisplay,
-            fontSize: type.tvTitle,
-            margin: 0,
-          }}
-        >
-          {copy.orientation.title}
-        </h2>
-        <p style={{ fontSize: type.tvBody, margin: 0, color: color.textMuted }}>
-          {copy.orientation.body}
-        </p>
-      </div>
+        {copy.orientation.title}
+      </h2>
     </div>
   )
 }

@@ -89,7 +89,6 @@ export const copy = {
 
   orientation: {
     title: 'Turn your phone sideways',
-    body: 'Driftwing flies in landscape.',
   },
 
   error: {
