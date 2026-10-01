@@ -4,7 +4,7 @@ import { useControlStore } from '../app/controlStore'
 import { useInputStore } from '../input/inputStore'
 import { color, space } from '../styles/tokens'
 import { CameraPreview } from './CameraPreview'
-import { ClockReadout } from './ClockReadout'
+import { SunMoonDial } from './SunMoonDial'
 import { LockInReveal } from './LockInReveal'
 import { InputReadout } from './InputReadout'
 import { PauseTeaching } from './PauseTeaching'
@@ -15,7 +15,7 @@ import { AudioCaptions } from './AudioCaptions'
 /**
  * Flight HUD over the canvas: the control prompt and, when steering by pose, the camera preview
  * whose border (and orientation line, #15) shows whether gestures are steering. Never takes
- * pointer input. The in-game clock (#94) sits top right. Rendered above the paused overlay so the player can still see themselves.
+ * pointer input. The sun and moon dial (#166) sits top right. Rendered above the paused overlay so the player can still see themselves.
  */
 export function Hud() {
   const [teaching, setTeaching] = useState(false)
@@ -56,7 +56,7 @@ export function Hud() {
       <PauseTeaching eligible={teachingEligible} onChange={onTeachingChange} />
       <WarmCaption />
       <AudioCaptions />
-      <ClockReadout />
+      <SunMoonDial />
     </div>
   )
 }

@@ -348,6 +348,8 @@ export const motion = {
 // HUD element sizing, relative to viewport so it scales with the TV.
 export const size = {
   cameraPreviewWidth: '20vw',
+  // Celestial dial (#166): about 12vh at 1080p, bounded for small phones and large TVs.
+  sunMoonDial: 'clamp(104px, 12vh, 168px)',
   // The calibrate preview's frame (#63): a cool edge the player can find from ~2 m.
   calibrateFrame: '12px',
   // Title pose demonstration (arms out, tilt, arms up) under Start.

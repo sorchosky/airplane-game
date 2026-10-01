@@ -99,6 +99,7 @@
 
   --size-camera-preview-width: 20vw;
   --size-calibrate-frame: 12px;
+  --size-sun-moon-dial: clamp(104px, 12vh, 168px);
   --size-pose-demo-figure: clamp(72px, 8vw, 120px);
   --size-hold-ring: clamp(40px, 4vw, 56px);
   --size-control-glyph: clamp(160px, min(24vw, 48vh), 480px);
@@ -166,4 +167,9 @@ body {
     transition-property: opacity !important;
     scroll-behavior: auto !important;
   }
+}
+
+.high-contrast [data-testid='sun-moon-dial'] {
+  background: var(--color-surface-hud);
+  border-radius: 50%;
 }
