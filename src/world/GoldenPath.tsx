@@ -23,7 +23,6 @@ import {
   type PathPoint,
 } from './goldenPath'
 import { getLandmarks, insideTrigger } from './landmarks'
-import { activeLighting } from './lightingPreset'
 
 interface GoldenPathUiState {
   reveal: number
@@ -73,16 +72,6 @@ export function GoldenPath({ paused }: { paused: boolean }) {
       }),
     [],
   )
-  const cloudMaterial = useMemo(
-    () =>
-      new MeshBasicMaterial({
-        color: new Color(activeLighting().cloudLight),
-        transparent: true,
-        opacity: 0.42,
-        depthWrite: false,
-      }),
-    [],
-  )
 
   useEffect(() => {
     if (!route || !ringsRef.current) return
@@ -103,10 +92,9 @@ export function GoldenPath({ paused }: { paused: boolean }) {
       puffGeometry.dispose()
       ringMaterial.dispose()
       puffMaterial.dispose()
-      cloudMaterial.dispose()
       useGoldenPathUi.getState().setReveal(0)
     },
-    [cloudMaterial, puffGeometry, puffMaterial, ringGeometry, ringMaterial],
+    [puffGeometry, puffMaterial, ringGeometry, ringMaterial],
   )
 
   useFrame(({ clock, camera }) => {
@@ -187,29 +175,10 @@ export function GoldenPath({ paused }: { paused: boolean }) {
   })
 
   if (!route) return null
-  const clouds = Array.from({ length: 11 }, (_, i) => {
-    const angle = i * 2.4
-    const radius = 35 + (i % 4) * 26
-    return (
-      <mesh
-        key={i}
-        position={[
-          route.cloud.x + Math.cos(angle) * radius,
-          route.cloud.y + ((i * 17) % 70) - 25,
-          route.cloud.z + Math.sin(angle) * radius,
-        ]}
-        scale={[48 + (i % 3) * 16, 24 + (i % 2) * 12, 42 + ((i + 1) % 3) * 14]}
-        geometry={puffGeometry}
-        material={cloudMaterial}
-      />
-    )
-  })
-
   return (
     <>
       <instancedMesh ref={ringsRef} args={[ringGeometry, ringMaterial, 3]} />
       <instancedMesh ref={puffsRef} args={[puffGeometry, puffMaterial, 24]} frustumCulled={false} />
-      {clouds}
     </>
   )
 }

@@ -132,6 +132,14 @@ export const SHOT_BOOKMARKS: readonly ShotBookmark[] = [
     purpose: 'Inside the cloud layer: cloud shading and volume.',
   },
   {
+    name: 'cloud-gate',
+    position: [1205, 136, 903],
+    heading: 0.674,
+    bank: 0,
+    pitchAngle: 0,
+    purpose: 'Golden-path approach: the dense cumulus gate bank centred on the route.',
+  },
+  {
     name: 'plane-hero',
     position: [1750, 147, 2000],
     heading: 0,

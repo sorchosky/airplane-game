@@ -8,6 +8,7 @@ import { createCumulusMaterial, createStratusMaterial } from './cloudMaterial'
 import {
   buildHeapGeometry,
   CLOUD_BURST,
+  cloudGateLayout,
   CUMULUS_CONFIG,
   cumulusLayout,
   heapDepth,
@@ -17,6 +18,8 @@ import {
   stratusLayout,
 } from './cloudMath'
 import { useCloudStore } from './cloudStore'
+import { createGoldenPathRoute } from './goldenPath'
+import { getLandmarks } from './landmarks'
 
 /**
  * Two cloud layers, two draw calls (#70):
@@ -32,7 +35,14 @@ import { useCloudStore } from './cloudStore'
  * `cloudStore` counts the burst for the screen veil and audio.
  */
 export function Clouds() {
-  const puffs = useMemo(() => cumulusLayout(CUMULUS_CONFIG), [])
+  const puffs = useMemo(() => {
+    const field = cumulusLayout(CUMULUS_CONFIG)
+    const arch = getLandmarks().find((landmark) => landmark.kind === 'arch')
+    if (!arch) return field
+    const start = useFlightStore.getState().state.position
+    const route = createGoldenPathRoute(start, arch)
+    return [...field, ...cloudGateLayout(route.cloud, route.rings.at(-1) ?? start)]
+  }, [])
   const sheets = useMemo(() => stratusLayout(STRATUS_CONFIG), [])
 
   const cumulus = useMemo(() => {
@@ -113,8 +123,14 @@ export function Clouds() {
     for (let i = 0; i < puffs.length; i++) {
       const puff = puffs[i]
       if (!puff) continue
-      const x = wrapAround(puff.clusterX + windX * t, position.x, fieldSize) + puff.offsetX
-      const z = wrapAround(puff.clusterZ + windZ * t, position.z, fieldSize) + puff.offsetZ
+      // The gate belongs to the route, while ambient clouds belong to the drifting wrap field.
+      const x = puff.fixed
+        ? puff.clusterX + puff.offsetX
+        : wrapAround(puff.clusterX + windX * t, position.x, fieldSize) + puff.offsetX
+      const z = puff.fixed
+        ? puff.clusterZ + puff.offsetZ
+        : wrapAround(puff.clusterZ + windZ * t, position.z, fieldSize) + puff.offsetZ
+      if (puff.fixed) continue
       const depth = heapDepth(position.x - x, position.y - puff.y, position.z - z, puff)
       filled = insertNearest(burst.nearest, burst.nearestDepth, filled, i, depth)
     }
@@ -147,8 +163,12 @@ export function Clouds() {
     for (let i = 0; i < puffs.length; i++) {
       const puff = puffs[i]
       if (!puff) continue
-      let x = wrapAround(puff.clusterX + windX * t, position.x, fieldSize) + puff.offsetX
-      let z = wrapAround(puff.clusterZ + windZ * t, position.z, fieldSize) + puff.offsetZ
+      let x = puff.fixed
+        ? puff.clusterX + puff.offsetX
+        : wrapAround(puff.clusterX + windX * t, position.x, fieldSize) + puff.offsetX
+      let z = puff.fixed
+        ? puff.clusterZ + puff.offsetZ
+        : wrapAround(puff.clusterZ + windZ * t, position.z, fieldSize) + puff.offsetZ
       if (push > 0) {
         for (let k = 0; k < CLOUD_BURST.pushedPuffs; k++) {
           if (burst.indices[k] !== i) continue
