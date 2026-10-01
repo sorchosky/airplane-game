@@ -166,3 +166,10 @@
     transform: none !important;
   }
 }
+
+/* While the Position beat is under way (#160) the Motion frame's marks are measured and moved from
+   their rest positions, so the focus slide and its transition stand down. */
+[data-leaving='true'] .control-corner {
+  transform: none !important;
+  transition: none !important;
+}

@@ -9,10 +9,11 @@ import {
 } from '../../pose/calibrationFlow'
 import { useCalibrationStore } from '../../pose/calibrationStore'
 import { getVideo, useCameraStore } from '../../pose/cameraService'
+import { POSITION_TRANSITION } from './positionTransition'
 import { startPoseService } from '../../pose/poseService'
 import { usePoseStore, type PoseModelStatus } from '../../pose/poseStore'
 import { color, effect, radius, space, type } from '../../styles/tokens'
-import { CameraAsk } from '../../ui/CameraAsk'
+import { CameraAskCaption } from '../../ui/CameraAsk'
 import { CameraPreview } from '../../ui/CameraPreview'
 import { copy } from '../../ui/copy'
 import { HoldRing, RING_CIRCUMFERENCE } from '../../ui/HoldRing'
@@ -119,7 +120,7 @@ function overlayCheck(phase: CalibrationPhase): OverlayCheck {
  * every animation frame. On lock-in (frame 03) it chimes, flashes the skeleton white, and hands the
  * preview's rectangle to the flight HUD, which contracts it into the corner.
  */
-function CalibrationView() {
+function CalibrationView({ asking }: { asking: boolean }) {
   const modelStatus = usePoseStore((s) => s.modelStatus)
   const cameraLost = useCameraStore((s) => s.status === 'lost')
   const statusCopy = MODEL_STATUS_COPY[modelStatus]
@@ -184,6 +185,17 @@ function CalibrationView() {
     return () => cancelAnimationFrame(frame)
   }, [])
 
+  // The feed fades in inside the frame once it is live (#160).
+  const live = useCameraStore((s) => s.status === 'live')
+  useEffect(() => {
+    if (!live || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const fade = getVideo().animate([{ opacity: 0 }, { opacity: 1 }], {
+      duration: POSITION_TRANSITION.feedFadeMs,
+      easing: 'ease-out',
+    })
+    return () => fade.cancel()
+  }, [live])
+
   const holding = phase === 'holding' || phase === 'done'
 
   return (
@@ -196,7 +208,8 @@ function CalibrationView() {
         width: '100%',
         padding: space.lg,
         color: color.textPrimary,
-        background: color.surfaceScrim,
+        // No scrim: the world behind is blurred in the render pipeline, and shows in the side
+        // bands the 4:3 feed leaves (#160).
       }}
     >
       <CameraPreview
@@ -230,30 +243,34 @@ function CalibrationView() {
               gap: space.sm,
             }}
           >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: space.md,
-                padding: `${space.sm} ${space.lg}`,
-                borderBottom: `1px solid ${color.line}`,
-                textShadow: effect.textGlow,
-                fontSize: type.tvTitle,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {holding && !cameraLost && <HoldRing ringRef={ringRef} />}
-              <p
-                role="status"
-                aria-live="polite"
-                data-testid="calibration-guidance"
-                data-phase={cameraLost ? 'cameraLost' : phase}
-                style={{ margin: 0 }}
+            {asking ? (
+              <CameraAskCaption />
+            ) : (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: space.md,
+                  padding: `${space.sm} ${space.lg}`,
+                  borderBottom: `1px solid ${color.line}`,
+                  textShadow: effect.textGlow,
+                  fontSize: type.tvTitle,
+                  whiteSpace: 'nowrap',
+                }}
               >
-                {cameraLost ? copy.calibrate.cameraLost : GUIDANCE_COPY[phase]}
-              </p>
-            </div>
-            {statusCopy && (
+                {holding && !cameraLost && <HoldRing ringRef={ringRef} />}
+                <p
+                  role="status"
+                  aria-live="polite"
+                  data-testid="calibration-guidance"
+                  data-phase={cameraLost ? 'cameraLost' : phase}
+                  style={{ margin: 0 }}
+                >
+                  {cameraLost ? copy.calibrate.cameraLost : GUIDANCE_COPY[phase]}
+                </p>
+              </div>
+            )}
+            {!asking && statusCopy && (
               <p
                 role="status"
                 data-testid="pose-model-status"
@@ -277,11 +294,11 @@ function CalibrationView() {
 }
 
 /**
- * Calibrate state. Until the camera is live the player sees the camera-ask frame (storyboard frame
- * 01) under the browser's prompt; a replay has no camera, so it goes straight to calibration.
+ * Calibrate state. The frame and target are there from the start (the Motion choice opens into
+ * them, #160); until the camera is live the guidance slot holds the camera ask under the browser's
+ * prompt. A replay has no camera, so it goes straight to calibration.
  */
 export function CalibrateScreen() {
   const asking = useCameraStore((s) => s.status === 'idle' || s.status === 'starting')
-  if (asking && !isReplayInputMode()) return <CameraAsk />
-  return <CalibrationView />
+  return <CalibrationView asking={asking && !isReplayInputMode()} />
 }

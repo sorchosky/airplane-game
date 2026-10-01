@@ -69,7 +69,7 @@ function GameApp() {
           permissionDenied(errorMessage ?? copy.error.cameraFailed)
         },
       )
-    } else if (state === 'title') {
+    } else if (state === 'title' || state === 'select') {
       stopPoseService()
       stopCamera()
     }

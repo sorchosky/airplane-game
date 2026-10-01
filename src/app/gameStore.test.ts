@@ -103,6 +103,12 @@ describe('gameStore transitions', () => {
     expect(useGameStore.getState().state).toBe('title')
   })
 
+  it('backs out of calibration to the control choice', () => {
+    useGameStore.setState({ state: 'calibrate' })
+    useGameStore.getState().backToSelect()
+    expect(useGameStore.getState().state).toBe('select')
+  })
+
   it('recalibrates from paused, returning to flying when calibration completes', () => {
     const store = useGameStore.getState()
     store.skipToFlying()

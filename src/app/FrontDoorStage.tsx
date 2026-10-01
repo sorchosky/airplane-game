@@ -8,6 +8,7 @@ import { useGameStore } from './gameStore'
 import { CalibrateScreen } from './screens/CalibrateScreen'
 import { ControlSelectScreen } from './screens/ControlSelectScreen'
 import { ErrorScreen } from './screens/ErrorScreen'
+import { createPositionTimeline, type PositionTimeline } from './screens/positionTimeline'
 import { createStartTimeline, type StartTimeline } from './screens/startTimeline'
 import { restingLook, sampleStartTimeline } from './screens/startTransition'
 import { RunningHeadTarget } from './screens/TitleText'
@@ -70,6 +71,7 @@ interface StageRefs {
   /** The beat shown before the current one, so an enter knows whether it follows the masthead. */
   previous: { current: Beat }
   timeline: { current: StartTimeline | null }
+  position: { current: PositionTimeline | null }
   pending: { current: PendingAnimation | null }
   /** Starts feeding the world's lean and blur from a timeline's clock. */
   drive: (timeline: StartTimeline, follow?: boolean) => void
@@ -93,6 +95,11 @@ function stagePlayer(refs: StageRefs): BeatPlayer {
   return {
     exit(beat) {
       if (reducedMotion()) return fade(1, 0)
+      const position = refs.position.current
+      if (beat === 'position' && refs.target.current === 'choose' && position) {
+        position.playBackward()
+        return position
+      }
       const timeline = refs.timeline.current
       if (beat === 'choose' && refs.target.current === 'masthead' && timeline) {
         timeline.playBackward()
@@ -103,7 +110,10 @@ function stagePlayer(refs: StageRefs): BeatPlayer {
     },
     enter(beat) {
       if (reducedMotion()) return fade(0, 1)
-      if (beat === 'choose' && refs.previous.current === 'masthead') {
+      if (
+        (beat === 'choose' && refs.previous.current === 'masthead') ||
+        (beat === 'position' && refs.previous.current === 'choose')
+      ) {
         refs.pending.current = new PendingAnimation()
         return refs.pending.current
       }
@@ -179,7 +189,9 @@ function useBeatTransition(beat: Beat, player: BeatPlayer, onShow: (beat: Beat) 
 function useChooseExit(active: boolean) {
   useEffect(() => {
     if (!active) return
-    window.history.pushState({ frontDoor: 'choose' }, '')
+    if (window.history.state?.frontDoor !== 'choose') {
+      window.history.pushState({ frontDoor: 'choose' }, '')
+    }
     const quit = () => useGameStore.getState().quitToTitle()
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.repeat) return
@@ -190,6 +202,26 @@ function useChooseExit(active: boolean) {
     window.addEventListener('keydown', onKey)
     return () => {
       window.removeEventListener('popstate', quit)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [active])
+}
+
+/**
+ * Escape and browser back from calibration, entered from the choice, return to the choice (#160).
+ * Leaves the history entry the choice pushed in place, so the choice's own Back still works.
+ */
+function usePositionExit(active: boolean) {
+  useEffect(() => {
+    if (!active) return
+    const back = () => useGameStore.getState().backToSelect()
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.repeat) back()
+    }
+    window.addEventListener('popstate', back)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('popstate', back)
       window.removeEventListener('keydown', onKey)
     }
   }, [active])
@@ -215,6 +247,7 @@ export function FrontDoorStage() {
   const shownRef = useRef<Beat>(beat)
   const timelineRef = useRef<StartTimeline | null>(null)
   const pendingRef = useRef<PendingAnimation | null>(null)
+  const positionRef = useRef<PositionTimeline | null>(null)
 
   const settle = () => {
     const { lean, blur } = restingLook(targetRef.current)
@@ -229,6 +262,7 @@ export function FrontDoorStage() {
         target: targetRef,
         previous: previousRef,
         timeline: timelineRef,
+        position: positionRef,
         pending: pendingRef,
         drive,
       }),
@@ -252,6 +286,8 @@ export function FrontDoorStage() {
     }
     const root = rootRef.current
     const head = runningHeadRef.current
+    // Position keeps the Choose beat and the held Start timeline under it when it came from Choose.
+    if (shown === 'position' && previousRef.current === 'choose') return
     if (shown !== 'choose' || !root || !head) {
       clear()
       halt()
@@ -282,13 +318,42 @@ export function FrontDoorStage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shown])
 
+  // Build or drop the Position timeline (#160): Motion's frame opening into the calibration frame.
+  useLayoutEffect(() => {
+    positionRef.current?.cancel()
+    positionRef.current = null
+    const root = rootRef.current
+    if (shown === 'choose') {
+      // Back from calibration: the Choose beat is live again, so give Motion focus back.
+      if (previousRef.current === 'position') {
+        root?.querySelector<HTMLElement>('.control-frame[data-mode="camera"]')?.focus()
+      }
+      return
+    }
+    if (shown !== 'position' || previousRef.current !== 'choose' || !root) return
+    const pending = pendingRef.current
+    pendingRef.current = null
+    const timeline = createPositionTimeline(root)
+    positionRef.current = timeline
+    const played = timeline !== null && pending !== null && !pending.reversedEarly
+    if (played) timeline.playForward()
+    else timeline?.jumpToEnd()
+    pending?.attach(played ? timeline : null)
+  }, [shown])
+
   // `drive` reads everything through refs, so the hook installs once.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => installStartTimelineHook(timelineRef, drive), [])
+  useEffect(() => installStartTimelineHook(timelineRef, positionRef, drive), [])
+
+  // Position entered from Choose keeps the masthead and the choice mounted underneath (#160), so
+  // Back can play the timeline in reverse; any other way in (recalibrate, a dev preset) doesn't.
+  const fromChoose = shown === 'position' && previousRef.current === 'choose'
 
   useChooseExit(state === 'select')
+  usePositionExit(state === 'calibrate' && fromChoose)
 
-  const masthead = shown === 'masthead' || shown === 'choose'
+  const choice = shown === 'choose' || fromChoose
+  const masthead = shown === 'masthead' || choice
 
   return (
     <div
@@ -302,11 +367,21 @@ export function FrontDoorStage() {
     >
       {masthead && (
         // Under the choice the masthead is only the wordmark's running head: not for tapping.
-        <div style={{ position: 'absolute', inset: 0 }} inert={shown === 'choose'}>
+        <div style={{ position: 'absolute', inset: 0 }} inert={shown !== 'masthead'}>
           {state === 'error' ? <ErrorScreen /> : <TitleScreen />}
         </div>
       )}
-      {shown === 'choose' && <ControlSelectScreen />}
+      {choice && (
+        // Under the calibration frame the choice is only what its marks and glyph travel from.
+        <div
+          data-leaving={fromChoose}
+          style={{ position: 'absolute', inset: 0 }}
+          inert={fromChoose}
+          aria-hidden={fromChoose || undefined}
+        >
+          <ControlSelectScreen />
+        </div>
+      )}
       {shown === 'position' && <CalibrateScreen />}
       {masthead && <RunningHeadTarget ref={runningHeadRef} />}
     </div>
@@ -319,6 +394,7 @@ export function FrontDoorStage() {
  */
 function installStartTimelineHook(
   timeline: { current: StartTimeline | null },
+  position: { current: PositionTimeline | null },
   drive: (timeline: StartTimeline, follow?: boolean) => void,
 ): () => void {
   if (!hasDebugFlag()) return () => undefined
@@ -342,8 +418,14 @@ function installStartTimelineHook(
       return { lean, blur }
     },
   }
+  window.__positionTimeline = {
+    pin: (ms) => position.current?.pin(ms),
+    release: () => position.current?.release(),
+    time: () => position.current?.time() ?? null,
+  }
   return () => {
     delete window.__startTimeline
+    delete window.__positionTimeline
   }
 }
 
@@ -355,6 +437,12 @@ declare global {
       release: () => void
       time: () => number | null
       look: () => { lean: number; blur: number }
+    }
+    /** Pins the Choose → Position timeline under `?debug`, like `__startTimeline`. */
+    __positionTimeline?: {
+      pin: (ms: number) => void
+      release: () => void
+      time: () => number | null
     }
   }
 }

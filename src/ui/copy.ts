@@ -16,7 +16,8 @@ export const copy = {
 
   // Storyboard frame 01: shown while the browser's camera prompt is open, and again if it's denied.
   cameraAsk: {
-    body: 'We need your camera to see you fly. Nothing leaves your phone.',
+    body: 'Prop your phone up, then step back',
+    privacy: 'Nothing leaves your phone.',
     denied: 'Allow the camera in your browser settings',
     retry: 'Try again',
   },
