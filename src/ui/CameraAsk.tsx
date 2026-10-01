@@ -96,3 +96,37 @@ export function CameraAsk({ denied = false, onRetry }: CameraAskProps) {
     </div>
   )
 }
+
+/**
+ * The camera ask in the Position beat (#160): two lines of copy under the calibration frame's
+ * guidance slot while the browser's prompt is up. The frame, target and world are already on
+ * screen, so there is no plate and no sky of its own.
+ */
+export function CameraAskCaption() {
+  return (
+    <div
+      role="status"
+      data-testid="camera-ask"
+      data-denied="false"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: space.xs,
+        padding: `${space.sm} ${space.lg}`,
+        borderBottom: `1px solid ${color.line}`,
+        textShadow: effect.textGlow,
+        color: color.textPrimary,
+        fontFamily: type.fontBody,
+        textAlign: 'center',
+      }}
+    >
+      <p style={{ margin: 0, fontSize: type.tvTitle, whiteSpace: 'nowrap' }}>
+        {copy.cameraAsk.body}
+      </p>
+      <p style={{ margin: 0, fontSize: type.tvBody, color: color.textMuted }}>
+        {copy.cameraAsk.privacy}
+      </p>
+    </div>
+  )
+}

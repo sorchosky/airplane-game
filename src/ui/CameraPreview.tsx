@@ -6,6 +6,13 @@ import { PoseOverlay, type ControlPreviewState } from './PoseOverlay'
 
 export type { ControlPreviewState }
 
+const CORNER_IDS = {
+  'top-left': 'tl',
+  'top-right': 'tr',
+  'bottom-right': 'br',
+  'bottom-left': 'bl',
+} as const
+
 interface CameraPreviewProps {
   /** Border and orientation-line color role. Wired to the real gesture-active signal in #18. */
   controlState?: ControlPreviewState
@@ -120,6 +127,8 @@ export function CameraPreview({
           <span
             key={corner}
             aria-hidden="true"
+            // Matches the control choice's `data-corner`, so the Position beat can land on them.
+            data-corner={CORNER_IDS[corner]}
             style={{
               position: 'absolute',
               ...vertical,

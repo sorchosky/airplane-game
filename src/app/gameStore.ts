@@ -32,6 +32,8 @@ export interface GameStore {
   /** Pause menu: back through the calibration flow, which returns to flying when done. */
   recalibrate: () => void
   quitToTitle: () => void
+  /** Backs out of calibration to the control choice (#160). */
+  backToSelect: () => void
   retry: () => void
   /** Dev-only: `?input=keyboard` skips the permission probe entirely. */
   skipToFlying: () => void
@@ -44,7 +46,12 @@ const TRANSITIONS: Record<GameState, Partial<Record<keyof GameStore, GameState>>
   title: { startSelection: 'select', startPermission: 'permission', skipToFlying: 'flying' },
   select: { startPermission: 'permission', skipToFlying: 'flying', quitToTitle: 'title' },
   permission: { permissionGranted: 'calibrate', permissionDenied: 'error' },
-  calibrate: { calibrationComplete: 'wings', quitToTitle: 'title', permissionDenied: 'error' },
+  calibrate: {
+    calibrationComplete: 'wings',
+    quitToTitle: 'title',
+    backToSelect: 'select',
+    permissionDenied: 'error',
+  },
   wings: { wingsComplete: 'flying', quitToTitle: 'title' },
   flying: { pause: 'paused', quitToTitle: 'title' },
   paused: { resume: 'flying', recalibrate: 'calibrate', quitToTitle: 'title' },
@@ -96,6 +103,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     resume: () => applyAction('resume'),
     recalibrate: () => applyAction('recalibrate'),
     quitToTitle: () => applyAction('quitToTitle'),
+    backToSelect: () => applyAction('backToSelect'),
     retry: () => applyAction('retry'),
     skipToFlying: () => applyAction('skipToFlying'),
   }
