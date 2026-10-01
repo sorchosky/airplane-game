@@ -34,7 +34,8 @@ interface Sample extends RoutePoint {
 const LOOKUP_STEPS_PER_POINT = 64
 const NEAREST_SPACING = 2
 const GRID_SIZE = 8
-const GRID_PADDING = 3
+// Cover the widest near-route query offset used by terrain carving without falling back to a scan.
+const GRID_PADDING = 5
 
 const mix = (a: number, b: number, t: number): number => a + (b - a) * t
 
@@ -115,7 +116,10 @@ export function createRoute(points: readonly RouteControlPoint[]): Route {
   const minZ = Math.min(...samples.map((p) => p.z)) - GRID_SIZE
   const columns = Math.ceil((Math.max(...samples.map((p) => p.x)) - minX) / GRID_SIZE) + 2
   const rows = Math.ceil((Math.max(...samples.map((p) => p.z)) - minZ) / GRID_SIZE) + 2
-  const grid: number[][] = Array.from({ length: columns * rows }, () => [])
+  const fastGrid = new Int32Array(columns * rows)
+  const gridDistance2 = new Float64Array(columns * rows)
+  fastGrid.fill(-1)
+  gridDistance2.fill(Infinity)
   for (let i = 0; i < samples.length; i++) {
     const p = samples[i]!
     const cellX = Math.floor((p.x - minX) / GRID_SIZE)
@@ -125,36 +129,17 @@ export function createRoute(points: readonly RouteControlPoint[]): Route {
       for (let dx = -GRID_PADDING; dx <= GRID_PADDING; dx++) {
         const gx = cellX + dx
         const gz = cellZ + dz
-        if (gx >= 0 && gx < columns && gz >= 0 && gz < rows) grid[gz * columns + gx]!.push(i)
+        if (gx >= 0 && gx < columns && gz >= 0 && gz < rows) {
+          const cell = gz * columns + gx
+          const centerX = minX + (gx + 0.5) * GRID_SIZE
+          const centerZ = minZ + (gz + 0.5) * GRID_SIZE
+          const distance2 = (p.x - centerX) ** 2 + (p.z - centerZ) ** 2
+          if (distance2 < gridDistance2[cell]!) {
+            fastGrid[cell] = i
+            gridDistance2[cell] = distance2
+          }
+        }
       }
-  }
-  const fastGrid = new Int32Array(grid.length)
-  fastGrid.fill(-1)
-  for (let cell = 0; cell < grid.length; cell++) {
-    const candidates = grid[cell]!
-    // A cell at the loop seam (or a future self-approach) needs all candidates.
-    let minCandidate = sampleCount
-    let maxCandidate = 0
-    for (const index of candidates) {
-      minCandidate = Math.min(minCandidate, index)
-      maxCandidate = Math.max(maxCandidate, index)
-    }
-    if (
-      candidates.length > ((GRID_PADDING * 2 + 1) * GRID_SIZE) / NEAREST_SPACING + 8 ||
-      maxCandidate - minCandidate > sampleCount / 2
-    )
-      continue
-    const centerX = minX + ((cell % columns) + 0.5) * GRID_SIZE
-    const centerZ = minZ + (Math.floor(cell / columns) + 0.5) * GRID_SIZE
-    let closestDistance = Infinity
-    for (const index of candidates) {
-      const point = samples[index]!
-      const distance = (point.x - centerX) ** 2 + (point.z - centerZ) ** 2
-      if (distance < closestDistance) {
-        fastGrid[cell] = index
-        closestDistance = distance
-      }
-    }
   }
 
   const tangentAt = (s: number): RouteTangent => {
