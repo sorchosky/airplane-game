@@ -111,6 +111,53 @@ export interface FoliageConfig {
   shoreMargin: number
 }
 
+/**
+ * A gap in the basin's ridge ring (#171). The gap runs along the ray from the basin centre through
+ * (`x`, `z`), which is a route control point from `docs/world-route.md`.
+ */
+export interface BasinNotch {
+  /** m, world position of the notch's route point. Sets the ray's bearing and where the floor is `floorHeight`. */
+  x: number
+  z: number
+  /** m, height of the notch floor at (`x`, `z`) */
+  floorHeight: number
+  /** m, half the notch width at the floor. The floor is flat across this. */
+  halfWidth: number
+  /** m, how far the flanks take to rise from the floor to the ridge. Wider = gentler walls. */
+  flank: number
+  /** m, how far past (`x`, `z`) the notch keeps its floor before the land returns to noise */
+  extension: number
+}
+
+/**
+ * The home basin (#171, `docs/world-route.md`): a gently sloped floor around the spawn, a ridge
+ * ring, and two notches. Shaped by `applyBasin` in `basin.ts`, after lakes and rivers, so the
+ * designed heights hold.
+ */
+export interface BasinConfig {
+  /** m, world position of the basin centre, which is the spawn */
+  centerX: number
+  centerZ: number
+  /** m, height of the floor at the centre, and where the floor meets the ridge foot */
+  floorCenterHeight: number
+  floorEdgeHeight: number
+  /** m, radius of the flat-ish floor. The ridge starts to rise here. */
+  clearRadius: number
+  /** m, radius of the ridge crest */
+  ridgeRadius: number
+  /** m, radius where the basin has faded fully back into the noise terrain */
+  blendRadius: number
+  /** m, mean absolute crest height. Varies round the ring by `crestVariation`. */
+  crestHeight: number
+  /** 0..1, how far the crest varies round the ring, as a share of `crestHeight` */
+  crestVariation: number
+  /** m, how far the terrain noise moves the floor and the ridge, at most */
+  floorNoise: number
+  ridgeNoise: number
+  /** Outbound cut first, return notch second. */
+  notches: readonly [BasinNotch, BasinNotch]
+}
+
 export interface TerrainConfig {
   /** World seed. Same seed = same world. Any string works. */
   seed: string
@@ -149,6 +196,8 @@ export interface TerrainConfig {
    * height, so they run through lowlands and peter out in the hills instead of cutting mountains.
    */
   riverMaxHeight: number
+  /** The home basin around the spawn. */
+  basin: BasinConfig
   /** Terrain color bands. */
   bands: TerrainBands
   /** m, edge length of one terrain chunk */
@@ -196,6 +245,23 @@ export const TERRAIN_CONFIG: TerrainConfig = {
   riverWidth: 0.035,
   riverValleyWidth: 0.15,
   riverMaxHeight: 180,
+  basin: {
+    centerX: 1750,
+    centerZ: 2000,
+    floorCenterHeight: 40,
+    floorEdgeHeight: 55,
+    clearRadius: 700,
+    ridgeRadius: 1150,
+    blendRadius: 1650,
+    crestHeight: 260,
+    crestVariation: 0.12,
+    floorNoise: 4,
+    ridgeNoise: 20,
+    notches: [
+      { x: 1938, z: 1248, floorHeight: 46, halfWidth: 160, flank: 300, extension: 550 },
+      { x: 622, z: 2094, floorHeight: 35, halfWidth: 250, flank: 300, extension: 550 },
+    ],
+  },
   bands: {
     sandHeight: 3,
     sandBlend: 1.5,
@@ -250,7 +316,7 @@ export const TERRAIN_CONFIG: TerrainConfig = {
     groveScale: 700,
     groveLow: 0.5,
     groveHigh: 0.7,
-    treeDensity: 0.27,
+    treeDensity: 0.24,
     bushDensity: 0.04,
     boulderDensity: 0.06,
     coniferLow: 150,

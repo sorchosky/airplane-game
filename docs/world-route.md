@@ -30,7 +30,9 @@ terrain ticket. Other floors rise to 78 m to pace the river with dry meadows and
 ## Home basin and the cuts
 
 - **Basin** is centred at `(1750, 2000)`, with a 700 m clear radius and a 260 m target ridge crest.
-  Its floor rises gently from 40 m at spawn to 55 m at the ridge foot.
+  Its floor rises gently from 40 m at spawn to 55 m at the ridge foot. As built (#171) the crest
+  sits at a 1150 m radius, varies about 12% round the ring, and fades back into the noise terrain
+  by 1650 m. The ridge rises over 450 m at most 35° steep.
 - **Spawn** is `(1750, 147, 2000)`, 120 m above the existing ground, heading `-0.245` radians toward
   the outbound cut. The route bends east after clearing the ridge.
 - **Outbound cut** is centred at `(1938, 1248)`, directly along the spawn heading. It is 320 m

@@ -1,4 +1,5 @@
 import { createNoise2D, type NoiseFunction2D } from 'simplex-noise'
+import { applyBasin } from './basin'
 import type { TerrainConfig } from './terrainConfig'
 
 // Pure, deterministic terrain shape. No React or Three: this runs both on the main thread (soft
@@ -165,11 +166,13 @@ export function heightAt(x: number, z: number, config: TerrainConfig): number {
   // fill whole valleys instead of every little dip.
   const broadHills = fbm(n.hills, wx / HILL_SCALE, wz / HILL_SCALE, 2)
   height = carveLakes(height, height + (broadHills - hills) * 0.5 * config.hillHeight, config)
-  return carveRivers(
+  height = carveRivers(
     height,
     fbm(n.rivers, wx / config.riverScale, wz / config.riverScale, 3),
     config,
   )
+  // The home basin goes last so its designed floor and ridge heights hold (#171).
+  return applyBasin(x, z, height, config.basin)
 }
 
 /**
@@ -237,34 +240,8 @@ export interface SpawnPoint {
   groundHeight: number
 }
 
-/**
- * Picks a spawn spot over a valley near the origin: the grid point within `searchRadius` whose
- * surrounding ground (sampled in a ring) is lowest, so the plane starts with open air around it.
- */
-export function findSpawnPoint(
-  config: TerrainConfig,
-  searchRadius = 3000,
-  gridStep = 250,
-): SpawnPoint {
-  const ringRadius = 400
-  let best: SpawnPoint = { x: 0, z: 0, groundHeight: heightAt(0, 0, config) }
-  let bestScore = Infinity
-  for (let x = -searchRadius; x <= searchRadius; x += gridStep) {
-    for (let z = -searchRadius; z <= searchRadius; z += gridStep) {
-      let score = heightAt(x, z, config)
-      for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2
-        score += heightAt(
-          x + Math.cos(angle) * ringRadius,
-          z + Math.sin(angle) * ringRadius,
-          config,
-        )
-      }
-      if (score < bestScore) {
-        bestScore = score
-        best = { x, z, groundHeight: heightAt(x, z, config) }
-      }
-    }
-  }
-  return best
+/** The spawn is the centre of the home basin (#171). */
+export function findSpawnPoint(config: TerrainConfig): SpawnPoint {
+  const { centerX: x, centerZ: z } = config.basin
+  return { x, z, groundHeight: heightAt(x, z, config) }
 }

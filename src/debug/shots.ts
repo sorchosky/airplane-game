@@ -76,6 +76,16 @@ export const SHOT_BOOKMARKS: readonly ShotBookmark[] = [
     purpose: 'The first frame a player sees. Default chase framing over the spawn valley.',
   },
   {
+    name: 'the-cut',
+    position: [1750, 147, 2000],
+    // Bearing from the basin centre to the cut's route point, `docs/world-route.md`.
+    heading: -0.245,
+    bank: 0,
+    pitchAngle: 0,
+    purpose:
+      'The home basin (#171): looking through the cut from spawn, the ridge ring to either side.',
+  },
+  {
     name: 'low-pass',
     position: [1750, 47, 1900],
     heading: 0,
