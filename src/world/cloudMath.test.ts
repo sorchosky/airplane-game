@@ -5,9 +5,11 @@ import { hexToLinear, SUN_DIRECTION } from './atmosphere'
 import {
   buildHeapGeometry,
   CLOUD_BURST,
+  CLOUD_GATE_HEAPS,
   CLOUD_LIT_GAIN,
   CLOUD_SHADE_GAIN,
   cloudBand,
+  cloudGateLayout,
   CUMULUS_CONFIG,
   cumulusLayout,
   heapDepth,
@@ -132,6 +134,41 @@ describe('cumulusLayout', () => {
   it('respawns past the full haze fade, so the jump is never seen', () => {
     expect(CUMULUS_CONFIG.fieldSize / 2).toBeGreaterThan(TERRAIN_CONFIG.hazeFadeEnd)
     expect(STRATUS_CONFIG.fieldSize / 2).toBeGreaterThan(TERRAIN_CONFIG.hazeFadeEnd)
+  })
+})
+
+describe('cloudGateLayout', () => {
+  const center = { x: 500, y: 300, z: -800 }
+  const approach = { x: 420, z: -710 }
+  const gate = cloudGateLayout(center, approach)
+
+  it('is deterministic, centred on the route, and uses the existing heap size range', () => {
+    expect(gate).toHaveLength(CLOUD_GATE_HEAPS)
+    expect(gate).toEqual(cloudGateLayout(center, approach))
+    expect(gate.some((puff) => puff.offsetX === 0 && puff.offsetZ === 0)).toBe(true)
+    for (const puff of gate) {
+      expect(puff.fixed).toBe(true)
+      expect(puff.radius).toBeGreaterThanOrEqual(CUMULUS_CONFIG.puffRadiusMin)
+      expect(puff.radius).toBeLessThanOrEqual(CUMULUS_CONFIG.puffRadiusMax)
+      expect(Math.hypot(puff.offsetX, puff.offsetZ)).toBeLessThanOrEqual(140)
+    }
+  })
+
+  it('overlaps along the route line without a gap wider than the 11 m wingspan', () => {
+    const dx = center.x - approach.x
+    const dz = center.z - approach.z
+    const length = Math.hypot(dx, dz)
+    const intervals = gate
+      .map((puff) => {
+        const along = (puff.offsetX * dx + puff.offsetZ * dz) / length
+        return [along - puff.radius, along + puff.radius] as const
+      })
+      .sort((a, b) => a[0] - b[0])
+    let coveredTo = intervals[0]?.[1] ?? 0
+    for (const [start, end] of intervals.slice(1)) {
+      expect(start - coveredTo).toBeLessThanOrEqual(11)
+      coveredTo = Math.max(coveredTo, end)
+    }
   })
 })
 

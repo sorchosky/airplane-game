@@ -199,6 +199,8 @@ export interface CumulusPuff {
   height: number
   /** radians, turn about world +Y */
   yaw: number
+  /** Fixed world-space heaps, such as the golden-path gate, do not drift or wrap with the field. */
+  fixed?: boolean
 }
 
 /**
@@ -237,6 +239,51 @@ export function cumulusLayout(config: CumulusConfig): CumulusPuff[] {
     }
   }
   return puffs
+}
+
+/** Number of heaps in the golden-path cloud bank. */
+export const CLOUD_GATE_HEAPS = 12
+
+/**
+ * A deterministic bank of cumulus heaps around the golden-path gate. Three large, overlapping
+ * cores cover the route line. The remaining heaps widen and raise the silhouette without changing
+ * the shared cumulus geometry, material, or draw count.
+ */
+export function cloudGateLayout(
+  center: { x: number; y: number; z: number },
+  approach: { x: number; z: number },
+): CumulusPuff[] {
+  const random = mulberry32(163)
+  const heaps: CumulusPuff[] = []
+  const dx = center.x - approach.x
+  const dz = center.z - approach.z
+  const length = Math.hypot(dx, dz) || 1
+  const forwardX = dx / length
+  const forwardZ = dz / length
+  const rightX = -forwardZ
+  const rightZ = forwardX
+  for (let i = 0; i < CLOUD_GATE_HEAPS; i++) {
+    const core = i < 3
+    const radius = core
+      ? 88 + random() * 12
+      : CUMULUS_CONFIG.puffRadiusMin +
+        random() * (CUMULUS_CONFIG.puffRadiusMax - CUMULUS_CONFIG.puffRadiusMin)
+    const along = core ? (i - 1) * 72 : (random() - 0.5) * 150
+    const across = core ? 0 : (random() - 0.5) * 230
+    heaps.push({
+      clusterX: center.x,
+      clusterZ: center.z,
+      offsetX: forwardX * along + rightX * across,
+      y: center.y - radius * (0.42 + random() * 0.12) + (core ? 0 : (random() - 0.5) * 55),
+      offsetZ: forwardZ * along + rightZ * across,
+      radius,
+      stretch: 0.82 + random() * 0.36,
+      height: radius * (0.78 + random() * 0.14),
+      yaw: random() * Math.PI * 2,
+      fixed: true,
+    })
+  }
+  return heaps
 }
 
 /**
