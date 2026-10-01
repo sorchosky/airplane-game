@@ -38,3 +38,17 @@ test('?cast keeps rendering and never exceeds 30 fps', async ({ page }) => {
   expect(fps).toBeLessThanOrEqual(31)
   expect(errors).toEqual([])
 })
+
+// The governor adds the 30 fps cap as a rung when the phone can't hold 60 (#27), and keeps it.
+test('an impossible budget reaches the 30 fps cap rung, and drawing stays at or under 30 fps', async ({
+  page,
+}) => {
+  test.setTimeout(120_000)
+  await page.goto('/?input=keyboard&debug&budget=1')
+  await page.getByRole('button', { name: 'Start' }).click()
+  const hud = page.getByTestId('perf-hud')
+  await expect(hud).toContainText(/cap 30/, { timeout: 90_000 })
+  await page.waitForTimeout(5000)
+  const fps = Number((await hud.textContent())?.match(/(\d+) fps/)?.[1])
+  expect(fps).toBeLessThanOrEqual(31)
+})

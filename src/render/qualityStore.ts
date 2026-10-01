@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
+import { CAST_FPS, isCastMode } from './adaptiveQuality'
 
 /**
  * Render quality tier. `low` skips post-processing entirely, `medium` is a half-resolution bloom
@@ -52,6 +53,8 @@ interface QualityStore {
   tier: QualityTier
   /** Renderer pixel ratio the governor asked for. */
   dpr: number
+  /** Draw at most this many frames a second (the screen mirror needs headroom), or null. */
+  capFps: number | null
   /** 0..1, share of foliage drawn. Read by the foliage slice (A3). */
   foliageDensity: number
   /** m, terrain build distance the governor asked for; the streamer applies it on a chunk crossing. */
@@ -70,6 +73,7 @@ interface QualityStore {
 export const useQualityStore = create<QualityStore>((set) => ({
   tier: initialTier(),
   dpr: initialDpr(),
+  capFps: typeof window !== 'undefined' && isCastMode() ? CAST_FPS : null,
   foliageDensity: 1,
   viewDistance: TERRAIN_CONFIG.viewDistance,
   appliedViewDistance: TERRAIN_CONFIG.viewDistance,

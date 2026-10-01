@@ -4,7 +4,9 @@ import {
   createGovernorState,
   DEFAULT_GOVERNOR_PARAMS,
   describeRung,
+  capRungIndex,
   CAST_GOVERNOR_PARAMS,
+  isCastMode,
   getBudgetFlag,
   governorParams,
   stepGovernor,
@@ -12,7 +14,13 @@ import {
   type QualitySettings,
 } from './adaptiveQuality'
 
-const DESKTOP: QualitySettings = { dpr: 1.5, tier: 'high', foliageDensity: 1, viewDistance: 10_000 }
+const DESKTOP: QualitySettings = {
+  dpr: 1.5,
+  tier: 'high',
+  capFps: null,
+  foliageDensity: 1,
+  viewDistance: 10_000,
+}
 const PHONE: QualitySettings = { ...DESKTOP, tier: 'medium' }
 const BUDGET = DEFAULT_GOVERNOR_PARAMS.budgetMs
 
@@ -26,6 +34,7 @@ describe('buildLadder', () => {
       'dpr 0.75',
       'post medium',
       'post low',
+      'cap 30 fps',
       'foliage 60%',
       'foliage 30%',
       'view 7 km',
@@ -33,6 +42,7 @@ describe('buildLadder', () => {
     expect(ladder.at(-1)).toEqual({
       dpr: 0.75,
       tier: 'low',
+      capFps: 30,
       foliageDensity: 0.3,
       viewDistance: 7000,
     })
@@ -41,7 +51,23 @@ describe('buildLadder', () => {
   it('skips the high tier for a phone that starts on medium', () => {
     const ladder = buildLadder(PHONE, 3)
     expect(ladder.map((r) => r.tier)).not.toContain('high')
-    expect(ladder).toHaveLength(8)
+    expect(ladder).toHaveLength(9)
+  })
+
+  it('caps the frame rate after the pixel ratio and post tier, before foliage', () => {
+    const ladder = buildLadder(PHONE, 3)
+    const cap = capRungIndex(ladder)
+    expect(describeRung(ladder, cap)).toBe('cap 30 fps')
+    expect(ladder[cap - 1]?.tier).toBe('low')
+    expect(ladder[cap - 1]?.capFps).toBeNull()
+    expect(ladder[cap + 1]?.foliageDensity).toBeLessThan(1)
+    expect(ladder.slice(cap).every((r) => r.capFps === 30)).toBe(true)
+  })
+
+  it('has no cap rung when the ladder already starts capped (?cast)', () => {
+    const ladder = buildLadder({ ...PHONE, capFps: 30 }, 3)
+    expect(capRungIndex(ladder)).toBe(-1)
+    expect(ladder.every((r) => r.capFps === 30)).toBe(true)
   })
 
   it('collapses pixel ratios above the screen into one rung', () => {
@@ -152,5 +178,69 @@ describe('governorParams', () => {
       slow = stepGovernor(slow, { p95Ms: 50, nowMs: t }, 5, CAST_GOVERNOR_PARAMS).state
     }
     expect(slow.rung).toBe(1)
+  })
+})
+
+describe('the 30 fps cap sticks', () => {
+  const RUNGS = 9
+  const CAP_RUNG = 6
+
+  /** Walks the governor down to `rung` by feeding frames over budget. */
+  function descendTo(rung: number) {
+    let state = createGovernorState()
+    let t = 0
+    while (state.rung < rung) {
+      t += 500
+      state = stepGovernor(
+        state,
+        { p95Ms: 50, nowMs: t },
+        RUNGS,
+        DEFAULT_GOVERNOR_PARAMS,
+        CAP_RUNG,
+      ).state
+    }
+    return { state, t }
+  }
+
+  it('never climbs above the cap rung once it has gone down to it', () => {
+    let { state, t } = descendTo(CAP_RUNG + 1)
+    expect(state.minRung).toBe(CAP_RUNG)
+    for (let i = 0; i < 400; i++) {
+      t += 500
+      state = stepGovernor(
+        state,
+        { p95Ms: 5, nowMs: t },
+        RUNGS,
+        CAST_GOVERNOR_PARAMS,
+        CAP_RUNG,
+      ).state
+    }
+    expect(state.rung).toBe(CAP_RUNG)
+  })
+
+  it('still climbs freely before the cap rung is reached', () => {
+    let { state, t } = descendTo(CAP_RUNG - 2)
+    expect(state.minRung).toBe(0)
+    for (let i = 0; i < 400; i++) {
+      t += 500
+      state = stepGovernor(
+        state,
+        { p95Ms: 5, nowMs: t },
+        RUNGS,
+        DEFAULT_GOVERNOR_PARAMS,
+        CAP_RUNG,
+      ).state
+    }
+    expect(state.rung).toBe(0)
+  })
+})
+
+describe('isCastMode', () => {
+  it('is on for ?cast and off when absent or zeroed', () => {
+    expect(isCastMode('?debug&cast')).toBe(true)
+    expect(isCastMode('?cast=1')).toBe(true)
+    expect(isCastMode('?cast=0')).toBe(false)
+    expect(isCastMode('?cast=false')).toBe(false)
+    expect(isCastMode('')).toBe(false)
   })
 })

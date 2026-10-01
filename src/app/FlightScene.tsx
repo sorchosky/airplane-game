@@ -22,7 +22,6 @@ import { CastFrameLoop } from './CastFrameLoop'
 import { useFrontDoorLookStore } from './frontDoorLookStore'
 import { useGameStore } from './gameStore'
 import type { SceneMode } from './sceneMode'
-import { isCastMode } from './urlFlags'
 import { WorldWatcher } from './WorldWatcher'
 import { useWorldStore } from './worldStore'
 
@@ -46,8 +45,8 @@ export function FlightScene({ mode, covered = false }: FlightSceneProps) {
   // The governor owns the pixel ratio. R3F re-applies the Canvas `dpr` prop on every render, so
   // passing a fixed range here would undo the governor's step whenever this component re-rendered.
   const dpr = useQualityStore((s) => s.dpr)
-  // `?cast` renders at 30 fps for the screen mirror (#27). Read once: the flag doesn't change.
-  const cast = useMemo(() => isCastMode(), [])
+  // Capped at 30 fps for the screen mirror (#27): by `?cast`, or when the governor can't hold 60.
+  const capFps = useQualityStore((s) => s.capFps)
   // The title flyby (#157) flies the plane in attract, except under a `?shot=` for another view.
   const flyby = attract && (shot === null || shot.name === 'title')
   // `?shot=title` and reduced motion hold the loop at its named frame.
@@ -103,7 +102,7 @@ export function FlightScene({ mode, covered = false }: FlightSceneProps) {
         key={contextGeneration}
         data-context-generation={contextGeneration}
         ref={canvasRef}
-        frameloop={attract ? 'demand' : cast ? 'never' : 'always'}
+        frameloop={attract ? 'demand' : capFps ? 'never' : 'always'}
         dpr={dpr}
         style={{ width: '100%', height: '100%', display: 'block' }}
       >
@@ -117,7 +116,7 @@ export function FlightScene({ mode, covered = false }: FlightSceneProps) {
         <Water />
         <Landmarks />
         <PerfProbe />
-        {cast && !attract && <CastFrameLoop />}
+        {capFps && !attract && <CastFrameLoop fps={capFps} />}
         <QualityGovernor paused={attract} />
         <PostFX />
         <WorldWatcher />

@@ -70,7 +70,7 @@ export function PerfHud({ initiallyVisible }: { initiallyVisible: boolean }) {
           `${perf.fps.toFixed(0)} fps  1% low ${perf.onePercentLowFps.toFixed(0)}\n` +
           `${perf.frameMs.toFixed(1)} ms  p95 ${perf.p95Ms.toFixed(1)}  p99 ${perf.p99Ms.toFixed(1)}\n` +
           `${perf.drawCalls} draws  ${(perf.triangles / 1000).toFixed(0)}k tris  ${perf.terrainTiles} tiles\n` +
-          `dpr ${perf.dpr.toFixed(2)}  ${perf.tier}  view ${quality.appliedViewDistance / 1000} km\n` +
+          `dpr ${perf.dpr.toFixed(2)}  ${perf.tier}${quality.capFps ? `  cap ${quality.capFps}` : ''}  view ${quality.appliedViewDistance / 1000} km\n` +
           (quality.pinned
             ? 'rung pinned by ?fx\n'
             : `rung ${quality.rung + 1}/${quality.rungCount}  ${formatChange(quality.lastChange, performance.now())}\n`) +

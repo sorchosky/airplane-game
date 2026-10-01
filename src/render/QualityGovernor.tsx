@@ -7,16 +7,16 @@ import {
   summarizeFrames,
   type FrameSummary,
 } from '../debug/frameStats'
-import { isCastMode } from '../app/urlFlags'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import {
   buildLadder,
   createGovernorState,
   DEFAULT_GOVERNOR_PARAMS,
   describeRung,
+  capRungIndex,
+  CAST_GOVERNOR_PARAMS,
   governorParams,
   stepGovernor,
-  type GovernorParams,
   type QualitySettings,
 } from './adaptiveQuality'
 import { useQualityStore } from './qualityStore'
@@ -42,6 +42,7 @@ function apply(ladder: readonly QualitySettings[], rung: number, setDpr: (dpr: n
     rungCount: ladder.length,
     dpr: settings.dpr,
     tier: settings.tier,
+    capFps: settings.capFps,
     foliageDensity: settings.foliageDensity,
     viewDistance: settings.viewDistance,
   })
@@ -56,7 +57,9 @@ function apply(ladder: readonly QualitySettings[], rung: number, setDpr: (dpr: n
 export function QualityGovernor({ paused = false }: { paused?: boolean }) {
   const setDpr = useThree((s) => s.setDpr)
   const ladderRef = useRef<QualitySettings[]>([])
-  const paramsRef = useRef<GovernorParams>(DEFAULT_GOVERNOR_PARAMS)
+  // Frames are judged against 60 fps until the cap rung, and against 30 fps from there.
+  const paramsRef = useRef({ open: DEFAULT_GOVERNOR_PARAMS, capped: CAST_GOVERNOR_PARAMS })
+  const capRungRef = useRef(-1)
   const governor = useRef(createGovernorState())
   const stats = useRef(createFrameStats(WINDOW_FRAMES))
   const summary = useRef<FrameSummary>({
@@ -70,18 +73,23 @@ export function QualityGovernor({ paused = false }: { paused?: boolean }) {
   const settle = useRef(SETTLE_TIME)
 
   useEffect(() => {
-    const { tier, pinned } = useQualityStore.getState()
+    const { tier, pinned, capFps } = useQualityStore.getState()
     const start: QualitySettings = {
       dpr: TERRAIN_CONFIG.maxPixelRatio,
       tier,
+      capFps,
       foliageDensity: 1,
       viewDistance: TERRAIN_CONFIG.viewDistance,
     }
     // Pinned: one rung, so the governor never moves; the pixel ratio still honours the screen.
     const ladder = buildLadder(start, window.devicePixelRatio || 1)
     ladderRef.current = pinned ? ladder.slice(0, 1) : ladder
-    paramsRef.current = governorParams(window.location.search, isCastMode())
-    governor.current = createGovernorState(0, paramsRef.current)
+    capRungRef.current = capRungIndex(ladderRef.current)
+    paramsRef.current = {
+      open: governorParams(window.location.search, false),
+      capped: governorParams(window.location.search, true),
+    }
+    governor.current = createGovernorState(0, paramsRef.current.open)
     apply(ladderRef.current, 0, setDpr)
   }, [setDpr])
 
@@ -108,11 +116,15 @@ export function QualityGovernor({ paused = false }: { paused?: boolean }) {
 
     const { p95Ms } = summarizeFrames(stats.current, summary.current)
     const nowMs = performance.now()
+    const params = ladder[governor.current.rung]?.capFps
+      ? paramsRef.current.capped
+      : paramsRef.current.open
     const { state, change } = stepGovernor(
       governor.current,
       { p95Ms, nowMs },
       ladder.length,
-      paramsRef.current,
+      params,
+      capRungRef.current,
     )
     governor.current = state
     if (!change) return
