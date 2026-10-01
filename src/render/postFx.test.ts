@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { color, lightingPresets } from '../styles/tokens'
 import {
+  frontDoorBlurActive,
+  frontDoorComposite,
+  frontDoorScrim,
   godRayFade,
   gradeColor,
   gradeParams,
   hexToRgb,
   luma,
+  parseRgba,
   POST_FX,
   postFxConfig,
   vignetteFactor,
@@ -188,5 +192,59 @@ describe('godRayFade', () => {
     expect(at[1]).toBe(1)
     for (let i = 1; i < at.length; i++) expect(at[i]).toBeLessThanOrEqual(at[i - 1] ?? 1)
     expect(at.at(-1)).toBe(0)
+  })
+})
+
+describe('front door blur', () => {
+  const scene: Rgb = [0.8, 0.4, 0.1]
+  const blurred: Rgb = [0.5, 0.5, 0.5]
+
+  it('parses the scrim token', () => {
+    expect(parseRgba('rgba(12, 18, 26, 0.6)')).toEqual({
+      rgb: [12 / 255, 18 / 255, 26 / 255],
+      alpha: 0.6,
+    })
+    expect(parseRgba('rgb(255, 0, 0)').alpha).toBe(1)
+    expect(() => parseRgba('#ffffff')).toThrow()
+  })
+
+  it('uses the cool front-door scrim, a 20 % desaturation, and a quarter-resolution blur', () => {
+    expect(POST_FX.frontDoorBlur.scrim).toBe(color.frontDoorScrim)
+    expect(POST_FX.frontDoorBlur.desaturation).toBe(0.2)
+    expect(POST_FX.frontDoorBlur.resolutionScale).toBe(0.25)
+    expect(frontDoorScrim().alpha).toBe(0.7)
+  })
+
+  it('costs nothing at strength 0', () => {
+    expect(frontDoorBlurActive(0)).toBe(false)
+    expect(frontDoorBlurActive(0.0005)).toBe(false)
+    expect(frontDoorBlurActive(0.01)).toBe(true)
+    expect(frontDoorComposite(scene, blurred, 0)).toEqual(scene)
+  })
+
+  it('at full strength is the blur, desaturated and under the scrim', () => {
+    const out = frontDoorComposite(scene, blurred, 1)
+    // A grey blurred pixel has nothing to desaturate, so it only moves toward the scrim.
+    const { tint, alpha } = frontDoorScrim()
+    expect(out[0]).toBeCloseTo(0.5 + (tint[0] - 0.5) * alpha)
+    expect(out[2]).toBeCloseTo(0.5 + (tint[2] - 0.5) * alpha)
+  })
+
+  it('moves smoothly with strength', () => {
+    let previous = luma(frontDoorComposite(scene, blurred, 0))
+    for (let s = 0.1; s <= 1.0001; s += 0.1) {
+      const l = luma(frontDoorComposite(scene, blurred, s))
+      expect(Math.abs(l - previous)).toBeLessThan(0.1)
+      previous = l
+    }
+  })
+
+  it('pulls a saturated blurred colour toward its luma by 20 % of the strength', () => {
+    const vivid: Rgb = [0.9, 0.1, 0.1]
+    const out = frontDoorComposite(vivid, vivid, 1)
+    const { tint, alpha } = frontDoorScrim()
+    const l = luma(vivid)
+    const desat0 = vivid[0] + (l - vivid[0]) * 0.2
+    expect(out[0]).toBeCloseTo(desat0 + (tint[0] - desat0) * alpha)
   })
 })

@@ -5,11 +5,8 @@ export type WorldStatus = 'booting' | 'ready' | 'failed'
 
 interface WorldStore {
   status: WorldStatus
-  /** The poster sky's current frame as an image URL, for the Start hand-off. Null once it's gone. */
-  posterSnapshot: (() => string | null) | null
   markReady: () => void
   markFailed: () => void
-  setPosterSnapshot: (snapshot: (() => string | null) | null) => void
 }
 
 /**
@@ -19,10 +16,8 @@ interface WorldStore {
  */
 export const useWorldStore = create<WorldStore>((set, get) => ({
   status: 'booting',
-  posterSnapshot: null,
   markReady: () => set({ status: 'ready' }),
   markFailed: () => {
     if (get().status === 'booting') set({ status: 'failed' })
   },
-  setPosterSnapshot: (posterSnapshot) => set({ posterSnapshot }),
 }))

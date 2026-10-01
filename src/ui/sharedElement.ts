@@ -65,6 +65,11 @@ export const SHARED_ELEMENT_ATTR = 'data-shared-element'
 export const SHARED_ELEMENTS = {
   /** The title wordmark; the Choose beat shrinks it into the running head. */
   wordmark: 'wordmark',
+  /** The masthead's hairline rule and Start button, which fade out as the Choose beat arrives. */
+  rule: 'rule',
+  start: 'start',
+  /** The title's left-edge contrast scrim, which gives way to the world blur. */
+  scrim: 'scrim',
 } as const
 
 export type SharedElementId = (typeof SHARED_ELEMENTS)[keyof typeof SHARED_ELEMENTS]

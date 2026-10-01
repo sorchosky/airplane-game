@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   INTRO_BEZIER,
   LIGHT_SHIFT_MAX,
-  TITLE_HANDOFF,
   TITLE_INTRO,
   WORDMARK_TRACKING_EXTRA_EM,
   cubicBezier,
@@ -46,11 +45,6 @@ describe('title intro timeline', () => {
     expect(shouldPlayIntro(false, false)).toBe(true)
     expect(shouldPlayIntro(true, false)).toBe(false)
     expect(shouldPlayIntro(false, true)).toBe(false)
-  })
-
-  it('finishes the hand-off in under 1.5 s so Start never feels like a wait', () => {
-    expect(TITLE_HANDOFF.duration).toBeLessThanOrEqual(1500)
-    expect(TITLE_HANDOFF.wordmark).toBeLessThan(TITLE_HANDOFF.duration)
   })
 })
 

@@ -1,7 +1,12 @@
 import { Component, type ReactNode, useEffect, useRef, useState } from 'react'
 import { TITLE_SKY_FALLBACK } from '../ui/titleSkyShader'
-import { TitleSky, type TitleSkyHandle } from '../ui/TitleSky'
+import { postFxConfig } from '../render/postFx'
+import { useQualityStore } from '../render/qualityStore'
+import { color, effect } from '../styles/tokens'
+import { START_TRANSITION } from './screens/startTransition'
+import { TitleSky } from '../ui/TitleSky'
 import { FlightScene } from './FlightScene'
+import { useFrontDoorLookStore } from './frontDoorLookStore'
 import type { SceneMode } from './sceneMode'
 import { shouldPlayIntro } from './screens/titleIntro'
 import { WORLD_FADE_MS } from './worldReadiness'
@@ -42,8 +47,6 @@ interface WorldLayerProps {
  */
 export function WorldLayer({ mode, covered }: WorldLayerProps) {
   const status = useWorldStore((s) => s.status)
-  const setPosterSnapshot = useWorldStore((s) => s.setPosterSnapshot)
-  const skyRef = useRef<TitleSkyHandle>(null)
   const [posterMounted, setPosterMounted] = useState(true)
   // Decided once, with `TitleScreen`'s first mount: the cirrus drifts while the intro plays.
   const [introStart] = useState(() =>
@@ -56,13 +59,6 @@ export function WorldLayer({ mode, covered }: WorldLayerProps) {
     const timer = window.setTimeout(() => setPosterMounted(false), fadeMs)
     return () => window.clearTimeout(timer)
   }, [status, fadeMs])
-
-  // Start's hand-off snapshots the poster while it is still up; once it's gone there is none.
-  useEffect(() => {
-    if (!posterMounted) return
-    setPosterSnapshot(() => skyRef.current?.snapshot() ?? null)
-    return () => setPosterSnapshot(null)
-  }, [posterMounted, setPosterSnapshot])
 
   return (
     // Behind the screens (the app root is its own stacking context), above its background.
@@ -91,9 +87,64 @@ export function WorldLayer({ mode, covered }: WorldLayerProps) {
             pointerEvents: 'none',
           }}
         >
-          <TitleSky ref={skyRef} introStart={introStart} />
+          <TitleSky introStart={introStart} />
         </div>
       )}
+      <FrozenStill />
+    </div>
+  )
+}
+
+/**
+ * The low tier's blur (#159): it has no composer, so on Start the world is held on a downscaled
+ * still of its last frame and that still is CSS-blurred once and faded in with the blur strength.
+ * It is a filter on an image, never a `backdrop-filter` over the live canvas. Back fades it out
+ * and lets the world draw again. Updated from the look store, not React, since the strength moves
+ * every frame; the blur radius itself never changes, so the still is rasterised once.
+ */
+function FrozenStill() {
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const stillRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const wrapper = wrapperRef.current
+    const still = stillRef.current
+    if (!wrapper || !still) return
+    let captured = false
+    const apply = (blur: number) => {
+      const look = useFrontDoorLookStore.getState()
+      // Medium and high blur in the composer.
+      if (postFxConfig(useQualityStore.getState().tier).enabled) return
+      if (blur > 0 && !captured) {
+        captured = look.captureStill?.(still) ?? false
+        if (captured) look.setHeld(true)
+      }
+      if (!captured) return
+      wrapper.style.opacity = String(blur)
+      wrapper.style.transform = `scale(${1 + START_TRANSITION.stillScale * blur})`
+      if (blur === 0) {
+        captured = false
+        look.setHeld(false)
+      }
+    }
+    apply(useFrontDoorLookStore.getState().blur)
+    return useFrontDoorLookStore.subscribe((s, previous) => {
+      if (s.blur !== previous.blur) apply(s.blur)
+    })
+  }, [])
+
+  return (
+    <div
+      ref={wrapperRef}
+      aria-hidden="true"
+      data-testid="world-still"
+      style={{ position: 'absolute', inset: 0, opacity: 0, pointerEvents: 'none' }}
+    >
+      <canvas
+        ref={stillRef}
+        style={{ width: '100%', height: '100%', display: 'block', filter: effect.stillBlur }}
+      />
+      <div style={{ position: 'absolute', inset: 0, background: color.frontDoorScrim }} />
     </div>
   )
 }
