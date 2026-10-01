@@ -1,4 +1,4 @@
-import { Euler, Quaternion, Vector3 } from 'three'
+import { Euler, PerspectiveCamera, Quaternion, Vector3 } from 'three'
 import { describe, expect, it } from 'vitest'
 import {
   SHOT_BOOKMARKS,
@@ -6,7 +6,10 @@ import {
   getShotFromUrl,
   shotCameraPosition,
   shotFlightState,
+  shotLookTarget,
+  titleBookmark,
 } from './shots'
+import { CHASE_CAMERA_PARAMS } from '../flight/cameraMath'
 
 describe('shot bookmarks', () => {
   it('have unique names, usable in a URL', () => {
@@ -84,5 +87,40 @@ describe('shotCameraPosition', () => {
     expect(x).toBeCloseTo(rotated.x, 6)
     expect(y).toBeCloseTo(rotated.y, 6)
     expect(z).toBeCloseTo(rotated.z, 6)
+  })
+})
+
+describe('title bookmark', () => {
+  const shot = titleBookmark()
+
+  /** Screen position, 0..1 from the top-left, of a world point seen from the bookmark's camera. */
+  function screenOf(aspect: number, point: Vector3): { x: number; y: number } {
+    const camera = new PerspectiveCamera(CHASE_CAMERA_PARAMS.fovBase, aspect, 1, 20000)
+    camera.position.set(...shotCameraPosition(shot))
+    camera.lookAt(...shotLookTarget(shot))
+    camera.updateMatrixWorld()
+    const ndc = point.clone().project(camera)
+    return { x: (ndc.x + 1) / 2, y: (1 - ndc.y) / 2 }
+  }
+
+  it.each([16 / 9, 844 / 390])('parks the plane in the right two thirds at aspect %f', (aspect) => {
+    const plane = screenOf(aspect, new Vector3(...shot.position))
+    // Clear of the left third, and not hugging the right edge.
+    expect(plane.x).toBeGreaterThan(0.5)
+    expect(plane.x).toBeLessThan(0.85)
+  })
+
+  it.each([16 / 9, 844 / 390])('puts the horizon in the upper third at aspect %f', (aspect) => {
+    // A point far along the plane's level line of sight is on the horizon.
+    const far = new Vector3(...shotCameraPosition(shot))
+    const toPlane = new Vector3(...shot.position).sub(far).setY(0).normalize()
+    far.addScaledVector(toPlane, 50000)
+    expect(screenOf(aspect, far).y).toBeLessThan(0.34)
+  })
+
+  it('looks left of the plane, not through it', () => {
+    expect(shotLookTarget(shot)).not.toEqual([...shot.position])
+    const spawn = findShot('spawn')
+    expect(spawn && shotLookTarget(spawn)).toEqual(spawn && [...spawn.position])
   })
 })

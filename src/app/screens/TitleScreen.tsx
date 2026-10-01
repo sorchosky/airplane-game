@@ -2,10 +2,10 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { playTitleSwell, resumeAudioEngine, setMuted } from '../../audio/audioEngine'
 import { useAudioStore } from '../../audio/audioStore'
 import { color } from '../../styles/tokens'
-import { TitleSky, type TitleSkyHandle } from '../../ui/TitleSky'
 import { selectedInputSource, useControlModeStore } from '../controlModeStore'
 import { useGameStore } from '../gameStore'
 import { tryLockLandscape } from '../orientation'
+import { useWorldStore } from '../worldStore'
 import { acquireWakeLock } from '../wakeLock'
 import {
   FADE_EASING,
@@ -44,7 +44,6 @@ export function TitleScreen() {
   const startSelection = useGameStore((s) => s.startSelection)
   const permissionGranted = useGameStore((s) => s.permissionGranted)
   const skipToFlying = useGameStore((s) => s.skipToFlying)
-  const skyRef = useRef<TitleSkyHandle>(null)
 
   const handleStart = useCallback(() => {
     void acquireWakeLock()
@@ -52,9 +51,10 @@ export function TitleScreen() {
     // AudioContext creation/resume must happen inside this click handler (autoplay policy).
     void resumeAudioEngine()
 
-    // The camera sinks through the cirrus into whatever mounts next (see `TitleHandoff`).
+    // The camera sinks through the cirrus into whatever mounts next (see `TitleHandoff`). Only
+    // while the poster is still up: once the live world has taken over there is no sky to sink.
     if (!prefersReducedMotion()) {
-      const still = skyRef.current?.snapshot() ?? null
+      const still = useWorldStore.getState().posterSnapshot?.() ?? null
       if (still) useTitleHandoffStore.getState().begin(still)
     }
 
@@ -78,7 +78,6 @@ export function TitleScreen() {
 
   // Decided once per mount, before the first paint, so a skipped intro never flashes.
   const [playIntro] = useState(() => shouldPlayIntro(introPlayed, prefersReducedMotion()))
-  const [introStart] = useState(() => (playIntro ? performance.now() : null))
   const fadeRef = useRef<HTMLDivElement>(null)
   const revealRef = useRef<HTMLDivElement>(null)
   const bandRef = useRef<HTMLDivElement>(null)
@@ -141,7 +140,6 @@ export function TitleScreen() {
         color: color.titleText,
       }}
     >
-      <TitleSky ref={skyRef} introStart={introStart} />
       <TitleScrim />
       <WordmarkRow>
         {/* Full-width row so the reveal mask and the band share viewport coordinates. The mask

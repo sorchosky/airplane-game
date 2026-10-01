@@ -30,6 +30,11 @@ export interface ShotBookmark {
    * looks at the plane. Without it the chase camera frames the shot as in play.
    */
   cameraOffset?: readonly [number, number, number]
+  /**
+   * Optional shift of the camera's aim point away from the plane, m, in the plane's heading frame:
+   * [right, up, forward]. Aiming left of the plane puts the plane right of centre on screen.
+   */
+  lookOffset?: readonly [number, number, number]
   /** Why this bookmark exists, for the capture log and the art bible. */
   purpose: string
 }
@@ -47,6 +52,21 @@ const TOWARD_SUN = (() => {
 const AWAY_FROM_SUN = TOWARD_SUN + Math.PI
 
 export const SHOT_BOOKMARKS: readonly ShotBookmark[] = [
+  {
+    name: 'title',
+    position: [1750, 147, 2000],
+    // Across the sun's line, so the light rakes the plane and the left of the frame stays open sky.
+    heading: TOWARD_SUN + deg(55),
+    bank: 0,
+    pitchAngle: 0,
+    // Behind and left of the plane, a touch above it: the camera looks about 11 degrees down, which
+    // puts the horizon in the upper third. Aiming 9 m left of the plane seats it in the right two
+    // thirds (at 16:9, and a little further right on a wider phone), leaving the left third sky.
+    cameraOffset: [-9, 5, -26],
+    lookOffset: [-9, 0, 0],
+    purpose:
+      'The front door (#153): plane parked in the right two thirds, horizon in the upper third, open sky on the left for the masthead.',
+  },
   {
     name: 'spawn',
     position: [1750, 147, 2000],
@@ -224,4 +244,22 @@ export function shotCameraPosition(shot: ShotBookmark): [number, number, number]
   const sin = Math.sin(shot.heading)
   const cos = Math.cos(shot.heading)
   return [x + right * cos - forward * sin, y + up, z - right * sin - forward * cos]
+}
+
+/**
+ * World position the camera looks at: the plane, plus `lookOffset` rotated into the heading frame.
+ */
+export function shotLookTarget(shot: ShotBookmark): [number, number, number] {
+  const [right, up, forward] = shot.lookOffset ?? [0, 0, 0]
+  const [x, y, z] = shot.position
+  const sin = Math.sin(shot.heading)
+  const cos = Math.cos(shot.heading)
+  return [x + right * cos - forward * sin, y + up, z - right * sin - forward * cos]
+}
+
+/** The bookmark the attract world parks the plane at, with no `?shot=` set (#153). */
+export function titleBookmark(): ShotBookmark {
+  const shot = findShot('title')
+  if (!shot) throw new Error('the title bookmark is missing from SHOT_BOOKMARKS')
+  return shot
 }

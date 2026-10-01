@@ -50,7 +50,7 @@ test('pause menu Resume (click) runs the countdown back to flight', async ({ pag
 test('portrait shows the turn-sideways prompt and pauses the flight', async ({ page }) => {
   await page.goto('/?input=keyboard')
   await page.getByRole('button', { name: 'Start' }).click()
-  await expect(page.locator('canvas')).toBeVisible()
+  await expect(page.locator('[data-testid="world"] canvas[data-engine]')).toBeVisible()
 
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(page.getByTestId('orientation-prompt')).toContainText('Turn your phone sideways')

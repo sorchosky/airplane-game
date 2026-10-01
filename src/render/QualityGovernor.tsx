@@ -50,9 +50,9 @@ function apply(ladder: readonly QualitySettings[], rung: number, setDpr: (dpr: n
  * Mount inside the `<Canvas>`. Measures frame times and walks the quality ladder (#65): pixel
  * ratio, post tier, foliage, view distance. Changes land between frames through R3F's `setDpr`
  * and the quality store; the terrain applies a new view distance on its next chunk crossing. Off
- * when `?fx=` pins the tier.
+ * when `?fx=` pins the tier, and idle while `paused` (the attract world).
  */
-export function QualityGovernor() {
+export function QualityGovernor({ paused = false }: { paused?: boolean }) {
   const setDpr = useThree((s) => s.setDpr)
   const ladderRef = useRef<QualitySettings[]>([])
   const paramsRef = useRef<GovernorParams>(DEFAULT_GOVERNOR_PARAMS)
@@ -90,6 +90,13 @@ export function QualityGovernor() {
   useFrame((_state, delta) => {
     const ladder = ladderRef.current
     if (ladder.length < 2) return
+    // The attract world renders at a capped 30 fps on purpose; that is not a slow device. Sampling
+    // starts fresh, after the usual settle time, once flight begins.
+    if (paused) {
+      settle.current = SETTLE_TIME
+      resetFrameStats(stats.current)
+      return
+    }
     if (settle.current > 0) {
       settle.current -= delta
       return

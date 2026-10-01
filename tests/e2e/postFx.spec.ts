@@ -10,7 +10,7 @@ for (const fx of ['off', 'medium', 'high'] as const) {
 
     await page.goto(`/?input=keyboard&fx=${fx}`)
     await page.getByRole('button', { name: 'Start' }).click()
-    await expect(page.locator('canvas')).toBeVisible()
+    await expect(page.locator('[data-testid="world"] canvas[data-engine]')).toBeVisible()
     await page.waitForTimeout(3000)
     await page.screenshot({ path: `test-results/26-fx-${fx}.png` })
 
