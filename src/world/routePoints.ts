@@ -19,3 +19,30 @@ export const ROUTE_POINTS: readonly RouteControlPoint[] = [
   { x: 152, z: 2658, floorHeight: 34, valleyWidth: 460 },
   { x: 622, z: 2094, floorHeight: 35, valleyWidth: 500 },
 ]
+
+/** Where a landmark stands along the loop (#173). */
+export interface LandmarkStation {
+  readonly kind: 'tower' | 'arch' | 'waterfall' | 'tree' | 'ruins'
+  /** m of route from spawn: the station, the beat that frames the landmark */
+  readonly s: number
+  /**
+   * m off the route at the station, with the sign of `NearestRoutePoint.lateral`: positive is the
+   * pilot's right, flying the loop clockwise.
+   */
+  readonly lateral: number
+}
+
+/**
+ * The landmarks' stations from `docs/world-route.md`, each revealed 1.5 km earlier along the
+ * route. Every one stands on the valley floor, clear of the centreline but the arch, which the
+ * route flies through. Two departures from the #170 table: the tree and the waterfall swap, since
+ * only the low east reach can hold the waterfall's pool under the one water plane, and the arch and
+ * the ruins move 350 m and 100 m to floor that passes the dry-ground rule.
+ */
+export const LANDMARK_STATIONS: readonly LandmarkStation[] = [
+  { kind: 'tower', s: 2000, lateral: 120 },
+  { kind: 'waterfall', s: 7100, lateral: 200 },
+  { kind: 'tree', s: 9600, lateral: 80 },
+  { kind: 'arch', s: 11650, lateral: 0 },
+  { kind: 'ruins', s: 13300, lateral: -200 },
+]

@@ -1,22 +1,27 @@
-import { findSpawnPoint, heightAt, type SpawnPoint } from './heightfield'
-import { valleyAt } from './routeValley'
+import { heightAt } from './heightfield'
+import { ROUTE, type Route, type RoutePoint } from './route'
+import type { LandmarkStation } from './routePoints'
+import { bearingTo, bearingVector, stationFor, stationPosition, waterfallYaw } from './stations'
 import { TERRAIN_CONFIG, type TerrainConfig } from './terrainConfig'
 
-// Landmarks (#76): five authored silhouettes placed on the horizon around spawn, so the world has
-// places. This module is the pure half: where each one stands, its footprint (for foliage to
-// keep clear of), its trigger volume (for the golden path, X4) and its sound anchor (for doppler,
-// F3). No React or Three; the meshes are built in `models/` and drawn by `Landmarks.tsx`.
+export { bearingTo, bearingVector } from './stations'
+
+// Landmarks (#76): five authored silhouettes along the loop, so the world has places. This module
+// is the pure half: where each one stands, its footprint (for foliage to keep clear of), its
+// trigger volume (for the golden path, X4) and its sound anchor (for doppler, F3). No React or
+// Three; the meshes are built in `models/` and drawn by `Landmarks.tsx`.
 //
-// Placement is a deterministic search. Each landmark has a preferred bearing and distance from
-// spawn; the search walks a window of bearings and distances around them and keeps the best
-// candidate whose footprint is on land, above the water and gentler than `maxSlopeDegrees`. The
-// bearings are spread round the compass so every direction out of spawn has something on it.
+// Each landmark stands at its station (#173): an arc length along the route and an offset off it,
+// authored in `LANDMARK_STATIONS` (`routePoints.ts`). The #76 placement rules (footprint dry, above
+// the water and gentler than `maxSlopeDegrees`; at least half the silhouette in sight) are no
+// longer searched for here. `landmarks.test.ts` holds every station to them, with the sightline
+// taken from the route point `revealDistance` before the station.
 //
 // Bearings use the flight model's heading convention: bearing `b` points along
 // (-sin b, 0, -cos b), so a plane with `heading = b` flies straight at it. 0 is -Z, the direction
 // the plane faces at spawn.
 
-export type LandmarkKind = 'tower' | 'arch' | 'waterfall' | 'tree' | 'ruins'
+export type LandmarkKind = LandmarkStation['kind']
 
 /** A circle on the ground, world m. Foliage (A3) skips anything inside one. */
 export interface Footprint {
@@ -44,13 +49,14 @@ export interface Landmark {
   y: number
   z: number
   /**
-   * Radians. The model's local -Z (its front) points along (-sin yaw, 0, -cos yaw). The arch faces
-   * spawn so its opening is on the way out; the waterfall faces its lake.
+   * Radians. The model's local -Z (its front) points along (-sin yaw, 0, -cos yaw), away from the
+   * player arriving down the route. The arch lies across the route so it is flown through; the
+   * waterfall faces its pool, across the floor to the route.
    */
   yaw: number
-  /** Radians, bearing from spawn, and distance from spawn in m. */
-  bearing: number
-  distance: number
+  /** m of route from spawn, and m off it, from the landmark's station. */
+  station: number
+  lateral: number
   /** m, how far the lowest ground under the footprint drops below `y`. Foundations reach past it. */
   relief: number
   /** m, how tall the silhouette stands above `y`. */
@@ -65,23 +71,10 @@ export interface Landmark {
 
 export interface LandmarkSpec {
   kind: LandmarkKind
-  /** degrees, preferred bearing from spawn */
-  bearingDegrees: number
-  /** degrees either side of the preferred bearing the search may move */
-  bearingWindowDegrees: number
-  /** m, distance range from spawn */
-  minDistance: number
-  maxDistance: number
   /** m, radius of ground the landmark stands on (every sample must pass the placement rules) */
   footprintRadius: number
   /** m, silhouette height above its base */
   height: number
-  /**
-   * How the search ranks candidates that pass: `high` prefers higher ground (a tower on a rise),
-   * `low` prefers lower ground (an arch in a valley you can fly through), `flat` prefers the
-   * gentlest footprint.
-   */
-  prefer: 'high' | 'low' | 'flat'
 }
 
 export interface LandmarkConfig {
@@ -89,17 +82,15 @@ export interface LandmarkConfig {
   maxSlopeDegrees: number
   /** m, the lowest ground may be above `waterLevel` (keeps landmarks off beaches) */
   minHeightAboveWater: number
-  /** m, search step along the distance range */
-  distanceStep: number
-  /** degrees, search step across the bearing window */
-  bearingStepDegrees: number
   /** Samples round each footprint ring, plus its centre. */
   footprintSamples: number
   /** m, how far the slope is measured across (larger = ignores small bumps) */
   slopeProbe: number
-  /** m above spawn ground the sightline starts: the spawn altitude */
-  spawnEyeHeight: number
-  /** 0..1, how much of a landmark's height must clear the terrain in the sightline from spawn */
+  /** m of route before its station that a landmark is revealed */
+  revealDistance: number
+  /** m above the route's floor the sightline from the reveal starts: low cruise down the valley */
+  routeEyeHeight: number
+  /** 0..1, how much of a landmark's height must clear the terrain in the sightline from its reveal */
   minVisibleFraction: number
   /** Waterfall only: m from the cliff centre the lake must start, toward the lake. */
   waterfallShoreMin: number
@@ -119,11 +110,10 @@ export interface LandmarkConfig {
 export const LANDMARK_CONFIG: LandmarkConfig = {
   maxSlopeDegrees: 20,
   minHeightAboveWater: 6,
-  distanceStep: 150,
-  bearingStepDegrees: 4,
   footprintSamples: 12,
   slopeProbe: 12,
-  spawnEyeHeight: 120,
+  revealDistance: 1500,
+  routeEyeHeight: 50,
   minVisibleFraction: 0.5,
   waterfallShoreMin: 40,
   waterfallShoreMax: 90,
@@ -131,69 +121,12 @@ export const LANDMARK_CONFIG: LandmarkConfig = {
   hazeCap: 0.85,
   hazeRelease: 1.2,
   specs: [
-    {
-      kind: 'tower',
-      bearingDegrees: -20,
-      bearingWindowDegrees: 12,
-      minDistance: 2500,
-      maxDistance: 5000,
-      footprintRadius: 30,
-      height: 210,
-      prefer: 'high',
-    },
-    {
-      kind: 'arch',
-      bearingDegrees: 50,
-      bearingWindowDegrees: 25,
-      minDistance: 2000,
-      maxDistance: 4000,
-      footprintRadius: 70,
-      height: 120,
-      prefer: 'low',
-    },
-    {
-      kind: 'waterfall',
-      bearingDegrees: 120,
-      bearingWindowDegrees: 35,
-      minDistance: 2000,
-      maxDistance: 5000,
-      footprintRadius: 25,
-      height: 90,
-      prefer: 'high',
-    },
-    {
-      kind: 'tree',
-      bearingDegrees: 190,
-      bearingWindowDegrees: 25,
-      minDistance: 2000,
-      maxDistance: 4000,
-      footprintRadius: 35,
-      height: 120,
-      prefer: 'high',
-    },
-    {
-      kind: 'ruins',
-      bearingDegrees: 270,
-      bearingWindowDegrees: 30,
-      minDistance: 2000,
-      maxDistance: 4500,
-      footprintRadius: 110,
-      height: 60,
-      prefer: 'flat',
-    },
+    { kind: 'tower', footprintRadius: 30, height: 210 },
+    { kind: 'arch', footprintRadius: 70, height: 120 },
+    { kind: 'waterfall', footprintRadius: 25, height: 90 },
+    { kind: 'tree', footprintRadius: 35, height: 120 },
+    { kind: 'ruins', footprintRadius: 110, height: 60 },
   ],
-}
-
-const deg = (degrees: number): number => (degrees * Math.PI) / 180
-
-/** Forward vector of a heading/bearing, in the flight model's convention. */
-export function bearingVector(bearing: number): [number, number] {
-  return [-Math.sin(bearing), -Math.cos(bearing)]
-}
-
-/** Bearing from (fromX, fromZ) to (toX, toZ): the heading that flies straight at it. */
-export function bearingTo(fromX: number, fromZ: number, toX: number, toZ: number): number {
-  return Math.atan2(-(toX - fromX), -(toZ - fromZ))
 }
 
 /** Smallest absolute difference between two angles, radians, 0..π. */
@@ -252,135 +185,70 @@ export function surveyFootprint(
 }
 
 /**
- * Waterfall only: the direction from (x, z) toward the nearest deep-enough water between
- * `waterfallShoreMin` and `waterfallShoreMax`, or null if there is none. The cliff's front faces
- * that way and the fall plunges into it.
+ * Waterfall only: m in front of (x, z), looking along `yaw`, to the first point where the ground
+ * and 30 m past it are both `waterfallPlungeDepth` under the water, between `waterfallShoreMin`
+ * and `waterfallShoreMax`. Null if there is none. The fall plunges there.
  */
-export function findPlunge(
+export function plungeDistanceAlong(
   x: number,
   z: number,
+  yaw: number,
   terrain: TerrainConfig = TERRAIN_CONFIG,
   config: LandmarkConfig = LANDMARK_CONFIG,
-): { yaw: number; distance: number } | null {
+): number | null {
   const plungeHeight = terrain.waterLevel - config.waterfallPlungeDepth
+  const [fx, fz] = bearingVector(yaw)
   for (let d = config.waterfallShoreMin; d <= config.waterfallShoreMax; d += 10) {
-    for (let i = 0; i < 24; i++) {
-      const yaw = (i / 24) * Math.PI * 2
-      const [fx, fz] = bearingVector(yaw)
-      // The plunge pool and a little past it must both be water, so the fall lands in a lake,
-      // not on the lip of a puddle.
-      if (
-        heightAt(x + fx * d, z + fz * d, terrain) < plungeHeight &&
-        heightAt(x + fx * (d + 30), z + fz * (d + 30), terrain) < plungeHeight
-      ) {
-        return { yaw, distance: d }
-      }
+    // The plunge pool and a little past it must both be water, so the fall lands in a pool, not on
+    // the lip of a puddle.
+    if (
+      heightAt(x + fx * d, z + fz * d, terrain) < plungeHeight &&
+      heightAt(x + fx * (d + 30), z + fz * (d + 30), terrain) < plungeHeight
+    ) {
+      return d
     }
   }
   return null
 }
 
+/** The route point a landmark is revealed from: `revealDistance` before its station. */
+export function revealPoint(
+  landmark: Pick<Landmark, 'station'>,
+  route: Route = ROUTE,
+  config: LandmarkConfig = LANDMARK_CONFIG,
+): RoutePoint {
+  return route.pointAt(landmark.station - config.revealDistance)
+}
+
 /**
  * 0..1, how much of a landmark `height` m tall standing on ground `baseHeight` at (x, z) shows over
- * the terrain from the spawn eye. Walks the sightline (outside the basin) and finds the steepest
- * terrain elevation angle; the part of the landmark above that line is visible.
+ * the terrain from an eye at (eyeX, eyeY, eyeZ). Walks the sightline every 20 m and finds the
+ * steepest terrain elevation angle; the part of the landmark above that line is visible. The walk
+ * stops at the edge of the landmark's `footprintRadius`, so its own ground doesn't block it.
  */
-export function visibleFractionFromSpawn(
+export function visibleFraction(
+  eye: readonly [number, number, number],
   x: number,
   z: number,
   baseHeight: number,
   height: number,
-  spawn: SpawnPoint,
+  footprintRadius: number,
   terrain: TerrainConfig = TERRAIN_CONFIG,
-  config: LandmarkConfig = LANDMARK_CONFIG,
 ): number {
-  const eye = spawn.groundHeight + config.spawnEyeHeight
-  const distance = Math.hypot(x - spawn.x, z - spawn.z)
-  const steps = Math.max(1, Math.floor(distance / 100))
+  const [eyeX, eyeY, eyeZ] = eye
+  const distance = Math.hypot(x - eyeX, z - eyeZ)
   let steepest = -Infinity
-  // Stop short of the landmark's own footprint so its own hill doesn't block it. The home basin's
-  // ridge ring (#171) is designed to hide the world from spawn until the route reveals it, so the
-  // walk starts outside it. The route valley's walls (#172) hide them the same way, so the walk
-  // skips the valley too. #173 replaces this search with authored stations.
-  for (let i = 1; i < steps - 1; i++) {
-    const t = i / steps
-    if (distance * t < terrain.basin.blendRadius) continue
-    const sx = spawn.x + (x - spawn.x) * t
-    const sz = spawn.z + (z - spawn.z) * t
-    if (valleyAt(sx, sz, terrain)) continue
-    const ground = Math.max(heightAt(sx, sz, terrain), terrain.waterLevel)
-    steepest = Math.max(steepest, (ground - eye) / (distance * t))
+  for (let t = 20; t < distance - footprintRadius; t += 20) {
+    const k = t / distance
+    const ground = Math.max(
+      heightAt(eyeX + (x - eyeX) * k, eyeZ + (z - eyeZ) * k, terrain),
+      terrain.waterLevel,
+    )
+    steepest = Math.max(steepest, (ground - eyeY) / t)
   }
-  const hidden = eye + steepest * distance
+  if (steepest === -Infinity) return 1
+  const hidden = eyeY + steepest * distance
   return Math.min(1, Math.max(0, (baseHeight + height - hidden) / height))
-}
-
-interface Candidate {
-  x: number
-  z: number
-  bearing: number
-  distance: number
-  survey: FootprintSurvey
-  score: number
-  plunge: { yaw: number; distance: number } | null
-}
-
-function scoreCandidate(spec: LandmarkSpec, survey: FootprintSurvey, offBearing: number): number {
-  // Staying near the preferred bearing keeps the landmarks spread round the compass.
-  const bearingPenalty = offBearing * 40
-  const relief = survey.max - survey.min
-  switch (spec.prefer) {
-    case 'high':
-      return survey.center - relief * 0.5 - bearingPenalty
-    case 'low':
-      return -survey.center - relief * 0.5 - bearingPenalty
-    case 'flat':
-      return -relief * 2 - survey.maxSlope - bearingPenalty
-  }
-}
-
-function searchSite(
-  spec: LandmarkSpec,
-  spawn: SpawnPoint,
-  terrain: TerrainConfig,
-  config: LandmarkConfig,
-): Candidate | null {
-  let best: Candidate | null = null
-  const window = spec.bearingWindowDegrees
-  for (let offset = -window; offset <= window; offset += config.bearingStepDegrees) {
-    const bearing = deg(spec.bearingDegrees + offset)
-    const [fx, fz] = bearingVector(bearing)
-    for (let d = spec.minDistance; d <= spec.maxDistance; d += config.distanceStep) {
-      const x = spawn.x + fx * d
-      const z = spawn.z + fz * d
-      // Cheap reject before the full survey: the centre alone must be dry, gentle ground.
-      const centre = heightAt(x, z, terrain)
-      if (centre < terrain.waterLevel + config.minHeightAboveWater) continue
-      if (slopeDegreesAt(x, z, terrain, config.slopeProbe) >= config.maxSlopeDegrees) continue
-      const plunge = spec.kind === 'waterfall' ? findPlunge(x, z, terrain, config) : null
-      if (spec.kind === 'waterfall' && !plunge) continue
-      const survey = surveyFootprint(x, z, spec.footprintRadius, terrain, config)
-      if (!survey.ok) continue
-      const visible = visibleFractionFromSpawn(
-        x,
-        z,
-        survey.center,
-        spec.height,
-        spawn,
-        terrain,
-        config,
-      )
-      if (visible < config.minVisibleFraction) continue
-      // A waterfall wants its lake close under the lip, so the stack stays a cliff, not a mesa.
-      const score =
-        scoreCandidate(spec, survey, Math.abs(offset) / Math.max(window, 1)) -
-        (plunge ? plunge.distance * 2 : 0)
-      if (!best || score > best.score) {
-        best = { x, z, bearing, distance: d, survey, score, plunge }
-      }
-    }
-  }
-  return best
 }
 
 /** m, local frame → world, for a model at (x, y, z) turned by `yaw`. */
@@ -413,15 +281,20 @@ export const WATERFALL_CLIFF = {
 
 function landmarkFrom(
   spec: LandmarkSpec,
-  site: Candidate,
+  station: LandmarkStation,
+  route: Route,
   terrain: TerrainConfig,
   config: LandmarkConfig,
 ): Landmark {
-  const { x, z, bearing, distance, survey } = site
+  const { x, z } = stationPosition(station, route)
+  const survey = surveyFootprint(x, z, spec.footprintRadius, terrain, config)
   const y = survey.center
   const relief = Math.max(0, y - survey.min)
   const footprints: Footprint[] = [{ x, z, radius: spec.footprintRadius }]
-  let yaw = bearing
+  // Seen from the reveal, the player meets each landmark's same side as when they were placed
+  // round spawn (#76): the model's front faces on, away from them.
+  const reveal = route.pointAt(station.s - config.revealDistance)
+  let yaw = bearingTo(reveal.x, reveal.z, x, z)
   let trigger: TriggerVolume = {
     shape: 'sphere',
     center: [x, y + spec.height * 0.5, z],
@@ -432,8 +305,9 @@ function landmarkFrom(
 
   switch (spec.kind) {
     case 'arch': {
-      // The opening faces spawn: seen head-on on the way out, and flown through by heading out.
-      yaw = bearing
+      // Square across the route: seen head-on down the valley, and flown through by flying it.
+      const tangent = route.tangentAt(station.s)
+      yaw = Math.atan2(-tangent.x, -tangent.z)
       const center = toWorld({ x, y, z, yaw }, 0, ARCH_OPENING.clearance * 0.5, 0)
       trigger = {
         shape: 'box',
@@ -445,11 +319,10 @@ function landmarkFrom(
       break
     }
     case 'waterfall': {
-      const plunge = site.plunge ?? { yaw: bearing, distance: config.waterfallShoreMin }
-      yaw = plunge.yaw
-      plungeDistance = plunge.distance
-      // The fall drops `height` from the cliff top at the plunge distance, into the lake.
-      const [px, py, pz] = toWorld({ x, y, z, yaw }, 0, 0, plunge.distance)
+      yaw = waterfallYaw(route)
+      plungeDistance = plungeDistanceAlong(x, z, yaw, terrain, config) ?? config.waterfallShoreMin
+      // The fall drops `height` from the cliff top at the plunge distance, into the pool.
+      const [px, py, pz] = toWorld({ x, y, z, yaw }, 0, 0, plungeDistance)
       const midFall = (y + WATERFALL_CLIFF.height + terrain.waterLevel) * 0.5 - py
       soundAnchor = [px, py + midFall, pz]
       trigger = { shape: 'sphere', center: soundAnchor, radius: WATERFALL_CLIFF.height }
@@ -469,8 +342,8 @@ function landmarkFrom(
     y,
     z,
     yaw,
-    bearing,
-    distance,
+    station: station.s,
+    lateral: station.lateral,
     relief,
     height: spec.height,
     footprints,
@@ -481,27 +354,24 @@ function landmarkFrom(
 }
 
 /**
- * Places every landmark for a world. Deterministic: same terrain seed and config, same answer.
- * Landmarks whose search finds no valid ground are left out rather than forced onto bad ground.
+ * Places every landmark at its station in `LANDMARK_STATIONS`. Deterministic: same terrain seed,
+ * route and config, same answer.
  */
 export function placeLandmarks(
   terrain: TerrainConfig = TERRAIN_CONFIG,
   config: LandmarkConfig = LANDMARK_CONFIG,
-  spawn: SpawnPoint = findSpawnPoint(terrain),
+  route: Route = ROUTE,
 ): Landmark[] {
-  const placed: Landmark[] = []
-  for (const spec of config.specs) {
-    const site = searchSite(spec, spawn, terrain, config)
-    if (site) placed.push(landmarkFrom(spec, site, terrain, config))
-  }
-  return placed
+  return config.specs.map((spec) =>
+    landmarkFrom(spec, stationFor(spec.kind), route, terrain, config),
+  )
 }
 
 let cachedLandmarks: readonly Landmark[] | null = null
 
 /**
- * The landmarks for the fixed world seed. Searched once, on first use (tens of ms), and cached:
- * the seed never changes. Foliage, the golden path and audio read the same list.
+ * The landmarks for the fixed world seed. Placed once, on first use, and cached: the seed never
+ * changes. Foliage, the golden path and audio read the same list.
  */
 export function getLandmarks(): readonly Landmark[] {
   cachedLandmarks ??= placeLandmarks()

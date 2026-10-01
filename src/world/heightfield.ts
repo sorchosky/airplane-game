@@ -1,6 +1,7 @@
 import { createNoise2D, type NoiseFunction2D } from 'simplex-noise'
 import { applyBasin } from './basin'
 import { applyRouteValley, isFullFloor, valleyAt, valleyFloor } from './routeValley'
+import { applyPlungePool } from './stations'
 import type { TerrainConfig } from './terrainConfig'
 
 // Pure, deterministic terrain shape. No React or Three: this runs both on the main thread (soft
@@ -123,6 +124,11 @@ const VALLEY_DETAIL_GAIN = 4
 
 /** Terrain height in metres at world (x, z). Deterministic for a given `config.seed`. */
 export function heightAt(x: number, z: number, config: TerrainConfig): number {
+  // The waterfall's plunge pool (#173) is dug last, into the valley floor in front of it.
+  return applyPlungePool(x, z, landHeight(x, z, config), config)
+}
+
+function landHeight(x: number, z: number, config: TerrainConfig): number {
   const n = noiseFor(config.seed)
 
   const wx = x + WARP_STRENGTH * fbm(n.warpX, x / WARP_SCALE, z / WARP_SCALE, 3)

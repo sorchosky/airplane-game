@@ -12,14 +12,19 @@ import {
   landmarkFarHaze,
   landmarkPassBy,
   placeLandmarks,
+  plungeDistanceAlong,
+  revealPoint,
   slopeDegreesAt,
-  visibleFractionFromSpawn,
+  visibleFraction,
   type LandmarkKind,
 } from './landmarks'
+import { ROUTE } from './route'
+import { LANDMARK_STATIONS } from './routePoints'
 import { TERRAIN_CONFIG } from './terrainConfig'
 
 const landmarks = getLandmarks()
 const spawn = findSpawnPoint(TERRAIN_CONFIG)
+const deg = (degrees: number): number => (degrees * Math.PI) / 180
 
 describe('placeLandmarks', () => {
   it('places all five kinds, once each', () => {
@@ -32,25 +37,26 @@ describe('placeLandmarks', () => {
     expect(placeLandmarks()).toEqual(landmarks)
   })
 
-  it('keeps every landmark 2–5 km from spawn', () => {
+  it('stands each landmark at its station: arc length plus lateral offset', () => {
     for (const l of landmarks) {
-      const d = Math.hypot(l.x - spawn.x, l.z - spawn.z)
-      expect(d).toBeGreaterThanOrEqual(2000)
-      expect(d).toBeLessThanOrEqual(5000)
-      expect(d).toBeCloseTo(l.distance, 6)
-      expect(angleBetween(bearingTo(spawn.x, spawn.z, l.x, l.z), l.bearing)).toBeLessThan(1e-9)
+      const station = LANDMARK_STATIONS.find((candidate) => candidate.kind === l.kind)
+      if (!station) throw new Error(`no station for ${l.kind}`)
+      expect(l.station).toBe(station.s)
+      expect(l.lateral).toBe(station.lateral)
+      // The route agrees on where it is: nearest at the station, as far off as authored.
+      const nearest = ROUTE.nearest(l.x, l.z)
+      expect(nearest.s).toBeCloseTo(station.s, -1)
+      expect(nearest.lateral).toBeCloseTo(station.lateral, 0)
     }
   })
 
-  it('puts each on a different bearing, at least 30° apart', () => {
-    for (let i = 0; i < landmarks.length; i++) {
-      for (let j = i + 1; j < landmarks.length; j++) {
-        const a = landmarks[i]
-        const b = landmarks[j]
-        if (!a || !b) continue
-        expect(angleBetween(a.bearing, b.bearing)).toBeGreaterThan((30 * Math.PI) / 180)
-      }
+  it('reveals each landmark after the station before it', () => {
+    const stations = landmarks.map((l) => l.station).sort((a, b) => a - b)
+    for (let i = 1; i < stations.length; i++) {
+      expect(stations[i]! - LANDMARK_CONFIG.revealDistance).toBeGreaterThan(stations[i - 1]!)
     }
+    // The first reveal is past spawn.
+    expect(stations[0]! - LANDMARK_CONFIG.revealDistance).toBeGreaterThan(0)
   })
 
   it('stands every footprint on dry land gentler than 20°', () => {
@@ -60,7 +66,7 @@ describe('placeLandmarks', () => {
       const radius = l.footprints[0]?.radius ?? 0
       expect(l.y).toBeCloseTo(heightAt(l.x, l.z, TERRAIN_CONFIG), 6)
       expect(l.relief).toBeGreaterThanOrEqual(0)
-      // Every point the placement surveyed, held to the limits exactly.
+      // The #76 survey: the centre and rings at 35, 70 and 100 %, held to the limits exactly.
       for (const ring of [0, 0.35, 0.7, 1]) {
         for (let i = 0; i < footprintSamples; i++) {
           const angle = (i / footprintSamples) * Math.PI * 2
@@ -84,33 +90,56 @@ describe('placeLandmarks', () => {
     }
   })
 
-  it('keeps at least half of every landmark in sight from spawn', () => {
+  it('keeps at least half of every landmark in sight from its reveal, 1.5 km back', () => {
     for (const l of landmarks) {
-      expect(visibleFractionFromSpawn(l.x, l.z, l.y, l.height, spawn)).toBeGreaterThanOrEqual(
-        LANDMARK_CONFIG.minVisibleFraction,
-      )
+      const reveal = revealPoint(l)
+      const eye = [reveal.x, reveal.floorHeight + LANDMARK_CONFIG.routeEyeHeight, reveal.z] as const
+      const radius = l.footprints[0]?.radius ?? 0
+      expect(
+        visibleFraction(eye, l.x, l.z, l.y, l.height, radius),
+        `${l.kind} from s = ${l.station - LANDMARK_CONFIG.revealDistance} m`,
+      ).toBeGreaterThanOrEqual(LANDMARK_CONFIG.minVisibleFraction)
     }
   })
 
-  it('pours the waterfall into a lake in front of it', () => {
+  it('reads a sightline over a valley wall as hidden', () => {
+    // From 10 m over the ground 700 m off the route, past the 100 m wall shoulder, a 20 m stub on
+    // the valley floor is out of sight.
+    const tower = landmarks.find((l) => l.kind === 'tower')
+    if (!tower) throw new Error('no tower')
+    const point = ROUTE.pointAt(tower.station)
+    const tangent = ROUTE.tangentAt(tower.station)
+    const x = point.x + tangent.z * 700
+    const z = point.z - tangent.x * 700
+    const eye = [x, heightAt(x, z, TERRAIN_CONFIG) + 10, z] as const
+    expect(visibleFraction(eye, point.x, point.z, point.floorHeight, 20, 0)).toBe(0)
+  })
+
+  it('pours the waterfall into its pool, in front of it and facing the route', () => {
     const fall = landmarks.find((l) => l.kind === 'waterfall')
     if (!fall?.plungeDistance) throw new Error('no waterfall')
+    expect(plungeDistanceAlong(fall.x, fall.z, fall.yaw)).toBe(fall.plungeDistance)
     const [fx, fz] = bearingVector(fall.yaw)
     const x = fall.x + fx * fall.plungeDistance
     const z = fall.z + fz * fall.plungeDistance
     expect(heightAt(x, z, TERRAIN_CONFIG)).toBeLessThan(TERRAIN_CONFIG.waterLevel)
+    // The pool stays off the centreline, so the route floor is dry ground.
+    const point = ROUTE.pointAt(fall.station)
+    expect(heightAt(point.x, point.z, TERRAIN_CONFIG)).toBeGreaterThan(TERRAIN_CONFIG.waterLevel)
+    expect(angleBetween(bearingTo(fall.x, fall.z, point.x, point.z), fall.yaw)).toBeLessThan(1e-9)
   })
 
-  it('turns the arch to face spawn and puts its trigger in the opening', () => {
+  it('lays the arch across the route and puts its trigger in the opening', () => {
     const arch = landmarks.find((l) => l.kind === 'arch')
     if (!arch) throw new Error('no arch')
-    expect(arch.yaw).toBe(arch.bearing)
+    const tangent = ROUTE.tangentAt(arch.station)
+    const [fx, fz] = bearingVector(arch.yaw)
+    expect(fx * tangent.x + fz * tangent.z).toBeCloseTo(1, 9)
     expect(arch.trigger.shape).toBe('box')
-    // Flying straight out from spawn through the arch's centre crosses the trigger.
+    // Flying down the route at low cruise through the arch's centre crosses the trigger.
     expect(insideTrigger(arch.trigger, [arch.x, arch.y + 40, arch.z])).toBe(true)
     expect(insideTrigger(arch.trigger, [arch.x, arch.y + 200, arch.z])).toBe(false)
     // Beside a leg is outside.
-    const [fx, fz] = bearingVector(arch.yaw)
     expect(insideTrigger(arch.trigger, [arch.x - fz * 80, arch.y + 40, arch.z + fx * 80])).toBe(
       false,
     )
@@ -173,17 +202,17 @@ describe('landmarkFarHaze', () => {
 })
 
 describe('landmark bookmarks', () => {
-  it('each frame their landmark within 20° of straight ahead and 1.5 km', () => {
+  it('each frame their landmark from its reveal point, dead ahead', () => {
     for (const l of landmarks) {
       const shot = SHOT_BOOKMARKS.find((s) => s.name === `landmark-${l.kind}`)
       if (!shot) throw new Error(`no bookmark for ${l.kind}`)
-      const [x, , z] = shot.position
-      expect(Math.hypot(l.x - x, l.z - z)).toBeLessThan(1500)
-      expect(angleBetween(bearingTo(x, z, l.x, l.z), shot.heading)).toBeLessThan(
-        (20 * Math.PI) / 180,
-      )
+      const [x, y, z] = shot.position
+      const reveal = revealPoint(l)
+      expect(Math.hypot(reveal.x - x, reveal.z - z)).toBeLessThan(2)
+      expect(Math.abs(y - (reveal.floorHeight + LANDMARK_CONFIG.routeEyeHeight))).toBeLessThan(2)
+      expect(angleBetween(bearingTo(x, z, l.x, l.z), shot.heading)).toBeLessThan(deg(1))
       // And fly clear of the ground they start over.
-      expect(shot.position[1]).toBeGreaterThan(heightAt(x, z, TERRAIN_CONFIG) + 20)
+      expect(y).toBeGreaterThan(heightAt(x, z, TERRAIN_CONFIG) + 20)
     }
   })
 })

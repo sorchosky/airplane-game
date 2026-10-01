@@ -60,6 +60,13 @@ horizontal view. Angles below are from route tangent to the landmark centre.
 | Arch | 124, 374 | 10.50 km, `(1374, 3438)` | 12.00 km, `(151, 2640)` | West bend turns north at the low river reach, placing the arch 2.27 km away and 0.2° from centre. |
 | Ruins | 4049, 1920 | 11.70 km, `(314, 2881)` | 13.20 km, `(1067, 2050)` | Return-notch bend turns east into the basin, placing the ruins 2.98 km away and 6.3° left of centre. |
 
+**As built (#173).** The landmarks now stand at their stations instead of these far positions.
+`LANDMARK_STATIONS` in `src/world/routePoints.ts` is authoritative: tower 2.00 km, waterfall
+7.10 km, tree 9.60 km, arch 11.65 km, ruins 13.30 km, each on the valley floor. The tree and the
+waterfall swapped stations so the waterfall's plunge pool sits on a floor just above the water, and
+the arch and ruins moved to floor that passes the dry-ground rule. See
+`docs/decisions/2026-10-01-173-landmark-stations.md`.
+
 Each reveal is exactly 1.50 km before its station. The tower is technically visible from the open
 basin in today's terrain. The basin ridge and cut in the proposed terrain sketch provide the new
 occlusion boundary that makes its authored first reveal happen at `s = 0.50 km`. The same rule

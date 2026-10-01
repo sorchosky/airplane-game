@@ -187,6 +187,20 @@ export interface RouteValleyConfig {
   bendBlend: number
 }
 
+/**
+ * The waterfall's plunge pool (#173): a round pond dug into the valley floor in front of the
+ * waterfall's station, so the fall lands in water. Applied last, by `applyPlungePool`.
+ */
+export interface PlungePoolConfig {
+  /** m from the waterfall's origin to the pool's centre, along the way the cliff faces */
+  centerDistance: number
+  /** m, radius of the pool's flat bed, and where its bank has blended back into the floor */
+  innerRadius: number
+  outerRadius: number
+  /** m below `waterLevel` the bed lies */
+  depth: number
+}
+
 export interface TerrainConfig {
   /** World seed. Same seed = same world. Any string works. */
   seed: string
@@ -229,6 +243,7 @@ export interface TerrainConfig {
   basin: BasinConfig
   /** The valley along the authored route, between the basin's two notches. */
   valley: RouteValleyConfig
+  plungePool: PlungePoolConfig
   /** Terrain color bands. */
   bands: TerrainBands
   /** m, edge length of one terrain chunk */
@@ -301,6 +316,13 @@ export const TERRAIN_CONFIG: TerrainConfig = {
     wallSoftness: 30,
     joinLength: 150,
     bendBlend: 60,
+  },
+  plungePool: {
+    // The bank starts 30 m clear of the cliff, past the edge of its 25 m footprint.
+    centerDistance: 85,
+    innerRadius: 30,
+    outerRadius: 55,
+    depth: 4,
   },
   bands: {
     sandHeight: 3,

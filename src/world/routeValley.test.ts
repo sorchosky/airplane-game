@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { heightAt } from './heightfield'
 import { ROUTE } from './route'
 import { applyRouteValley, smoothMax, valleyAt, valleyWeight, type ValleyHit } from './routeValley'
+import { plungePoolCenter } from './stations'
 import { TERRAIN_CONFIG } from './terrainConfig'
 
 const config = TERRAIN_CONFIG
+const pool = plungePoolCenter(config.plungePool)
 const valley = config.valley
 const [cut, returnNotch] = config.basin.notches
 const cutS = ROUTE.nearest(cut.x, cut.z).s
@@ -109,6 +111,8 @@ describe('route valley in the terrain', () => {
         // stretches' floors merge, so leave those to the bend test.
         const hit = valleyAt(x, z, config)!
         if (hit.rivalPull > 0) continue
+        // The waterfall's plunge pool (#173) is dug into the floor on purpose.
+        if (Math.hypot(x - pool.x, z - pool.z) < config.plungePool.outerRadius) continue
         const { floorHeight } = hit.nearest
         const h = heightAt(x, z, config)
         expect(h).toBeLessThanOrEqual(floorHeight + valley.floorNoise + 0.5)
