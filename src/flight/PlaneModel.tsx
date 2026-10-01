@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Color, DoubleSide, MeshBasicMaterial, type Group, type Mesh } from 'three'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { useInputStore } from '../input/inputStore'
+import type { ControlInput } from '../input/types'
 import { getOutlineMaterial } from '../render/toon'
 import { ToonMesh } from '../render/ToonMesh'
 import { useToon } from '../render/useToon'
@@ -12,6 +13,7 @@ import { useFlightStore } from './flightStore'
 import { buildPlaneGeometry, type Shade } from './planeGeometry'
 import { NavigationLights } from './NavigationLights'
 import { planeOutlineNightMix } from './planeOutline'
+import { scriptedControl } from './titleFlyby'
 import {
   NEUTRAL_DEFLECTIONS,
   createArticulation,
@@ -41,6 +43,8 @@ const noRaycast = () => undefined
 interface PlaneModelProps {
   /** Freezes the prop and control surfaces, matching the paused simulation. */
   paused?: boolean
+  /** The title flyby flies the plane (#157): the surfaces follow its scripted bank, not the input. */
+  scripted?: boolean
 }
 
 /**
@@ -53,7 +57,7 @@ interface PlaneModelProps {
  * vertex colour on the body, not a mesh of its own. At cruise the blades swap for the disc (one call), so 8 in
  * flight and 9 in a climb.
  */
-export function PlaneModel({ paused = false }: PlaneModelProps) {
+export function PlaneModel({ paused = false, scripted = false }: PlaneModelProps) {
   const geometry = useMemo(() => buildPlaneGeometry(trimShade()), [])
   // The stripe mesh's surfaces move, so it can't use `ToonMesh`, whose outline hull is a static
   // copy. It gets its own hull, articulated in step with the mesh.
@@ -99,6 +103,7 @@ export function PlaneModel({ paused = false }: PlaneModelProps) {
     deflections: { ...NEUTRAL_DEFLECTIONS },
     target: { ...NEUTRAL_DEFLECTIONS },
     discShowing: false,
+    script: { roll: 0, pitch: 0, active: true, confidence: 1, source: 'replay' } as ControlInput,
   })
 
   useFrame((_frameState, delta) => {
@@ -106,10 +111,12 @@ export function PlaneModel({ paused = false }: PlaneModelProps) {
       .copy(dayOutline)
       .lerp(nightOutline, planeOutlineNightMix(atmosphereUniforms.atmoNight.value[0] ?? 0))
     if (paused) return
-    const input = useInputStore.getState().current
     const { state, params } = useFlightStore.getState()
+    const { deflections, target, script } = rig.current
+    const input = scripted
+      ? scriptedControl(state.bankRate, script)
+      : useInputStore.getState().current
 
-    const { deflections, target } = rig.current
     targetDeflections(input, state, params.turnGravity, undefined, target)
     dampDeflections(deflections, target, delta)
     for (const articulation of articulations) articulation.apply(deflections)

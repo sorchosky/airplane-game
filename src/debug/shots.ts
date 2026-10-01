@@ -65,7 +65,7 @@ export const SHOT_BOOKMARKS: readonly ShotBookmark[] = [
     cameraOffset: [-9, 5, -26],
     lookOffset: [-9, 0, 0],
     purpose:
-      'The front door (#153): plane parked in the right two thirds, horizon in the upper third, open sky on the left for the masthead.',
+      'The front door (#153): plane parked in the right two thirds, horizon in the upper third, open sky on the left for the masthead. At the title the flyby (#157) flies instead, frozen under `?shot=title`; this bookmark frames the same shot once flight starts.',
   },
   {
     name: 'spawn',
