@@ -66,9 +66,9 @@ sightlines.
 
 ## Map reading
 
-- `docs/screenshots/170-map.svg` shows today's generated terrain and landmarks with the real route
-  overlaid. It is evidence of the starting terrain, not a claim that the current ridges form the
-  route.
+- `docs/screenshots/170-map.svg` traces the `?map` view of today's generated terrain and landmarks,
+  with the real route overlaid. It is evidence of the starting terrain, not a claim that the
+  current ridges form the route.
 - `docs/screenshots/170-terrain-sketch.svg` overlays the intended 700 m basin, two notches, valley
   corridor, river stretches, and reveal sightlines. It is a planning sketch for the terrain ticket.
 - The route data is authoritative when a drawn annotation and a coordinate disagree.
