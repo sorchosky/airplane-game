@@ -1,5 +1,6 @@
 import { createNoise2D, type NoiseFunction2D } from 'simplex-noise'
 import { applyBasin } from './basin'
+import { applyRouteValley, isFullFloor, valleyAt, valleyFloor } from './routeValley'
 import type { TerrainConfig } from './terrainConfig'
 
 // Pure, deterministic terrain shape. No React or Three: this runs both on the main thread (soft
@@ -117,6 +118,8 @@ const RIDGE_SCALE = 2200
 const PEAK_SCALE = 4500
 const PLATEAU_SCALE = 5500
 const DETAIL_SCALE = 180
+// Scales the hills' fine octaves (about -0.3..0.3) to the -1..1 detail the valley floor takes.
+const VALLEY_DETAIL_GAIN = 4
 
 /** Terrain height in metres at world (x, z). Deterministic for a given `config.seed`. */
 export function heightAt(x: number, z: number, config: TerrainConfig): number {
@@ -125,8 +128,18 @@ export function heightAt(x: number, z: number, config: TerrainConfig): number {
   const wx = x + WARP_STRENGTH * fbm(n.warpX, x / WARP_SCALE, z / WARP_SCALE, 3)
   const wz = z + WARP_STRENGTH * fbm(n.warpZ, x / WARP_SCALE, z / WARP_SCALE, 3)
 
-  // Rolling hills everywhere: 0..hillHeight.
+  // Rolling hills everywhere: 0..hillHeight. `broadHills` is their broad shape, without the
+  // small bumps.
   const hills = fbm(n.hills, wx / HILL_SCALE, wz / HILL_SCALE, 5)
+  const broadHills = fbm(n.hills, wx / HILL_SCALE, wz / HILL_SCALE, 2)
+
+  // The route valley (#172) is applied last, but on its floor it replaces the land outright, so
+  // there the rest is never built. The hills' finer octaves (what `hills` adds over `broadHills`,
+  // ~80 to 330 m bumps) keep the floor from looking graded flat.
+  const valley = valleyAt(x, z, config)
+  const valleyDetail = Math.tanh(VALLEY_DETAIL_GAIN * (hills - broadHills))
+  if (valley && isFullFloor(valley)) return valleyFloor(valleyDetail, valley.nearest, config.valley)
+
   let height = (hills * 0.5 + 0.5) * config.hillHeight
 
   // Mountain ranges: a very low-frequency mask decides where ranges exist at all, so most of the
@@ -162,17 +175,20 @@ export function heightAt(x: number, z: number, config: TerrainConfig): number {
     height += (Math.max(height, plateauTop) - height) * plateauMask * (1 - rangeMask)
   }
 
-  // Lakes are sized by the broad shape of the land (the hills without their small bumps), so they
-  // fill whole valleys instead of every little dip.
-  const broadHills = fbm(n.hills, wx / HILL_SCALE, wz / HILL_SCALE, 2)
+  // Lakes are sized by the broad shape of the land, so they fill whole valleys instead of every
+  // little dip.
   height = carveLakes(height, height + (broadHills - hills) * 0.5 * config.hillHeight, config)
   height = carveRivers(
     height,
     fbm(n.rivers, wx / config.riverScale, wz / config.riverScale, 3),
     config,
   )
-  // The home basin goes last so its designed floor and ridge heights hold (#171).
-  return applyBasin(x, z, height, config.basin)
+  // The home basin goes after the land so its designed floor and ridge heights hold (#171).
+  height = applyBasin(x, z, height, config.basin)
+  // The route valley goes last: it carries the notches' floors on through the basin's outer ring
+  // and out round the loop. Most of the world is beyond its reach and paid one grid lookup.
+  if (!valley) return height
+  return applyRouteValley(height, valleyDetail, valley, config.valley)
 }
 
 /**

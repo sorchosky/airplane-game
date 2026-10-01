@@ -16,6 +16,9 @@ export interface DriftwingSnapshot {
     bankDeg: number
     pitchDeg: number
     altitude: number
+    /** World m, the plane's ground position (`altitude` is its y). */
+    x: number
+    z: number
     speed: number
     heading: number
     boosting: boolean
@@ -54,6 +57,8 @@ function snapshot(): DriftwingSnapshot {
       bankDeg: state.bank * DEG,
       pitchDeg: state.pitchAngle * DEG,
       altitude: state.position.y,
+      x: state.position.x,
+      z: state.position.z,
       speed: state.speed,
       heading: state.heading,
       boosting: state.boosting,

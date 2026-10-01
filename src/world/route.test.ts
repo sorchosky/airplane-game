@@ -121,4 +121,36 @@ describe('route', () => {
     expect(checksum).toBeGreaterThan(0)
     expect(elapsed).toBeLessThan(50)
   })
+
+  it('answers bounded queries exactly within the bound and with null beyond it', () => {
+    for (let i = 0; i < 400; i++) {
+      const source = ROUTE.pointAt((i * ROUTE.length) / 400)
+      const x = source.x + Math.sin(i * 19) * 900
+      const z = source.z + Math.cos(i * 23) * 900
+      const exact = ROUTE.nearest(x, z)
+      const bounded = ROUTE.nearest(x, z, 640)
+      if (Math.abs(exact.lateral) > 640.001) expect(bounded).toBeNull()
+      else if (Math.abs(exact.lateral) < 639.999) expect(bounded).toEqual(exact)
+    }
+    expect(ROUTE.nearest(-20_000, 0, 640)).toBeNull()
+  })
+
+  it('finds the other stretch inside the tight west bend, and none on an open stretch', () => {
+    // Inside the west bend the stretches either side of its apex are both about 300 m away.
+    const inside = (() => {
+      const p = ROUTE.pointAt(12_240)
+      const t = ROUTE.tangentAt(12_240)
+      return { x: p.x - t.z * 328, z: p.z + t.x * 328 }
+    })()
+    const nearest = ROUTE.nearest(inside.x, inside.z)
+    const rival = ROUTE.rival(inside.x, inside.z, 60)!
+    expect(rival).not.toBeNull()
+    expect(Math.abs(rival.s - nearest.s)).toBeGreaterThan(300)
+    expect(Math.abs(rival.lateral)).toBeGreaterThanOrEqual(Math.abs(nearest.lateral))
+    expect(Math.abs(rival.lateral) - Math.abs(nearest.lateral)).toBeLessThanOrEqual(60)
+    expect(rival.prominence).toBeGreaterThan(0)
+
+    const open = ROUTE.pointAt(3_000)
+    expect(ROUTE.rival(open.x, open.z, 60)).toBeNull()
+  })
 })

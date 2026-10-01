@@ -158,6 +158,35 @@ export interface BasinConfig {
   notches: readonly [BasinNotch, BasinNotch]
 }
 
+/**
+ * The route valley (#172): carved along `ROUTE` (`route.ts`) from the outbound cut to the return
+ * notch, by `applyRouteValley` in `routeValley.ts`. The floor's height and width come from the
+ * route's control points. These set the walls and the joins with the basin notches.
+ */
+export interface RouteValleyConfig {
+  /** m, the most the terrain noise lifts the valley floor above the route's `floorHeight` */
+  floorNoise: number
+  /** m, how far beyond the floor's edge the valley takes to blend back into the terrain */
+  flankWidth: number
+  /** 0..1, share of `flankWidth` the walls rise over. The rest fades the shoulder into the terrain. */
+  wallShare: number
+  /** m, the least height of the wall shoulders above the floor, whatever the terrain there */
+  wallLift: number
+  /** m, how softly a wall shoulder meets terrain that already stands taller. Keeps it C1. */
+  wallSoftness: number
+  /**
+   * m of route, how far the valley takes to fade in past the cut and out before the return notch.
+   * Both fades sit where the notch already holds the same floor, so the join is seamless.
+   */
+  joinLength: number
+  /**
+   * m, inside a tight bend, how far apart the distances to two stretches of route may be for both
+   * walls to blend. Without it the walls jump where the nearer stretch changes. At most
+   * `RIVAL_BAND` in `route.ts`.
+   */
+  bendBlend: number
+}
+
 export interface TerrainConfig {
   /** World seed. Same seed = same world. Any string works. */
   seed: string
@@ -198,6 +227,8 @@ export interface TerrainConfig {
   riverMaxHeight: number
   /** The home basin around the spawn. */
   basin: BasinConfig
+  /** The valley along the authored route, between the basin's two notches. */
+  valley: RouteValleyConfig
   /** Terrain color bands. */
   bands: TerrainBands
   /** m, edge length of one terrain chunk */
@@ -261,6 +292,15 @@ export const TERRAIN_CONFIG: TerrainConfig = {
       { x: 1938, z: 1248, floorHeight: 46, halfWidth: 160, flank: 300, extension: 550 },
       { x: 622, z: 2094, floorHeight: 35, halfWidth: 250, flank: 300, extension: 550 },
     ],
+  },
+  valley: {
+    floorNoise: 3,
+    flankWidth: 360,
+    wallShare: 0.5,
+    wallLift: 100,
+    wallSoftness: 30,
+    joinLength: 150,
+    bendBlend: 60,
   },
   bands: {
     sandHeight: 3,

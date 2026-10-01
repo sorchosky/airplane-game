@@ -1,4 +1,5 @@
 import { findSpawnPoint, heightAt, type SpawnPoint } from './heightfield'
+import { valleyAt } from './routeValley'
 import { TERRAIN_CONFIG, type TerrainConfig } from './terrainConfig'
 
 // Landmarks (#76): five authored silhouettes placed on the horizon around spawn, so the world has
@@ -299,14 +300,15 @@ export function visibleFractionFromSpawn(
   let steepest = -Infinity
   // Stop short of the landmark's own footprint so its own hill doesn't block it. The home basin's
   // ridge ring (#171) is designed to hide the world from spawn until the route reveals it, so the
-  // walk starts outside it. #173 replaces this search with authored stations.
+  // walk starts outside it. The route valley's walls (#172) hide them the same way, so the walk
+  // skips the valley too. #173 replaces this search with authored stations.
   for (let i = 1; i < steps - 1; i++) {
     const t = i / steps
     if (distance * t < terrain.basin.blendRadius) continue
-    const ground = Math.max(
-      heightAt(spawn.x + (x - spawn.x) * t, spawn.z + (z - spawn.z) * t, terrain),
-      terrain.waterLevel,
-    )
+    const sx = spawn.x + (x - spawn.x) * t
+    const sz = spawn.z + (z - spawn.z) * t
+    if (valleyAt(sx, sz, terrain)) continue
+    const ground = Math.max(heightAt(sx, sz, terrain), terrain.waterLevel)
     steepest = Math.max(steepest, (ground - eye) / (distance * t))
   }
   const hidden = eye + steepest * distance
