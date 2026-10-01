@@ -10,20 +10,20 @@ test('clock: starts locally, runs while flying, and freezes on pause', async ({ 
   await page.goto('/?input=keyboard')
   await page.getByRole('button', { name: 'Start' }).click()
 
-  const clock = page.getByTestId('clock-readout')
+  const clock = page.getByTestId('sun-moon-dial')
   const localHalfHour = await page.evaluate(() => {
     const now = new Date()
     return `${String(now.getHours()).padStart(2, '0')}:${now.getMinutes() < 30 ? '00' : '30'}`
   })
-  await expect(clock).toHaveText(localHalfHour)
-  await expect(clock).not.toHaveText(localHalfHour, { timeout: 8000 })
+  await expect(clock).toHaveAttribute('datetime', localHalfHour)
+  await expect(clock).not.toHaveAttribute('datetime', localHalfHour, { timeout: 8000 })
   await page.screenshot({ path: 'test-results/94-clock.png' })
 
   await page.keyboard.press('Escape')
   await expect(page.getByTestId('pause-menu')).toBeVisible()
-  const paused = await clock.textContent()
+  const paused = await clock.getAttribute('datetime')
   await page.waitForTimeout(1500)
-  await expect(clock).toHaveText(paused ?? '')
+  await expect(clock).toHaveAttribute('datetime', paused ?? '')
 
   expect(toMinutes(paused)).not.toBe(toMinutes(localHalfHour))
 })
@@ -31,8 +31,8 @@ test('clock: starts locally, runs while flying, and freezes on pause', async ({ 
 test('clock: ?time= pins it', async ({ page }) => {
   await page.goto('/?input=keyboard&cycle=20&time=21:30')
   await page.getByRole('button', { name: 'Start' }).click()
-  const clock = page.getByTestId('clock-readout')
-  await expect(clock).toHaveText('21:30')
+  const clock = page.getByTestId('sun-moon-dial')
+  await expect(clock).toHaveAttribute('datetime', '21:30')
   await page.waitForTimeout(1500)
-  await expect(clock).toHaveText('21:30')
+  await expect(clock).toHaveAttribute('datetime', '21:30')
 })

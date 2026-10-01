@@ -19,3 +19,14 @@ export function starVisibility(sunElevation: number, magnitude: number): number 
 export function sunElevationAt(minutes: number): number {
   return Math.sin(((minutes - 360) / 1440) * Math.PI * 2) * (Math.PI / 2)
 }
+
+/** Unit celestial direction used by the sky clock, east at sunrise and west at sunset. */
+export function sunDirectionAt(minutes: number): [number, number, number] {
+  const angle = ((minutes - 360) / 720) * Math.PI
+  return [-Math.cos(angle), Math.sin(angle), 0]
+}
+
+/** The moon follows the same arc twelve hours after the sun. */
+export function moonDirectionAt(minutes: number): [number, number, number] {
+  return sunDirectionAt(minutes - 720)
+}
