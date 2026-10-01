@@ -85,6 +85,40 @@ export const SHOT_BOOKMARKS: readonly ShotBookmark[] = [
     purpose:
       'The home basin (#171): looking through the cut from spawn, the ridge ring to either side.',
   },
+  // The route valley (#172): 45 m over the floor, heading down the valley along the route.
+  {
+    name: 'valley-tower-approach',
+    position: [2189, 101, 692],
+    heading: -0.529,
+    bank: 0,
+    pitchAngle: 0,
+    purpose:
+      'The route valley (#172) past the cut: floor, both walls and the bend toward the tower.',
+  },
+  {
+    name: 'valley-east-river',
+    position: [4892, 91, 673],
+    heading: -2.545,
+    bank: 0,
+    pitchAngle: 0,
+    purpose: 'The route valley (#172) dropping into the wide, low east river reach.',
+  },
+  {
+    name: 'valley-south-shoulder',
+    position: [2837, 114, 3661],
+    heading: 1.735,
+    bank: 0,
+    pitchAngle: 0,
+    purpose: 'The route valley (#172) at its narrow south shoulder, heading west.',
+  },
+  {
+    name: 'valley-west-bend',
+    position: [520, 89, 3023],
+    heading: 1.029,
+    bank: 0,
+    pitchAngle: 0,
+    purpose: 'The route valley (#172) into the tight west bend, where two floors merge.',
+  },
   {
     name: 'low-pass',
     position: [1750, 47, 1900],

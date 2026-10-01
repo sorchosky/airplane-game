@@ -74,12 +74,15 @@ describe('applyBasin', () => {
     expect(heightAt(notch.x, notch.z, config)).toBeCloseTo(notch.floorHeight, 6)
     const nr = notchRadius(basin, notch)
     const theta = bearingOf(notch)
-    // Across the whole floor width at the route point.
+    // Across the whole floor width at the route point. The route valley (#172) starts its join
+    // here, so off the centre line its floor detail may lift the floor a little.
     for (const offset of [-notch.halfWidth, 0, notch.halfWidth]) {
       const [x, z] = at(nr, theta)
       const lateralX = Math.cos(theta) * offset
       const lateralZ = Math.sin(theta) * offset
-      expect(heightAt(x + lateralX, z + lateralZ, config)).toBeCloseTo(notch.floorHeight, 6)
+      const h = heightAt(x + lateralX, z + lateralZ, config)
+      expect(h).toBeGreaterThan(notch.floorHeight - 0.5)
+      expect(h).toBeLessThan(notch.floorHeight + config.valley.floorNoise)
     }
     // And the walls rise: well above the floor one flank away.
     const [wx, wz] = at(basin.ridgeRadius, theta)
