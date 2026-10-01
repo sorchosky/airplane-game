@@ -96,6 +96,27 @@ export const DEFAULT_GOVERNOR_PARAMS: GovernorParams = {
   failWindowMs: 15_000,
 }
 
+/** Cast mode draws at this rate (#27); the governor's budget is judged against it. */
+export const CAST_FPS = 30
+
+/**
+ * Cast mode (#27). Frames arrive every 33.3 ms by design, so the p95 of a healthy phone sits at
+ * about 34 ms. The budget allows one missed frame in twenty (40 ms) and climbing needs under
+ * 34.4 ms, so the governor still steps down when the phone can't hold 30 and back up when it can.
+ */
+export const CAST_GOVERNOR_PARAMS: GovernorParams = {
+  ...DEFAULT_GOVERNOR_PARAMS,
+  budgetMs: 40,
+  upBelow: 0.86,
+}
+
+/** `?budget=` wins, then cast mode's 30 fps budget, then the 60 fps default. */
+export function governorParams(search: string, cast: boolean): GovernorParams {
+  const budgetMs = getBudgetFlag(search)
+  const base = cast ? CAST_GOVERNOR_PARAMS : DEFAULT_GOVERNOR_PARAMS
+  return budgetMs ? { ...base, budgetMs } : base
+}
+
 export type GovernorChange = 'down' | 'up'
 
 export interface GovernorState {

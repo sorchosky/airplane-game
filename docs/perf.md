@@ -179,6 +179,11 @@ Budgets and timing:
   pin it.
 - Pose detection steps 20 → 15 → 12 Hz when inference stays over 40 ms for
   2 s, and recovers after 10 s under 25 ms (`src/pose/detectionRate.ts`).
+- `?cast` (set it when the phone is mirroring to a TV; nothing can detect that) caps drawing
+  at 30 fps and moves the budget to a 40 ms p95, climbing back under 34.4 ms. Without it the
+  budget stays at 60 fps.
+- The Canvas pixel ratio is the governor's, read from `qualityStore`. A fixed `dpr` prop is
+  re-applied by R3F on every render and silently undoes the governor's step.
 - The `?debug` HUD shows the rung, the last change and the view distance on
   screen.
 

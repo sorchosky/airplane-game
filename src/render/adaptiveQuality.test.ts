@@ -4,7 +4,9 @@ import {
   createGovernorState,
   DEFAULT_GOVERNOR_PARAMS,
   describeRung,
+  CAST_GOVERNOR_PARAMS,
   getBudgetFlag,
+  governorParams,
   stepGovernor,
   type GovernorState,
   type QualitySettings,
@@ -123,5 +125,32 @@ describe('getBudgetFlag', () => {
     expect(getBudgetFlag('?budget=abc')).toBeNull()
     expect(getBudgetFlag('?budget=0')).toBeNull()
     expect(getBudgetFlag('')).toBeNull()
+  })
+})
+
+describe('governorParams', () => {
+  it('holds 60 fps by default and 30 fps in cast mode', () => {
+    expect(governorParams('', false).budgetMs).toBeCloseTo(16.7, 1)
+    expect(governorParams('?cast', true)).toBe(CAST_GOVERNOR_PARAMS)
+  })
+
+  it('lets ?budget override either', () => {
+    expect(governorParams('?budget=8', false).budgetMs).toBe(8)
+    expect(governorParams('?cast&budget=50', true).budgetMs).toBe(50)
+  })
+
+  it('does not step down a phone holding 30 fps, and climbs back when it has room', () => {
+    // Capped frames arrive every 33.3 ms, so the p95 of a healthy phone is just over that.
+    let state = createGovernorState(2, CAST_GOVERNOR_PARAMS)
+    for (let t = 0; t < 30_000; t += 500) {
+      state = stepGovernor(state, { p95Ms: 34, nowMs: t }, 5, CAST_GOVERNOR_PARAMS).state
+    }
+    expect(state.rung).toBeLessThan(2)
+    // A phone that misses frames steps down.
+    let slow = createGovernorState(0, CAST_GOVERNOR_PARAMS)
+    for (let t = 0; t < 5000; t += 500) {
+      slow = stepGovernor(slow, { p95Ms: 50, nowMs: t }, 5, CAST_GOVERNOR_PARAMS).state
+    }
+    expect(slow.rung).toBe(1)
   })
 })

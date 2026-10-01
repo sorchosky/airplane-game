@@ -7,13 +7,14 @@ import {
   summarizeFrames,
   type FrameSummary,
 } from '../debug/frameStats'
+import { isCastMode } from '../app/urlFlags'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import {
   buildLadder,
   createGovernorState,
   DEFAULT_GOVERNOR_PARAMS,
   describeRung,
-  getBudgetFlag,
+  governorParams,
   stepGovernor,
   type GovernorParams,
   type QualitySettings,
@@ -79,10 +80,7 @@ export function QualityGovernor({ paused = false }: { paused?: boolean }) {
     // Pinned: one rung, so the governor never moves; the pixel ratio still honours the screen.
     const ladder = buildLadder(start, window.devicePixelRatio || 1)
     ladderRef.current = pinned ? ladder.slice(0, 1) : ladder
-    const budgetMs = getBudgetFlag(window.location.search)
-    paramsRef.current = budgetMs
-      ? { ...DEFAULT_GOVERNOR_PARAMS, budgetMs }
-      : DEFAULT_GOVERNOR_PARAMS
+    paramsRef.current = governorParams(window.location.search, isCastMode())
     governor.current = createGovernorState(0, paramsRef.current)
     apply(ladderRef.current, 0, setDpr)
   }, [setDpr])

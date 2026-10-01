@@ -18,6 +18,16 @@ export function isReplayInputMode(): boolean {
   return selectedInputSource() === 'replay'
 }
 
+/**
+ * `?cast`: the phone is mirroring to a TV. No web API reports screen mirroring, so the player says
+ * so. The encoder shares the phone's CPU and GPU with the game, so cast mode renders at 30 fps
+ * and leaves it the headroom (#27). `?cast=0` is the same as leaving it off.
+ */
+export function isCastMode(search: string = window.location.search): boolean {
+  const value = new URLSearchParams(search).get('cast')
+  return value !== null && value !== '0' && value !== 'false'
+}
+
 /** `?swatches` renders the design token review page instead of the game. */
 export function isSwatchesMode(): boolean {
   return new URLSearchParams(window.location.search).has('swatches')
