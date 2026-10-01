@@ -15,6 +15,7 @@ export function Stars() {
     const random = mulberry32(92)
     const positions = new Float32Array(STAR_COUNT * 3)
     const sizes = new Float32Array(STAR_COUNT)
+    const magnitudes = new Float32Array(STAR_COUNT)
     for (let i = 0; i < STAR_COUNT; i++) {
       const azimuth = random() * Math.PI * 2
       const elevation = 0.08 + random() * (Math.PI / 2 - 0.12)
@@ -22,21 +23,32 @@ export function Stars() {
       positions[i * 3] = Math.sin(azimuth) * cos
       positions[i * 3 + 1] = Math.sin(elevation) * STAR_RADIUS
       positions[i * 3 + 2] = Math.cos(azimuth) * cos
-      sizes[i] = 1.5 + random() * 2.2
+      magnitudes[i] = random()
+      sizes[i] = 1.5 + (1 - magnitudes[i]!) * 2.2
     }
     const geometry = new BufferGeometry()
     geometry.setAttribute('position', new BufferAttribute(positions, 3))
     geometry.setAttribute('aSize', new BufferAttribute(sizes, 1))
+    geometry.setAttribute('aMagnitude', new BufferAttribute(magnitudes, 1))
     const material = new ShaderMaterial({
-      uniforms: { atmoNight: atmosphereUniforms.atmoNight },
-      vertexShader: `attribute float aSize; varying float vSize;
-        void main() { vSize = aSize; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      uniforms: { atmoSunElevation: atmosphereUniforms.atmoSunElevation },
+      vertexShader: `attribute float aSize; attribute float aMagnitude;
+        varying float vSize; varying float vMagnitude;
+        void main() { vSize = aSize; vMagnitude = aMagnitude;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
           gl_PointSize = aSize; }`,
       fragmentShader: `#include <common>
-        uniform float atmoNight; varying float vSize;
-        void main() { if (atmoNight < 0.005) discard;
+        uniform float atmoSunElevation; varying float vSize; varying float vMagnitude;
+        float starVisibility(float elevation, float magnitude) {
+          if (elevation >= 0.0) return 0.0;
+          float fadeStart = radians(-2.0 - magnitude * 4.0);
+          float fadeEnd = fadeStart - radians(8.0);
+          return 1.0 - smoothstep(fadeEnd, fadeStart, elevation);
+        }
+        void main() { float visibility = starVisibility(atmoSunElevation, vMagnitude);
+          if (visibility < 0.005) discard;
           float d = length(gl_PointCoord - vec2(0.5)) * 2.0;
-          float a = (1.0 - smoothstep(0.1, 1.0, d)) * atmoNight;
+          float a = (1.0 - smoothstep(0.1, 1.0, d)) * visibility;
           gl_FragColor = vec4(vec3(0.77, 0.84, 1.0) * a, a);
           #include <colorspace_fragment>
         }`,

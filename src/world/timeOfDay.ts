@@ -1,5 +1,6 @@
 import { lightingPresets, type LightingPreset } from '../styles/tokens'
 import { wrapMinutes } from './gameClock'
+import { sunElevationAt } from './starVisibility'
 
 /** The clock's visual anchors. The repeated night keys hold its darkest mood across midnight. */
 export const TIME_KEYS = [
@@ -49,6 +50,8 @@ export interface BlendedLighting {
   gradeShadowAmount: number
   gradeHighlightAmount: number
   nightAmount: number
+  /** Radians above the astronomical horizon, independent of the artistic light direction. */
+  sunElevation: number
 }
 
 const srgbToLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
@@ -109,6 +112,7 @@ export function createBlendedLighting(): BlendedLighting {
     gradeShadowAmount: 0,
     gradeHighlightAmount: 0,
     nightAmount: 0,
+    sunElevation: 0,
   }
 }
 
@@ -143,5 +147,6 @@ export function timeOfDay(minutes: number, out: BlendedLighting): BlendedLightin
   out.gradeShadowAmount = lerp(a.gradeShadowAmount, b.gradeShadowAmount, t)
   out.gradeHighlightAmount = lerp(a.gradeHighlightAmount, b.gradeHighlightAmount, t)
   out.nightAmount = lerp(nightOf(left.phase), nightOf(right.phase), t)
+  out.sunElevation = sunElevationAt(minute)
   return out
 }
