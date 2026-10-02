@@ -14,6 +14,16 @@ const returnS = ROUTE.nearest(returnNotch.x, returnNotch.z).s
 // Where the valley applies in full, from the end of one join to the start of the other.
 const fullStart = cutS + valley.joinLength
 const fullEnd = returnS - valley.joinLength
+// The valley alone, without the river cut into it (#174): no channel anywhere, and no lake.
+const noRiver = {
+  ...config,
+  river: {
+    ...config.river,
+    fullBand: -20,
+    dryBand: -10,
+    lake: { ...config.river.lake, innerRadius: 0, outerRadius: 0 },
+  },
+}
 
 /** World position `lateral` m to the left of the route at arc length `s`. */
 function across(s: number, lateral: number): [number, number] {
@@ -114,7 +124,8 @@ describe('route valley in the terrain', () => {
         // The waterfall's plunge pool (#173) is dug into the floor on purpose.
         if (Math.hypot(x - pool.x, z - pool.z) < config.plungePool.outerRadius) continue
         const { floorHeight } = hit.nearest
-        const h = heightAt(x, z, config)
+        // The river (#174) is cut into the low floors on purpose. `routeRiver.test.ts` checks it.
+        const h = heightAt(x, z, noRiver)
         expect(h).toBeLessThanOrEqual(floorHeight + valley.floorNoise + 0.5)
         expect(h).toBeGreaterThanOrEqual(floorHeight - 0.5)
         expect(h).toBeGreaterThan(config.waterLevel)
@@ -141,11 +152,12 @@ describe('route valley in the terrain', () => {
     ['cut', cutS, cutS + valley.joinLength + 100],
     ['return notch', returnS - valley.joinLength - 100, returnS],
   ] as const)('joins the %s smoothly, along the route and across it', (_name, from, to) => {
+    // The valley's own shape: the return notch holds the river's lake (#174), checked elsewhere.
     // Along the centre line: no steps and no humps between the notch floor and the valley floor.
-    let previous = heightAt(...across(from, 0), config)
+    let previous = heightAt(...across(from, 0), noRiver)
     let previousSlope: number | null = null
     for (let s = from + 1; s <= to; s += 1) {
-      const h = heightAt(...across(s, 0), config)
+      const h = heightAt(...across(s, 0), noRiver)
       const slope = h - previous
       // Under 14°: the floor detail's own bumps, no cliff or step at the join.
       expect(Math.abs(slope)).toBeLessThan(0.25)
@@ -159,10 +171,10 @@ describe('route valley in the terrain', () => {
     // as a jump in the slope. Past the shoulders the terrain's own ridged creases come back.
     for (let s = from; s <= to; s += 50) {
       const shoulder = ROUTE.pointAt(s).valleyWidth / 2 + valley.flankWidth * valley.wallShare
-      let last = heightAt(...across(s, -shoulder), config)
+      let last = heightAt(...across(s, -shoulder), noRiver)
       let lastSlope: number | null = null
       for (let lateral = -shoulder + 2; lateral <= shoulder; lateral += 2) {
-        const h = heightAt(...across(s, lateral), config)
+        const h = heightAt(...across(s, lateral), noRiver)
         const slope = (h - last) / 2
         if (lastSlope !== null) expect(Math.abs(slope - lastSlope)).toBeLessThan(0.25)
         last = h

@@ -27,6 +27,12 @@ All valley widths stay within 300 to 600 m. Bold floors are the river stretches.
 above the current `waterLevel` of 32 m, with the river bed to be cut below the water plane in the
 terrain ticket. Other floors rise to 78 m to pace the river with dry meadows and shoulders.
 
+**As built (#174).** `applyRouteRiver` (`src/world/routeRiver.ts`) cuts the bed 4 m under the
+water along the centreline wherever the designed floor is within 3 m of `waterLevel`, and tapers it
+out above the water by 5.5 m. That gives two reaches: the east one from about s 5.3 to 7.0 km, ending
+on dry floor short of the waterfall's station, and the west one from about s 11.8 km, past the
+arch, into a lake on the return notch's route point.
+
 ## Home basin and the cuts
 
 - **Basin** is centred at `(1750, 2000)`, with a 700 m clear radius and a 260 m target ridge crest.

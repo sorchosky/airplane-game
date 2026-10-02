@@ -1,5 +1,6 @@
 import { createNoise2D, type NoiseFunction2D } from 'simplex-noise'
 import { applyBasin } from './basin'
+import { applyRiverLake, applyRouteRiver, noiseRiverSuppression } from './routeRiver'
 import { applyRouteValley, isFullFloor, valleyAt, valleyFloor } from './routeValley'
 import { applyPlungePool } from './stations'
 import type { TerrainConfig } from './terrainConfig'
@@ -105,6 +106,8 @@ function ridged(noise: NoiseFunction2D, x: number, z: number, octaves: number): 
   return sum / total
 }
 
+const mix = (a: number, b: number, t: number): number => a + (b - a) * t
+
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)))
   return t * t * (3 - 2 * t)
@@ -124,8 +127,9 @@ const VALLEY_DETAIL_GAIN = 4
 
 /** Terrain height in metres at world (x, z). Deterministic for a given `config.seed`. */
 export function heightAt(x: number, z: number, config: TerrainConfig): number {
-  // The waterfall's plunge pool (#173) is dug last, into the valley floor in front of it.
-  return applyPlungePool(x, z, landHeight(x, z, config), config)
+  // The river's lake (#174) and the waterfall's plunge pool (#173) are dug last, into the valley
+  // floor. Each is one distance check everywhere else.
+  return applyPlungePool(x, z, applyRiverLake(x, z, landHeight(x, z, config), config), config)
 }
 
 function landHeight(x: number, z: number, config: TerrainConfig): number {
@@ -144,7 +148,10 @@ function landHeight(x: number, z: number, config: TerrainConfig): number {
   // ~80 to 330 m bumps) keep the floor from looking graded flat.
   const valley = valleyAt(x, z, config)
   const valleyDetail = Math.tanh(VALLEY_DETAIL_GAIN * (hills - broadHills))
-  if (valley && isFullFloor(valley)) return valleyFloor(valleyDetail, valley.nearest, config.valley)
+  if (valley && isFullFloor(valley)) {
+    const floor = valleyFloor(valleyDetail, valley.nearest, config.valley)
+    return applyRouteRiver(floor, valley, config)
+  }
 
   let height = (hills * 0.5 + 0.5) * config.hillHeight
 
@@ -184,17 +191,27 @@ function landHeight(x: number, z: number, config: TerrainConfig): number {
   // Lakes are sized by the broad shape of the land, so they fill whole valleys instead of every
   // little dip.
   height = carveLakes(height, height + (broadHills - hills) * 0.5 * config.hillHeight, config)
-  height = carveRivers(
+  // Inside the route valley's corridor the noise rivers give way to the route river (#174), so
+  // two rivers never cross the floor.
+  const withRivers = carveRivers(
     height,
     fbm(n.rivers, wx / config.riverScale, wz / config.riverScale, 3),
     config,
   )
+  height = valley
+    ? mix(withRivers, height, noiseRiverSuppression(valley, config.valley))
+    : withRivers
   // The home basin goes after the land so its designed floor and ridge heights hold (#171).
   height = applyBasin(x, z, height, config.basin)
   // The route valley goes last: it carries the notches' floors on through the basin's outer ring
   // and out round the loop. Most of the world is beyond its reach and paid one grid lookup.
   if (!valley) return height
-  return applyRouteValley(height, valleyDetail, valley, config.valley)
+  // The route river (#174) is cut into the valley floor after it.
+  return applyRouteRiver(
+    applyRouteValley(height, valleyDetail, valley, config.valley),
+    valley,
+    config,
+  )
 }
 
 /**

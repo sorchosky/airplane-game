@@ -201,6 +201,35 @@ export interface PlungePoolConfig {
   depth: number
 }
 
+/**
+ * The river along the route's low stretches (#174), cut by `applyRouteRiver` in `routeRiver.ts`
+ * after the valley. Where the route's designed `floorHeight` is in the low band the channel runs at
+ * full depth along the centreline. It tapers out as the floor rises, and the west reach ends in a
+ * lake on the return notch.
+ */
+export interface RouteRiverConfig {
+  /** m above `waterLevel`: at or below this designed floor height the channel is at full depth */
+  fullBand: number
+  /** m above `waterLevel`: at or above this designed floor height there is no channel */
+  dryBand: number
+  /** m, half the width of the flat bed either side of the route centreline */
+  halfWidth: number
+  /** m, how far past the bed the banks take to ease back into the valley floor */
+  bankWidth: number
+  /** m below `waterLevel` the bed lies at full depth */
+  depth: number
+  /** m above `waterLevel` the bed has risen to where the channel has tapered out */
+  endLift: number
+  /** The lake the west reach runs into, centred on the return notch's route point. */
+  lake: {
+    /** m, radius of its flat bed, and where its shore has blended back into the ground */
+    innerRadius: number
+    outerRadius: number
+    /** m below `waterLevel` the bed lies */
+    depth: number
+  }
+}
+
 export interface TerrainConfig {
   /** World seed. Same seed = same world. Any string works. */
   seed: string
@@ -243,6 +272,8 @@ export interface TerrainConfig {
   basin: BasinConfig
   /** The valley along the authored route, between the basin's two notches. */
   valley: RouteValleyConfig
+  /** The river along the valley's low stretches, and its lake. */
+  river: RouteRiverConfig
   plungePool: PlungePoolConfig
   /** Terrain color bands. */
   bands: TerrainBands
@@ -316,6 +347,15 @@ export const TERRAIN_CONFIG: TerrainConfig = {
     wallSoftness: 30,
     joinLength: 150,
     bendBlend: 60,
+  },
+  river: {
+    fullBand: 3,
+    dryBand: 5.5,
+    halfWidth: 20,
+    bankWidth: 45,
+    depth: 4,
+    endLift: 2,
+    lake: { innerRadius: 120, outerRadius: 280, depth: 6 },
   },
   plungePool: {
     // The bank starts 30 m clear of the cliff, past the edge of its 25 m footprint.

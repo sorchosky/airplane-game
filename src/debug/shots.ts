@@ -119,6 +119,24 @@ export const SHOT_BOOKMARKS: readonly ShotBookmark[] = [
     pitchAngle: 0,
     purpose: 'The route valley (#172) into the tight west bend, where two floors merge.',
   },
+  // The route river (#174): 50 m over the floor, heading downstream along the route.
+  {
+    name: 'river-east',
+    position: [5129, 86, 1220],
+    heading: -2.961,
+    bank: 0,
+    pitchAngle: 0,
+    purpose: 'The route river (#174) where the east reach drops into the water and runs south.',
+  },
+  {
+    name: 'river-lake',
+    position: [275, 83, 2373],
+    heading: -0.697,
+    bank: 0,
+    pitchAngle: 0,
+    purpose:
+      'The route river (#174) running out of the west reach into its lake on the return notch.',
+  },
   {
     name: 'low-pass',
     position: [1750, 47, 1900],

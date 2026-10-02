@@ -7,6 +7,12 @@ import { TERRAIN_CONFIG } from './terrainConfig'
 const config = TERRAIN_CONFIG
 const basin = config.basin
 const [cut, returnNotch] = basin.notches
+// The return notch holds the route river's lake (#174) on purpose. The notch tests check the floor
+// under it.
+const noLake = {
+  ...config,
+  river: { ...config.river, lake: { ...config.river.lake, innerRadius: 0, outerRadius: 0 } },
+}
 
 const at = (r: number, theta: number): [number, number] => [
   basin.centerX + r * Math.sin(theta),
@@ -71,7 +77,7 @@ describe('applyBasin', () => {
     ['cut', cut],
     ['return notch', returnNotch],
   ] as const)('puts the %s floor at its designed height and width', (_name, notch) => {
-    expect(heightAt(notch.x, notch.z, config)).toBeCloseTo(notch.floorHeight, 6)
+    expect(heightAt(notch.x, notch.z, noLake)).toBeCloseTo(notch.floorHeight, 6)
     const nr = notchRadius(basin, notch)
     const theta = bearingOf(notch)
     // Across the whole floor width at the route point. The route valley (#172) starts its join
@@ -80,7 +86,7 @@ describe('applyBasin', () => {
       const [x, z] = at(nr, theta)
       const lateralX = Math.cos(theta) * offset
       const lateralZ = Math.sin(theta) * offset
-      const h = heightAt(x + lateralX, z + lateralZ, config)
+      const h = heightAt(x + lateralX, z + lateralZ, noLake)
       expect(h).toBeGreaterThan(notch.floorHeight - 0.5)
       expect(h).toBeLessThan(notch.floorHeight + config.valley.floorNoise)
     }
