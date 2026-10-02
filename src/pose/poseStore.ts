@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { PoseRunnerKind } from './poseRunner'
 import type { PoseLandmarks } from './types'
 
 /** One detected person, already mirrored into selfie space (see `poseFrame.ts`). */
@@ -27,6 +28,8 @@ interface PoseStore {
   modelStatus: PoseModelStatus
   /** Which MediaPipe delegate the loaded model runs on, once `modelStatus` is `ready`. */
   delegate: PoseDelegate | null
+  /** Whether inference runs in a worker or on the main thread (#67), once `modelStatus` is `ready`. */
+  runner: PoseRunnerKind | null
   /** Smoothed wall time of one `detectForVideo` call, for the debug HUD. */
   inferenceMs: number
   /** Detections completed per second over the last sample window, for the debug HUD. */
@@ -38,6 +41,7 @@ export const INITIAL_POSE_STATE: PoseStore = {
   detectedAtMs: 0,
   modelStatus: 'idle',
   delegate: null,
+  runner: null,
   inferenceMs: 0,
   hz: 0,
 }
