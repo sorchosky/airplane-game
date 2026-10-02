@@ -1,5 +1,6 @@
 import { createNoise2D, type NoiseFunction2D } from 'simplex-noise'
 import { applyBasin } from './basin'
+import { applyRiverLake, applyRouteRiver, noiseRiverKeep } from './routeRiver'
 import { applyRouteValley, isFullFloor, valleyAt, valleyFloor } from './routeValley'
 import { applyPlungePool } from './stations'
 import type { TerrainConfig } from './terrainConfig'
@@ -124,8 +125,9 @@ const VALLEY_DETAIL_GAIN = 4
 
 /** Terrain height in metres at world (x, z). Deterministic for a given `config.seed`. */
 export function heightAt(x: number, z: number, config: TerrainConfig): number {
-  // The waterfall's plunge pool (#173) is dug last, into the valley floor in front of it.
-  return applyPlungePool(x, z, landHeight(x, z, config), config)
+  // The route river's lake (#174) is scooped into the return notch, then the waterfall's plunge
+  // pool (#173) is dug last, into the valley floor in front of it.
+  return applyPlungePool(x, z, applyRiverLake(x, z, landHeight(x, z, config), config), config)
 }
 
 function landHeight(x: number, z: number, config: TerrainConfig): number {
@@ -144,7 +146,10 @@ function landHeight(x: number, z: number, config: TerrainConfig): number {
   // ~80 to 330 m bumps) keep the floor from looking graded flat.
   const valley = valleyAt(x, z, config)
   const valleyDetail = Math.tanh(VALLEY_DETAIL_GAIN * (hills - broadHills))
-  if (valley && isFullFloor(valley)) return valleyFloor(valleyDetail, valley.nearest, config.valley)
+  // The route river (#174) is cut into whatever the valley leaves, on the floor or off it.
+  if (valley && isFullFloor(valley)) {
+    return applyRouteRiver(valleyFloor(valleyDetail, valley.nearest, config.valley), valley, config)
+  }
 
   let height = (hills * 0.5 + 0.5) * config.hillHeight
 
@@ -184,17 +189,26 @@ function landHeight(x: number, z: number, config: TerrainConfig): number {
   // Lakes are sized by the broad shape of the land, so they fill whole valleys instead of every
   // little dip.
   height = carveLakes(height, height + (broadHills - hills) * 0.5 * config.hillHeight, config)
-  height = carveRivers(
-    height,
-    fbm(n.rivers, wx / config.riverScale, wz / config.riverScale, 3),
-    config,
-  )
+  // Noise rivers stay out of the route valley's corridor: the route river runs its floor (#174).
+  const riverKeep = noiseRiverKeep(valley, config.valley)
+  if (riverKeep > 0) {
+    height = carveRivers(
+      height,
+      fbm(n.rivers, wx / config.riverScale, wz / config.riverScale, 3),
+      config,
+      riverKeep,
+    )
+  }
   // The home basin goes after the land so its designed floor and ridge heights hold (#171).
   height = applyBasin(x, z, height, config.basin)
   // The route valley goes last: it carries the notches' floors on through the basin's outer ring
   // and out round the loop. Most of the world is beyond its reach and paid one grid lookup.
   if (!valley) return height
-  return applyRouteValley(height, valleyDetail, valley, config.valley)
+  return applyRouteRiver(
+    applyRouteValley(height, valleyDetail, valley, config.valley),
+    valley,
+    config,
+  )
 }
 
 /**
@@ -212,12 +226,18 @@ export function carveLakes(height: number, broadHeight: number, config: TerrainC
  * Rivers follow the zero crossings of a smooth noise (`riverNoise`, -1..1), which wander across
  * the map as long, unbroken, branching lines. Near a crossing the hills are pulled down into a
  * valley, and right at it a channel is dug below `waterLevel`. Rivers fade out as the ground they
- * would cut through rises, so they stay in the lowlands.
+ * would cut through rises, so they stay in the lowlands. `keep` (0..1) scales the whole carve, so
+ * callers can fade a river out where it isn't wanted.
  */
-export function carveRivers(height: number, riverNoise: number, config: TerrainConfig): number {
+export function carveRivers(
+  height: number,
+  riverNoise: number,
+  config: TerrainConfig,
+  keep = 1,
+): number {
   const distance = Math.abs(riverNoise)
   if (distance >= config.riverValleyWidth) return height
-  const fade = 1 - smoothstep(config.riverMaxHeight * 0.6, config.riverMaxHeight, height)
+  const fade = keep * (1 - smoothstep(config.riverMaxHeight * 0.6, config.riverMaxHeight, height))
   if (fade <= 0) return height
 
   // Valley: pull the ground down to just above the water, steepest near the channel.

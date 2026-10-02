@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { applyBasin, crestAt, floorAt, notchRadius } from './basin'
 import { heightAt } from './heightfield'
 import { ROUTE_POINTS } from './routePoints'
+import { withoutRouteRiver } from './routeRiver'
 import { TERRAIN_CONFIG } from './terrainConfig'
 
-const config = TERRAIN_CONFIG
+// The basin on its own: the route river's lake (#174) is scooped into the return notch on purpose.
+const config = withoutRouteRiver(TERRAIN_CONFIG)
 const basin = config.basin
 const [cut, returnNotch] = basin.notches
 
