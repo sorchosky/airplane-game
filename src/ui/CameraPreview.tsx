@@ -1,5 +1,5 @@
 import { type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef } from 'react'
-import { getVideo, useCameraStore } from '../pose/cameraService'
+import { claimVideo, getVideo, useCameraStore } from '../pose/cameraService'
 import { color, radius, size, space } from '../styles/tokens'
 import { contractKeyframes, LOCK_IN_CONTRACT_MS, recentLockIn, useLockInStore } from './lockIn'
 import { PoseOverlay, type ControlPreviewState } from './PoseOverlay'
@@ -30,10 +30,10 @@ interface CameraPreviewProps {
 }
 
 /**
- * Mirrored camera preview, top-left during play. Reparents the single shared `<video>`
- * element from the camera service into view for as long as this component
- * is mounted, then hands it back off-screen so the pose service (#14) still
- * has an element to read frames from after the preview unmounts.
+ * Mirrored camera preview, top-left during play. Claims the single shared `<video>` element from
+ * the camera service for as long as this component is mounted. When previews overlap during a
+ * beat's exit, the newest one still mounted shows it (#197), and with none left it goes back
+ * off-screen so the pose service (#14) still has an element to read frames from.
  */
 export function CameraPreview({
   controlState = 'inactive',
@@ -50,33 +50,7 @@ export function CameraPreview({
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
-
-    const video = getVideo()
-    video.style.position = 'absolute'
-    video.style.inset = '0'
-    video.style.width = '100%'
-    video.style.height = '100%'
-    video.style.objectFit = 'cover'
-    video.style.opacity = '1'
-    video.style.pointerEvents = 'none'
-    video.style.transform = 'scaleX(-1)'
-    // Before the overlay canvas, so the orientation line paints on top of the video.
-    container.prepend(video)
-
-    return () => {
-      // Into flight the corner preview mounts while the calibrate frame plays its exit (#161), and
-      // has already taken the video: only hand back a video this preview still holds.
-      if (video.parentElement !== container) return
-      video.style.position = 'fixed'
-      video.style.top = '0'
-      video.style.left = '0'
-      video.style.width = '1px'
-      video.style.height = '1px'
-      video.style.opacity = '0'
-      video.style.visibility = 'visible'
-      video.style.transform = 'none'
-      document.body.appendChild(video)
-    }
+    return claimVideo(container)
   }, [])
 
   useEffect(() => {
