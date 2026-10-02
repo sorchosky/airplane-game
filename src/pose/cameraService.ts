@@ -65,6 +65,47 @@ export function getVideo(): HTMLVideoElement {
   return video
 }
 
+/** Mounted preview containers, oldest first. The video lives in the last one. */
+const previewHosts: HTMLElement[] = []
+
+function showVideoIn(el: HTMLVideoElement, host: HTMLElement): void {
+  el.style.position = 'absolute'
+  el.style.inset = '0'
+  el.style.width = '100%'
+  el.style.height = '100%'
+  el.style.objectFit = 'cover'
+  el.style.opacity = '1'
+  el.style.pointerEvents = 'none'
+  el.style.transform = 'scaleX(-1)'
+  // Before the overlay canvas, so the orientation line paints on top of the video.
+  host.prepend(el)
+}
+
+/**
+ * Shows the shared video in `host` until the returned release runs. Previews overlap while a
+ * screen plays its exit (#197): the newest claim holds the video, and a release hands it to the
+ * newest host still claiming, or back off-screen when none is, whatever order they unmount in.
+ */
+export function claimVideo(host: HTMLElement): () => void {
+  const el = getVideo()
+  previewHosts.push(host)
+  showVideoIn(el, host)
+  return () => {
+    const index = previewHosts.lastIndexOf(host)
+    if (index === -1) return
+    previewHosts.splice(index, 1)
+    if (index !== previewHosts.length) return
+    const next = previewHosts.at(-1)
+    if (next) {
+      showVideoIn(el, next)
+      return
+    }
+    hideVideo(el)
+    el.style.visibility = 'visible'
+    document.body.appendChild(el)
+  }
+}
+
 const CONSTRAINTS: MediaStreamConstraints = {
   video: {
     facingMode: 'user',

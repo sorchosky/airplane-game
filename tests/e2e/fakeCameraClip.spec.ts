@@ -74,6 +74,12 @@ test('a real clip calibrates and reaches flying', async ({ page }) => {
   test.setTimeout(240_000)
   await page.goto('/?input=pose&debug&fx=low')
   await page.getByRole('button', { name: 'Start' }).click()
+  // A first run practices wings, with the live feed in the corner preview throughout (#197).
+  await expect(page.getByTestId('wings-prompt')).toBeVisible({ timeout: 200_000 })
+  const video = page.getByTestId('camera-preview').locator('video')
+  await expect(video).toBeVisible()
+  expect(await video.evaluate((el: HTMLVideoElement) => el.readyState)).toBeGreaterThanOrEqual(2)
+  await page.screenshot({ path: 'test-results/197-wings-preview-live.png' })
   await expect
     .poll(async () => page.evaluate(() => window.__driftwing?.snapshot().game), {
       timeout: 200_000,
