@@ -63,7 +63,7 @@ export function PoseDebug({ reserveTouchPause = false }: { reserveTouchPause?: b
           padding: space.sm,
           background: color.surfaceHud,
           color: color.textPrimary,
-          fontSize: type.tvCaption,
+          fontSize: type.debugCaption,
           fontFamily: 'monospace',
           borderRadius: space.xs,
           pointerEvents: 'none',
@@ -114,7 +114,7 @@ function RecordButton() {
         borderRadius: space.xs,
         background: recording ? color.controlActive : color.surfaceHud,
         color: color.textPrimary,
-        fontSize: type.tvCaption,
+        fontSize: type.debugCaption,
         cursor: 'pointer',
       }}
     >

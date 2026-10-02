@@ -9,6 +9,7 @@ import { FlightVfx } from '../flight/FlightVfx'
 import { useFlightStore } from '../flight/flightStore'
 import { PostFX } from '../render/PostFX'
 import { QualityGovernor } from '../render/QualityGovernor'
+import { useQualityStore } from '../render/qualityStore'
 import { CloudVeil } from '../ui/CloudVeil'
 import { Atmosphere } from '../world/Atmosphere'
 import { Foliage } from '../world/Foliage'
@@ -19,6 +20,7 @@ import { Water } from '../world/Water'
 import { surfaceHeightAt } from '../world/heightfield'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import { AttractFrames } from './AttractFrames'
+import { CastFrameLoop } from './CastFrameLoop'
 import { useFrontDoorLookStore } from './frontDoorLookStore'
 import { useGameStore } from './gameStore'
 import type { SceneMode } from './sceneMode'
@@ -42,6 +44,11 @@ interface FlightSceneProps {
 export function FlightScene({ mode, covered = false }: FlightSceneProps) {
   const shot = useMemo(() => activeShot(), [])
   const attract = mode === 'attract'
+  // The governor owns the pixel ratio. R3F re-applies the Canvas `dpr` prop on every render, so
+  // passing a fixed range here would undo the governor's step whenever this component re-rendered.
+  const dpr = useQualityStore((s) => s.dpr)
+  // Capped at 30 fps for the screen mirror (#27): by `?cast`, or when the governor can't hold 60.
+  const capFps = useQualityStore((s) => s.capFps)
   // The title flyby (#157) flies the plane in attract, except under a `?shot=` for another view.
   const flyby = attract && (shot === null || shot.name === 'title')
   // `?shot=title` and reduced motion hold the loop at its named frame.
@@ -105,8 +112,8 @@ export function FlightScene({ mode, covered = false }: FlightSceneProps) {
         key={contextGeneration}
         data-context-generation={contextGeneration}
         ref={canvasRef}
-        frameloop={attract ? 'demand' : 'always'}
-        dpr={[1, TERRAIN_CONFIG.maxPixelRatio]}
+        frameloop={attract ? 'demand' : capFps ? 'never' : 'always'}
+        dpr={dpr}
         style={{ width: '100%', height: '100%', display: 'block' }}
       >
         <Atmosphere />
@@ -119,6 +126,7 @@ export function FlightScene({ mode, covered = false }: FlightSceneProps) {
         <Water />
         <Landmarks />
         <PerfProbe />
+        {capFps && !attract && <CastFrameLoop fps={capFps} />}
         <QualityGovernor paused={attract} />
         <PostFX />
         <WorldWatcher />

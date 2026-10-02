@@ -22,3 +22,33 @@ test('?fx= pins the tier and keeps the governor off', async ({ page }) => {
   await expect(hud).toContainText('high')
   await expect(hud).toContainText('rung pinned by ?fx')
 })
+
+// Cast mode (#27): `?cast` draws at 30 fps at most, so the screen mirror's encoder has headroom.
+test('?cast keeps rendering and never exceeds 30 fps', async ({ page }) => {
+  test.setTimeout(60_000)
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  await page.goto('/?input=keyboard&debug&cast&fx=low')
+  await page.getByRole('button', { name: 'Start' }).click()
+  const hud = page.getByTestId('perf-hud')
+  await expect(hud).toContainText(/\b[1-9]\d* fps/, { timeout: 30_000 })
+  await page.waitForTimeout(4000)
+  const fps = Number((await hud.textContent())?.match(/(\d+) fps/)?.[1])
+  // Software GL under parallel workers can stall for a second, so only the ceiling is asserted.
+  expect(fps).toBeLessThanOrEqual(31)
+  expect(errors).toEqual([])
+})
+
+// The governor adds the 30 fps cap as a rung when the phone can't hold 60 (#27), and keeps it.
+test('an impossible budget reaches the 30 fps cap rung, and drawing stays at or under 30 fps', async ({
+  page,
+}) => {
+  test.setTimeout(120_000)
+  await page.goto('/?input=keyboard&debug&budget=1')
+  await page.getByRole('button', { name: 'Start' }).click()
+  const hud = page.getByTestId('perf-hud')
+  await expect(hud).toContainText(/cap 30/, { timeout: 90_000 })
+  await page.waitForTimeout(5000)
+  const fps = Number((await hud.textContent())?.match(/(\d+) fps/)?.[1])
+  expect(fps).toBeLessThanOrEqual(31)
+})

@@ -179,6 +179,13 @@ Budgets and timing:
   pin it.
 - Pose detection steps 20 → 15 → 12 Hz when inference stays over 40 ms for
   2 s, and recovers after 10 s under 25 ms (`src/pose/detectionRate.ts`).
+- The ladder has a 30 fps cap rung after the post tier and before foliage. Nothing in the browser
+  reports screen mirroring, so the governor caps when the phone can't hold 60. Once it has gone
+  down to the cap it never climbs above it (flipping between 60 and 30 mid-flight is visible and
+  could restart a frozen mirror). Capped rungs are judged against a 40 ms p95 and climb under
+  34.4 ms, since capped frames arrive every 33.3 ms. `?cast` starts at the cap.
+- The Canvas pixel ratio is the governor's, read from `qualityStore`. A fixed `dpr` prop is
+  re-applied by R3F on every render and silently undoes the governor's step.
 - The `?debug` HUD shows the rung, the last change and the view distance on
   screen.
 

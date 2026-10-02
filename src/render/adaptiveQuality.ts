@@ -11,6 +11,8 @@ export interface QualitySettings {
   /** Renderer pixel ratio. */
   dpr: number
   tier: QualityTier
+  /** Frames per second drawing is capped at (the screen mirror needs headroom), or null for none. */
+  capFps: number | null
   /** 0..1, share of foliage instances drawn (read by the foliage slice, A3). */
   foliageDensity: number
   /** m, how far terrain is built; the far haze closes in with it. */
@@ -21,11 +23,23 @@ export interface QualitySettings {
 export const DPR_STEPS = [1.5, 1.25, 1, 0.75] as const
 export const TIER_STEPS: readonly QualityTier[] = ['high', 'medium', 'low']
 export const FOLIAGE_STEPS = [1, 0.6, 0.3] as const
+/**
+ * `?cast` starts at the cap instead of waiting for the governor to find it (#27). The governor
+ * caps on its own when the phone can't hold 60 fps, since nothing in the browser reports screen
+ * mirroring. `?cast=0` is the same as leaving it off.
+ */
+export function isCastMode(search: string = window.location.search): boolean {
+  const value = new URLSearchParams(search).get('cast')
+  return value !== null && value !== '0' && value !== 'false'
+}
+
+/** The capped rate (#27), for `?cast` and for the governor's cap rung. */
+export const CAST_FPS = 30
 export const VIEW_DISTANCE_STEPS = [10_000, 7000] as const
 
 /**
  * Every rung from `start` down, one change per rung, in the issue's order: pixel ratio, then post
- * tier, then foliage, then view distance. Steps that wouldn't change anything are skipped: a phone
+ * tier, then the 30 fps cap, then foliage, then view distance. Steps that wouldn't change anything are skipped: a phone
  * that starts on `medium` never has a `high` rung, and a pixel ratio above what the screen has
  * (`deviceDpr`) is the same frame as the screen's own, so it isn't a separate rung.
  */
@@ -46,6 +60,7 @@ export function buildLadder(start: QualitySettings, deviceDpr: number): QualityS
   for (const tier of TIER_STEPS) {
     if (TIER_STEPS.indexOf(tier) > TIER_STEPS.indexOf(current.tier)) push({ tier })
   }
+  if (current.capFps === null) push({ capFps: CAST_FPS })
   for (const foliageDensity of FOLIAGE_STEPS) {
     if (foliageDensity < current.foliageDensity) push({ foliageDensity })
   }
@@ -63,6 +78,7 @@ export function describeRung(ladder: readonly QualitySettings[], rung: number): 
   if (!above) return 'top'
   if (here.dpr !== above.dpr) return `dpr ${here.dpr}`
   if (here.tier !== above.tier) return `post ${here.tier}`
+  if (here.capFps !== above.capFps) return `cap ${here.capFps} fps`
   if (here.foliageDensity !== above.foliageDensity) {
     return `foliage ${Math.round(here.foliageDensity * 100)}%`
   }
@@ -96,11 +112,35 @@ export const DEFAULT_GOVERNOR_PARAMS: GovernorParams = {
   failWindowMs: 15_000,
 }
 
+/**
+ * The capped rungs (#27). Frames arrive every 33.3 ms by design, so the p95 of a healthy phone sits at
+ * about 34 ms. The budget allows one missed frame in twenty (40 ms) and climbing needs under
+ * 34.4 ms, so the governor still steps down when the phone can't hold 30 and back up when it can.
+ */
+export const CAST_GOVERNOR_PARAMS: GovernorParams = {
+  ...DEFAULT_GOVERNOR_PARAMS,
+  budgetMs: 40,
+  upBelow: 0.86,
+}
+
+/** `?budget=` wins, then the 30 fps budget for a capped rung, then the 60 fps default. */
+export function governorParams(search: string, capped: boolean): GovernorParams {
+  const budgetMs = getBudgetFlag(search)
+  const base = capped ? CAST_GOVERNOR_PARAMS : DEFAULT_GOVERNOR_PARAMS
+  return budgetMs ? { ...base, budgetMs } : base
+}
+
 export type GovernorChange = 'down' | 'up'
 
 export interface GovernorState {
   /** Index into the ladder; 0 is the best-looking rung. */
   rung: number
+  /**
+   * The best rung the governor may climb back to. It moves to the cap rung once the cap has been
+   * applied and stays there: flipping between 60 and 30 fps mid-flight is visible, and it could
+   * restart a frozen screen mirror.
+   */
+  minRung: number
   overSinceMs: number | null
   underSinceMs: number | null
   lastChange: GovernorChange | null
@@ -118,6 +158,7 @@ export function createGovernorState(
 ): GovernorState {
   return {
     rung,
+    minRung: 0,
     overSinceMs: null,
     underSinceMs: null,
     lastChange: null,
@@ -142,13 +183,16 @@ export interface GovernorStepResult {
 
 /**
  * Feeds one p95 sample (a few per second). Returns the same `state` object when nothing changed.
- * `rungCount` is the ladder length.
+ * `rungCount` is the ladder length, and `capRung` the index of the rung that adds the fps cap
+ * (-1 when the ladder has none). Once the governor has gone down to the cap rung it won't climb
+ * above it.
  */
 export function stepGovernor(
   state: GovernorState,
   sample: GovernorSample,
   rungCount: number,
   params: GovernorParams = DEFAULT_GOVERNOR_PARAMS,
+  capRung = -1,
 ): GovernorStepResult {
   const { p95Ms, nowMs } = sample
   const over = p95Ms > params.budgetMs
@@ -168,6 +212,7 @@ export function stepGovernor(
       state: {
         ...state,
         rung: state.rung + 1,
+        minRung: capRung >= 0 && state.rung + 1 >= capRung ? capRung : state.minRung,
         overSinceMs: null,
         underSinceMs: null,
         lastChange: 'down',
@@ -181,7 +226,12 @@ export function stepGovernor(
 
   const target = state.rung - 1
   const blocked = target === state.blockedRung && nowMs < state.blockedUntilMs
-  if (under && !blocked && target >= 0 && nowMs - (underSinceMs ?? nowMs) >= params.upAfterMs) {
+  if (
+    under &&
+    !blocked &&
+    target >= state.minRung &&
+    nowMs - (underSinceMs ?? nowMs) >= params.upAfterMs
+  ) {
     return {
       change: 'up',
       state: {
@@ -205,4 +255,9 @@ export function stepGovernor(
 export function getBudgetFlag(search: string): number | null {
   const value = Number(new URLSearchParams(search).get('budget'))
   return Number.isFinite(value) && value > 0 ? value : null
+}
+
+/** Index of the rung that first caps the frame rate, or -1 when the ladder has none. */
+export function capRungIndex(ladder: readonly QualitySettings[]): number {
+  return ladder.findIndex((settings, i) => i > 0 && settings.capFps !== ladder[i - 1]?.capFps)
 }

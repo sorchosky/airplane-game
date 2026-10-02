@@ -141,6 +141,8 @@ export const type = {
   tvTitle: 'clamp(1.75rem, 3vw, 2.5rem)',
   tvBody: 'clamp(1.5rem, 2vw, 1.875rem)',
   tvCaption: 'clamp(1.125rem, 1.5vw, 1.375rem)',
+  // `?debug` readouts only. They sit over a phone-sized canvas, so they are not TV text.
+  debugCaption: 'clamp(0.625rem, 1.1vw, 0.875rem)',
 } as const
 
 // Toon shading ramp: N-dot-L thresholds that split lighting into flat bands
