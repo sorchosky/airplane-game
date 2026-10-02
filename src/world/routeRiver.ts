@@ -65,20 +65,22 @@ export function applyRouteRiver(height: number, hit: ValleyHit, config: TerrainC
   return mix(height, bed, across * smoothstep(0, DITCH_FADE, taper))
 }
 
+/** 1 over the floor and walls to the shoulder, easing to 0 at the valley's outer edge. */
+function corridor(lateral: number, valleyWidth: number, valley: RouteValleyConfig): number {
+  const halfFloor = valleyWidth / 2
+  const shoulder = halfFloor + valley.flankWidth * valley.wallShare
+  return 1 - smoothstep(shoulder, halfFloor + valley.flankWidth, Math.abs(lateral))
+}
+
 /**
  * 0..1, how far the noise rivers are held back at the hit: fully across the floor and up the walls
  * to the shoulder, easing to nothing at the valley's outer edge, and only as far as the valley
  * itself applies. Inside a tight bend the other stretch counts as far as the valley blends it in.
  */
 export function noiseRiverSuppression(hit: ValleyHit, valley: RouteValleyConfig): number {
-  const corridor = (lateral: number, valleyWidth: number): number => {
-    const halfFloor = valleyWidth / 2
-    const shoulder = halfFloor + valley.flankWidth * valley.wallShare
-    return 1 - smoothstep(shoulder, halfFloor + valley.flankWidth, Math.abs(lateral))
-  }
-  const own = hit.weight * corridor(hit.nearest.lateral, hit.nearest.valleyWidth)
+  const own = hit.weight * corridor(hit.nearest.lateral, hit.nearest.valleyWidth, valley)
   if (!hit.rival || hit.rivalPull <= 0) return own
-  const rival = hit.rivalWeight * corridor(hit.rival.lateral, hit.rival.valleyWidth)
+  const rival = hit.rivalWeight * corridor(hit.rival.lateral, hit.rival.valleyWidth, valley)
   return Math.max(own, rival * hit.rivalPull)
 }
 
