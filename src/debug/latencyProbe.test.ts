@@ -29,6 +29,23 @@ describe('LatencyProbe', () => {
     expect(s.p50.total).toBe(123)
   })
 
+  it("keeps the posted frame's capture stamp when a worker result lands after newer frames", () => {
+    const probe = new LatencyProbe()
+    probe.markCameraFrame(1000, 1040, true)
+    const posted = probe.cameraFrameMs
+    // Two more camera frames arrive while the worker is busy.
+    probe.markCameraFrame(1033, 1073, true)
+    probe.markCameraFrame(1066, 1106, true)
+    probe.markDetect(1045, 1110, posted)
+    probe.markInput(0.5, 1112)
+    probe.markFrame(deg(1), 1130)
+
+    const s = probe.summarize(createLatencySummary())
+    expect(s.p50.wait).toBe(45)
+    expect(s.p50.infer).toBe(65)
+    expect(s.p50.total).toBe(130)
+  })
+
   it('falls back to the callback time when the camera has no capture stamp', () => {
     const probe = new LatencyProbe()
     probe.markCameraFrame(Number.NaN, 2000, false)
