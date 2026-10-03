@@ -1,13 +1,11 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import { create } from 'zustand'
 import {
   Color,
   IcosahedronGeometry,
   InstancedMesh,
   MeshBasicMaterial,
   Object3D,
-  Quaternion,
   TorusGeometry,
   Vector3,
 } from 'three'
@@ -15,41 +13,35 @@ import { playWhoosh } from '../audio/audioEngine'
 import { useFlightStore } from '../flight/flightStore'
 import { color, space, type } from '../styles/tokens'
 import { useCloudStore } from './cloudStore'
+import { useGoldenPathStore } from './goldenPathStore'
 import {
   GOLDEN_PATH,
+  advanceProgress,
   applyRingSpeedGain,
   createGoldenPathRoute,
-  segmentHitsSphere,
+  initialProgress,
+  stationsPassed,
+  type LoopProgress,
   type PathPoint,
 } from './goldenPath'
-import { getLandmarks, insideTrigger } from './landmarks'
 
-interface GoldenPathUiState {
-  reveal: number
-  setReveal: (time: number) => void
-}
-
-const useGoldenPathUi = create<GoldenPathUiState>((set) => ({
-  reveal: 0,
-  setReveal: (reveal) => set({ reveal }),
-}))
-
+const PUFFS_PER_RING = 8
 const dummy = new Object3D()
 const forward = new Vector3(0, 0, 1)
 const direction = new Vector3()
+const lit = new Color(color.textPrimary)
+const passedColor = new Color(color.controlInactive)
 
-/** Wind rings and a denser cloud bank composing the optional first flight. */
+/** Wind rings and the cloud gate along the loop, completing a lap at the return notch. */
 export function GoldenPath({ paused }: { paused: boolean }) {
   const ringsRef = useRef<InstancedMesh>(null)
   const puffsRef = useRef<InstancedMesh>(null)
-  const start = useMemo(() => useFlightStore.getState().state.position.clone(), [])
-  const arch = useMemo(() => getLandmarks().find((landmark) => landmark.kind === 'arch'), [])
-  const route = useMemo(() => (arch ? createGoldenPathRoute(start, arch) : null), [arch, start])
-  const hit = useRef([false, false, false])
-  const puffStarted = useRef([-1, -1, -1])
+  const route = useMemo(() => createGoldenPathRoute(), [])
+  const ringCount = route.rings.length
+  const puffStarted = useRef(new Array<number>(ringCount).fill(-1))
   const cloudBurst = useRef(false)
-  const archPassed = useRef(false)
-  const previous = useRef<PathPoint>({ x: start.x, y: start.y, z: start.z })
+  const previous = useRef<PathPoint | null>(null)
+  const shownProgress = useRef<LoopProgress | null>(null)
 
   const ringGeometry = useMemo(() => new TorusGeometry(GOLDEN_PATH.ringRadius, 0.7, 8, 48), [])
   const puffGeometry = useMemo(() => new IcosahedronGeometry(1, 0), [])
@@ -74,16 +66,19 @@ export function GoldenPath({ paused }: { paused: boolean }) {
   )
 
   useEffect(() => {
-    if (!route || !ringsRef.current) return
-    route.rings.forEach((ring, i) => {
-      const next = route.rings[i + 1] ?? route.cloud
-      direction.set(next.x - ring.x, next.y - ring.y, next.z - ring.z).normalize()
-      dummy.position.set(ring.x, ring.y, ring.z)
-      dummy.quaternion.copy(new Quaternion().setFromUnitVectors(forward, direction))
+    useGoldenPathStore.setState({ progress: initialProgress(route.gates.length), reveal: 0 })
+    const rings = ringsRef.current
+    if (!rings) return
+    route.rings.forEach((gateIndex, i) => {
+      const gate = route.gates[gateIndex]
+      if (!gate) return
+      direction.set(gate.normal.x, 0, gate.normal.z)
+      dummy.position.set(gate.position.x, gate.position.y, gate.position.z)
+      dummy.quaternion.setFromUnitVectors(forward, direction)
       dummy.updateMatrix()
-      ringsRef.current?.setMatrixAt(i, dummy.matrix)
+      rings.setMatrixAt(i, dummy.matrix)
     })
-    ringsRef.current.instanceMatrix.needsUpdate = true
+    rings.instanceMatrix.needsUpdate = true
   }, [route])
 
   useEffect(
@@ -92,58 +87,66 @@ export function GoldenPath({ paused }: { paused: boolean }) {
       puffGeometry.dispose()
       ringMaterial.dispose()
       puffMaterial.dispose()
-      useGoldenPathUi.getState().setReveal(0)
+      useGoldenPathStore.setState({ progress: initialProgress(0), reveal: 0 })
     },
     [puffGeometry, puffMaterial, ringGeometry, ringMaterial],
   )
 
   useFrame(({ clock, camera }) => {
-    if (!route || paused) return
+    if (paused) {
+      // Resume from where the plane is, not from where it was paused or parked.
+      previous.current = null
+      return
+    }
     const { state, params } = useFlightStore.getState()
     const now = clock.elapsedTime
     const current = state.position
+    const from = previous.current ?? { x: current.x, y: current.y, z: current.z }
 
-    route.rings.forEach((ring, i) => {
-      if (
-        !hit.current[i] &&
-        segmentHitsSphere(previous.current, current, ring, GOLDEN_PATH.ringRadius)
-      ) {
-        hit.current[i] = true
-        puffStarted.current[i] = now
+    const crossed = stationsPassed(route.gates, from, current)
+    if (crossed.length > 0) {
+      const store = useGoldenPathStore.getState()
+      const step = advanceProgress(store.progress, crossed)
+      for (const gateIndex of step.newlyPassed) {
+        const ring = route.rings.indexOf(gateIndex)
+        if (ring < 0) continue
+        puffStarted.current[ring] = now
         applyRingSpeedGain(state, params.maxSpeed)
         playWhoosh('ring')
       }
-    })
-
-    const cloudDistance = Math.hypot(
-      current.x - route.cloud.x,
-      current.y - route.cloud.y,
-      current.z - route.cloud.z,
-    )
-    if (!cloudBurst.current && cloudDistance < GOLDEN_PATH.cloudRadius) {
-      cloudBurst.current = true
-      const cloud = useCloudStore.getState()
-      useCloudStore.setState({ inside: true, bursts: cloud.bursts + 1 })
-    } else if (
-      cloudBurst.current &&
-      useCloudStore.getState().inside &&
-      cloudDistance > GOLDEN_PATH.cloudRadius
-    ) {
-      useCloudStore.setState({ inside: false })
+      if (step.lapCompleted) playWhoosh('ring')
+      if (step.progress !== store.progress || step.lapCompleted) {
+        useGoldenPathStore.setState({
+          progress: step.progress,
+          reveal: step.lapCompleted ? performance.now() : store.reveal,
+        })
+      }
     }
 
-    if (
-      !archPassed.current &&
-      insideTrigger(route.arch.trigger, [current.x, current.y, current.z])
-    ) {
-      archPassed.current = true
-      useGoldenPathUi.getState().setReveal(performance.now())
+    const cloud = route.gates[route.cloud]?.position
+    if (cloud) {
+      const cloudDistance = Math.hypot(
+        current.x - cloud.x,
+        current.y - cloud.y,
+        current.z - cloud.z,
+      )
+      if (!cloudBurst.current && cloudDistance < GOLDEN_PATH.cloudRadius) {
+        cloudBurst.current = true
+        const clouds = useCloudStore.getState()
+        useCloudStore.setState({ inside: true, bursts: clouds.bursts + 1 })
+      } else if (cloudBurst.current && cloudDistance > GOLDEN_PATH.cloudRadius) {
+        // Rearmed on the way out, so the cloud bursts again on the next lap.
+        cloudBurst.current = false
+        if (useCloudStore.getState().inside) useCloudStore.setState({ inside: false })
+      }
     }
 
     const rings = ringsRef.current
-    if (rings) {
-      route.rings.forEach((_ring, i) =>
-        rings.setColorAt(i, new Color(hit.current[i] ? color.controlInactive : color.textPrimary)),
+    const { progress } = useGoldenPathStore.getState()
+    if (rings && progress !== shownProgress.current) {
+      shownProgress.current = progress
+      route.rings.forEach((gateIndex, i) =>
+        rings.setColorAt(i, progress.passed[gateIndex] ? passedColor : lit),
       )
       if (rings.instanceColor) rings.instanceColor.needsUpdate = true
     }
@@ -151,19 +154,26 @@ export function GoldenPath({ paused }: { paused: boolean }) {
     const puffs = puffsRef.current
     if (puffs) {
       let index = 0
-      route.rings.forEach((ring, ringIndex) => {
+      route.rings.forEach((gateIndex, ringIndex) => {
+        const gate = route.gates[gateIndex]
         const age = now - (puffStarted.current[ringIndex] ?? -1)
-        for (let i = 0; i < 8; i += 1) {
-          const visible = age >= 0 && age < 1.2
-          const angle = (i / 8) * Math.PI * 2
-          const spread = visible ? 16 + age * 18 : 0
-          dummy.position.set(
-            ring.x + Math.cos(angle) * spread,
-            ring.y + Math.sin(angle) * spread,
-            ring.z,
-          )
-          dummy.quaternion.copy(camera.quaternion)
-          dummy.scale.setScalar(visible ? Math.max(0.01, 3 * (1 - age / 1.2)) : 0)
+        const visible = age >= 0 && age < 1.2
+        for (let i = 0; i < PUFFS_PER_RING; i += 1) {
+          if (gate && visible) {
+            // Burst outward in the ring's own plane.
+            const angle = (i / PUFFS_PER_RING) * Math.PI * 2
+            const spread = 16 + age * 18
+            const across = Math.cos(angle) * spread
+            dummy.position.set(
+              gate.position.x - gate.normal.z * across,
+              gate.position.y + Math.sin(angle) * spread,
+              gate.position.z + gate.normal.x * across,
+            )
+            dummy.quaternion.copy(camera.quaternion)
+            dummy.scale.setScalar(Math.max(0.01, 3 * (1 - age / 1.2)))
+          } else {
+            dummy.scale.setScalar(0)
+          }
           dummy.updateMatrix()
           puffs.setMatrixAt(index++, dummy.matrix)
         }
@@ -174,18 +184,21 @@ export function GoldenPath({ paused }: { paused: boolean }) {
     previous.current = { x: current.x, y: current.y, z: current.z }
   })
 
-  if (!route) return null
   return (
     <>
-      <instancedMesh ref={ringsRef} args={[ringGeometry, ringMaterial, 3]} />
-      <instancedMesh ref={puffsRef} args={[puffGeometry, puffMaterial, 24]} frustumCulled={false} />
+      <instancedMesh ref={ringsRef} args={[ringGeometry, ringMaterial, ringCount]} />
+      <instancedMesh
+        ref={puffsRef}
+        args={[puffGeometry, puffMaterial, ringCount * PUFFS_PER_RING]}
+        frustumCulled={false}
+      />
     </>
   )
 }
 
-/** The arch payoff. It is informational only and fades back to unrestricted flight. */
+/** The lap payoff. It is informational only and fades back to unrestricted flight. */
 export function GoldenPathTitle() {
-  const reveal = useGoldenPathUi((state) => state.reveal)
+  const reveal = useGoldenPathStore((state) => state.reveal)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {

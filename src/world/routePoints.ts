@@ -46,3 +46,38 @@ export const LANDMARK_STATIONS: readonly LandmarkStation[] = [
   { kind: 'arch', s: 11650, lateral: 0 },
   { kind: 'ruins', s: 13300, lateral: -200 },
 ]
+
+/** One gate of the golden path (#175) along the loop. */
+export interface GateStation {
+  /** `ring`: a wind ring. `cloud`: the cumulus gate (#163). `notch`: the return notch, the lap line. */
+  readonly kind: 'ring' | 'cloud' | 'notch'
+  /** m of route from spawn */
+  readonly s: number
+}
+
+/**
+ * The golden path's gates, in route order. Rings sit about 750 m apart, so the next one is in
+ * view from the current one, and keep clear of the tower, the tree and the arch, which frame
+ * their own beats. The cloud gate takes the high east bend's descent toward the river. The notch
+ * station is the return notch's route point (`TERRAIN_CONFIG.basin.notches[1]`), and is last.
+ */
+export const GATE_STATIONS: readonly GateStation[] = [
+  { kind: 'ring', s: 400 },
+  { kind: 'ring', s: 1150 },
+  { kind: 'ring', s: 1850 },
+  { kind: 'ring', s: 2650 },
+  { kind: 'ring', s: 3400 },
+  { kind: 'ring', s: 4150 },
+  { kind: 'cloud', s: 4900 },
+  { kind: 'ring', s: 5650 },
+  { kind: 'ring', s: 6400 },
+  { kind: 'ring', s: 7150 },
+  { kind: 'ring', s: 7900 },
+  { kind: 'ring', s: 8650 },
+  { kind: 'ring', s: 9300 },
+  { kind: 'ring', s: 10050 },
+  { kind: 'ring', s: 10800 },
+  { kind: 'ring', s: 11400 },
+  { kind: 'ring', s: 11950 },
+  { kind: 'notch', s: 12750 },
+]

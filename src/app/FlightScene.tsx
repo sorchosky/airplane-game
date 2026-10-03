@@ -120,7 +120,8 @@ export function FlightScene({ mode, covered = false }: FlightSceneProps) {
         {flyby ? <TitleCamera frozen={frozen} /> : <ChaseCamera shot={parked} />}
         <Plane paused={paused || parked !== null} scripted={flyby} frozen={frozen} />
         <FlightVfx paused={paused || parked !== null || flyby} />
-        {parked === null && spawned && <GoldenPath paused={paused} />}
+        {/* Parked at a bookmark, the gates show for the shot but count nothing. */}
+        {(spawned || parked !== null) && <GoldenPath paused={paused || parked !== null} />}
         <Terrain />
         <Foliage />
         <Water />
