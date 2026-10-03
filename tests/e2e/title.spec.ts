@@ -14,14 +14,19 @@ test('title screen shows Start then control selection and camera calibration', a
 test('desktop select offers mouse and keyboard fallback, then shows the menu after quitting', async ({
   page,
 }) => {
+  // The flight scene and the pause scrim run at 300 to 550 ms a frame on a software-GL runner,
+  // and each click waits several frames for the target to settle: ~25 s end to end (#216).
+  test.setTimeout(60_000)
   await page.goto('/?debug')
   await page.getByRole('button', { name: 'Start' }).click()
   await expect(page.getByRole('button', { name: /Mouse/ })).toBeVisible()
   await expect(page.getByRole('button', { name: /Touch/ })).toHaveCount(0)
   await page.screenshot({ path: 'test-results/control-select-desktop.png' })
   await page.getByRole('button', { name: /Mouse/ }).click()
-  await expect(page.locator('[data-testid="world"] canvas[data-engine]')).toBeVisible()
+  // The world canvas is already up behind the title, so wait for the flight beat itself.
+  await expect(page.locator('[data-beat]')).toHaveAttribute('data-beat', 'flight')
   await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Paused' })).toBeVisible()
   await page.getByRole('button', { name: 'Quit to title' }).click()
   await page.getByRole('button', { name: 'Start' }).click()
   await expect(page.getByTestId('control-select')).toBeVisible()
