@@ -132,7 +132,8 @@ describe('route', () => {
       if (Math.abs(exact.lateral) > 640.001) expect(bounded).toBeNull()
       else if (Math.abs(exact.lateral) < 639.999) expect(bounded).toEqual(exact)
     }
-    expect(ROUTE.nearest(-20_000, 0, 640)).toBeNull()
+    // Half a wrap period (#176) out from the loop is as far from every copy of it as anywhere gets.
+    expect(ROUTE.nearest(1750 + 12_000, 2000 + 12_000, 640)).toBeNull()
   })
 
   it('finds the other stretch inside the tight west bend, and none on an open stretch', () => {

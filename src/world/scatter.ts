@@ -1,8 +1,16 @@
-import { createNoise2D, type NoiseFunction2D } from 'simplex-noise'
+import { createNoise4D, type NoiseFunction4D } from 'simplex-noise'
 import { chunkCoord, chunkKey } from './chunks'
 import { hashString, heightAt, mulberry32 } from './heightfield'
 import { smoothstep, terrainBandWeights } from './terrainColor'
 import type { TerrainConfig } from './terrainConfig'
+import {
+  sampleTorus,
+  torusPoint,
+  torusRadius,
+  wrapIndex,
+  wrapNear,
+  type TorusPoint,
+} from './torusNoise'
 
 // Pure, deterministic foliage placement (#75). No React or Three, so it is unit tested and could
 // move into a worker unchanged.
@@ -11,8 +19,9 @@ import type { TerrainConfig } from './terrainConfig'
 // - The world is cut into the terrain's 512 m chunks. Each chunk is a grid of cells, and each cell
 //   gets one candidate spot, jittered inside the cell. Jittering a grid is a cheap stand-in for
 //   Poisson-disc sampling: spots look random but are never bunched on top of each other.
-// - Each chunk's random numbers come from a generator seeded by the world seed and the chunk key,
-//   so a chunk always grows the same trees, whichever order chunks load in.
+// - Each cell's random numbers come from a generator seeded by the world seed and the cell's index,
+//   wrapped to the world period (#176), so a cell always grows the same trees, whichever order
+//   chunks load in, and the cell one period over grows the very same ones.
 // - A slow "grove" noise clusters trees into woods on the grass band. The ground under a candidate
 //   decides what may grow: trees and bushes on grass (conifers on high ground), boulders on rock,
 //   nothing on sand, snow or under water.
@@ -181,27 +190,51 @@ export function growth(share: number, keep: number): number {
 // ---------------------------------------------------------------------------------------------
 // Scatter
 
-const groveNoise = new Map<string, NoiseFunction2D>()
+const groveNoise = new Map<string, NoiseFunction4D>()
+const grovePoint: TorusPoint = { cx: 1, sx: 0, cz: 1, sz: 0 }
 
-/** Grove noise, 0..1: high inside woods, low in open meadow. */
+/** Grove noise, 0..1: high inside woods, low in open meadow. Repeats every `worldPeriod`. */
 export function groveAt(x: number, z: number, config: TerrainConfig): number {
   let noise = groveNoise.get(config.seed)
   if (!noise) {
-    noise = createNoise2D(mulberry32(hashString(`${config.seed}:groves`)))
+    // Draw 3 of the grove field: of the first eight draws on the torus it is the one whose woods
+    // by the spawn match the 2D field's (117k foliage triangles there, 30.8 % of the world in
+    // woods), where the first draw put the basin in a wood 25 % over the triangle budget (#176).
+    noise = createNoise4D(mulberry32(hashString(`${config.seed}:groves:3`)))
     groveNoise.set(config.seed, noise)
   }
-  const s = config.foliage.groveScale
-  const n = 0.7 * noise(x / s, z / s) + 0.3 * noise((x * 2.3) / s + 17, (z * 2.3) / s - 5)
+  const period = config.worldPeriod
+  const p = torusPoint(x, z, period, grovePoint)
+  const radius = torusRadius(config.foliage.groveScale, period)
+  // The second layer is 2.3 times finer and offset, as the 2D noise's `* 2.3 + 17` was.
+  const n = 0.7 * sampleTorus(noise, p, radius) + 0.3 * sampleTorus(noise, p, radius * 2.3, 17)
   return 0.5 + 0.5 * n
 }
 
-export function isExcluded(x: number, z: number, exclusions: readonly FoliageExclusion[]): boolean {
+/**
+ * Whether (x, z) is inside any exclusion. With a `period`, distances are the wrapped
+ * (minimum-image) ones, so a zone also clears its copies one period over.
+ */
+export function isExcluded(
+  x: number,
+  z: number,
+  exclusions: readonly FoliageExclusion[],
+  period = Infinity,
+): boolean {
+  const wrap = Number.isFinite(period)
   for (const zone of exclusions) {
-    const dx = x - zone.x
-    const dz = z - zone.z
+    const dx = (wrap ? wrapNear(x, zone.x, period) : x) - zone.x
+    const dz = (wrap ? wrapNear(z, zone.z, period) : z) - zone.z
     if (dx * dx + dz * dz < zone.radius * zone.radius) return true
   }
   return false
+}
+
+/** 32-bit seed for scatter cell (i, j): the world's seed mixed with the cell's wrapped index. */
+export function cellSeed(base: number, i: number, j: number): number {
+  let h = Math.imul(base ^ Math.imul(i, 0x27d4eb2d), 0x165667b1)
+  h = Math.imul(h ^ (h >>> 15) ^ Math.imul(j, 0x9e3779b1), 0x85ebca77)
+  return (h ^ (h >>> 13)) >>> 0
 }
 
 function emptyChunk(): ChunkFoliage {
@@ -225,14 +258,22 @@ export function scatterChunk(
   const minZ = cz * size
   const cells = Math.max(1, Math.round(size / f.treeCell))
   const pitch = size / cells
-  const random = mulberry32(hashString(`${config.seed}:foliage:${chunkKey(cx, cz)}`))
+  // Cells per world period: a whole number (a unit test holds this), so the scatter repeats.
+  const periodCells = Math.round(config.worldPeriod / pitch)
+  const base = hashString(`${config.seed}:foliage`)
   const ground = new GroundPatch(minX, minZ, size, config, sample)
   const out = emptyChunk()
   const maxChance = Math.max(f.treeDensity + f.bushDensity * 4, f.boulderDensity)
 
   for (let j = 0; j < cells; j++) {
     for (let i = 0; i < cells; i++) {
-      // Always draw every number, so one rejection never shifts the next cell's dice.
+      const random = mulberry32(
+        cellSeed(
+          base,
+          wrapIndex(cx * cells + i, periodCells),
+          wrapIndex(cz * cells + j, periodCells),
+        ),
+      )
       const jx = random()
       const jz = random()
       const roll = random()
@@ -245,7 +286,7 @@ export function scatterChunk(
       const margin = (1 - f.jitter) / 2
       const x = minX + (i + margin + jx * f.jitter) * pitch
       const z = minZ + (j + margin + jz * f.jitter) * pitch
-      if (isExcluded(x, z, exclusions)) continue
+      if (isExcluded(x, z, exclusions, config.worldPeriod)) continue
 
       const grove = groveAt(x, z, config)
       const treeChance = f.treeDensity * smoothstep(f.groveLow, f.groveHigh, grove)

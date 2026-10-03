@@ -237,6 +237,12 @@ export interface RouteRiverConfig {
 export interface TerrainConfig {
   /** World seed. Same seed = same world. Any string works. */
   seed: string
+  /**
+   * m, the world repeats every this far along x and along z (#176): a wrapping world with no edge.
+   * Keep it over twice `viewDistance`, so no repeat is ever in view, and a whole number of every
+   * lattice the world is built on (terrain LOD spacings, foliage cells).
+   */
+  worldPeriod: number
   /** m, peak-to-trough height of the rolling hills that cover most of the world */
   hillHeight: number
   /** m, extra height the tallest ridged mountain ranges add on top of the hills */
@@ -313,6 +319,7 @@ export interface TerrainConfig {
 
 export const TERRAIN_CONFIG: TerrainConfig = {
   seed: 'airplane-game',
+  worldPeriod: 24000,
   hillHeight: 120,
   mountainHeight: 450,
   peakHeight: 220,

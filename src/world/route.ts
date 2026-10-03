@@ -1,3 +1,5 @@
+import { wrapNear } from './torusNoise'
+
 export interface RouteControlPoint {
   readonly x: number
   readonly z: number
@@ -79,8 +81,20 @@ const SEPARATE_STRETCH = 16
 
 const mix = (a: number, b: number, t: number): number => a + (b - a) * t
 
+export interface RouteOptions {
+  /**
+   * m, the world's wrap period (#176). Queries are first moved to the copy of (x, z) nearest the
+   * route's centre, so distances to the route are the wrapped (minimum-image) ones. Leave it out
+   * for a world that doesn't wrap.
+   */
+  period?: number
+}
+
 /** Builds a closed, centripetal Catmull-Rom route with an arc-length lookup table. */
-export function createRoute(points: readonly RouteControlPoint[]): Route {
+export function createRoute(
+  points: readonly RouteControlPoint[],
+  options: RouteOptions = {},
+): Route {
   if (points.length < 4) throw new Error('A closed route needs at least four control points')
 
   const valueAt = (u: number): RoutePoint => {
@@ -397,9 +411,21 @@ export function createRoute(points: readonly RouteControlPoint[]): Route {
   // samples: [x, z, first index (-1 if none), its distance², second index, its distance²].
   const lastQuery = new Float64Array([NaN, NaN, -1, 0, 0, 0])
 
+  // Minimum image: the copy of a query nearest the middle of the route's bounding box.
+  const period = options.period ?? Infinity
+  const wraps = Number.isFinite(period)
+  const routeCenterX = minX + (columns * GRID_SIZE) / 2
+  const routeCenterZ = minZ + (rows * GRID_SIZE) / 2
+  const wrapX = (x: number): number => (wraps ? wrapNear(x, routeCenterX, period) : x)
+  const wrapZ = (z: number): number => (wraps ? wrapNear(z, routeCenterZ, period) : z)
+
   function nearest(x: number, z: number): NearestRoutePoint
   function nearest(x: number, z: number, maxDistance: number): NearestRoutePoint | null
   function nearest(x: number, z: number, maxDistance = Infinity): NearestRoutePoint | null {
+    return nearestLocal(wrapX(x), wrapZ(z), maxDistance)
+  }
+
+  function nearestLocal(x: number, z: number, maxDistance: number): NearestRoutePoint | null {
     const gx = Math.floor((x - minX) / GRID_SIZE)
     const gz = Math.floor((z - minZ) / GRID_SIZE)
     const cell = gx >= 0 && gx < columns && gz >= 0 && gz < rows ? gz * columns + gx : -1
@@ -440,6 +466,10 @@ export function createRoute(points: readonly RouteControlPoint[]): Route {
   }
 
   function rival(x: number, z: number, band: number): RivalRoutePoint | null {
+    return rivalLocal(wrapX(x), wrapZ(z), band)
+  }
+
+  function rivalLocal(x: number, z: number, band: number): RivalRoutePoint | null {
     let firstIndex: number
     let firstDistance2: number
     let secondIndex: number
@@ -554,5 +584,6 @@ export function createRoute(points: readonly RouteControlPoint[]): Route {
 }
 
 import { ROUTE_POINTS } from './routePoints'
+import { TERRAIN_CONFIG } from './terrainConfig'
 
-export const ROUTE = createRoute(ROUTE_POINTS)
+export const ROUTE = createRoute(ROUTE_POINTS, { period: TERRAIN_CONFIG.worldPeriod })
