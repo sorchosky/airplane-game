@@ -1,5 +1,6 @@
 import { useThree } from '@react-three/fiber'
 import { useEffect } from 'react'
+import { seededElapsed } from './castClock'
 import { shouldDrawFrame } from './screens/titleIntro'
 
 /**
@@ -10,6 +11,7 @@ import { shouldDrawFrame } from './screens/titleIntro'
  */
 export function CastFrameLoop({ fps }: { fps: number }) {
   const advance = useThree((s) => s.advance)
+  const clock = useThree((s) => s.clock)
 
   useEffect(() => {
     let frame = 0
@@ -18,11 +20,15 @@ export function CastFrameLoop({ fps }: { fps: number }) {
       frame = requestAnimationFrame(tick)
       if (!shouldDrawFrame(now, last, fps)) return
       last = now
-      advance(now / 1000)
+      const seconds = now / 1000
+      // `advance` measures the frame from `clock.elapsedTime`, which R3F zeroes when the cap
+      // turns on mid-flight. Seeded here, the first capped frame is a frame, not the page uptime.
+      clock.elapsedTime = seededElapsed(seconds, clock.elapsedTime)
+      advance(seconds)
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [advance, fps])
+  }, [advance, clock, fps])
 
   return null
 }

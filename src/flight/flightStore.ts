@@ -27,6 +27,14 @@ import {
 /** m above the valley floor the plane starts at */
 const SPAWN_ALTITUDE = 120
 
+/**
+ * The most simulated time one `tick` may carry, in seconds. A frame's delta can be absurd: on the
+ * frame the 30 fps cap turns on, R3F's last uncapped loop tick reports its millisecond timestamp
+ * as seconds (hours of flight). Past this, time is dropped: the plane holds course instead of
+ * jumping kilometres, and `groundHeight`, sampled once per tick, stays under the plane.
+ */
+export const MAX_TICK_DT = 0.25
+
 let spawn: Vector3 | null = null
 
 /** Over a valley near the origin. Searched once (a few ms) and cached; the seed never changes. */
@@ -163,7 +171,7 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
     const wasBoosting = state.boosting
     const boostTime = state.boostTime
     const flown = levellingOff ? autopilotInput(input, levelOffInput) : input
-    step(state, flown, dt, params, groundHeight, state)
+    step(state, flown, Math.min(Math.max(dt, 0), MAX_TICK_DT), params, groundHeight, state)
     // Flips once per hand-off, so it can go through `set`.
     if (levellingOff && levelledOff(state)) set({ levellingOff: false })
     const event = trackFloorContact(floorContact, state.floorContact)
