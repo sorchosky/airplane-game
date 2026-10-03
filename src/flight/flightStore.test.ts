@@ -2,7 +2,13 @@ import { Vector3 } from 'three'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { ControlInput } from '../input/types'
 import type { FloorContactEvent } from './floorContact'
-import { onBoost, onFloorContact, useFlightStore, type BoostEvent } from './flightStore'
+import {
+  MAX_TICK_DT,
+  onBoost,
+  onFloorContact,
+  useFlightStore,
+  type BoostEvent,
+} from './flightStore'
 
 const LEVEL: ControlInput = { roll: 0, pitch: 0, active: true, confidence: 1, source: 'keyboard' }
 
@@ -48,5 +54,26 @@ describe('onBoost', () => {
     expect(events[1]).toEqual({ type: 'end', duration: expect.closeTo(0.5, 5) })
 
     unsubscribe()
+  })
+})
+
+describe('tick', () => {
+  const ground = Number.NEGATIVE_INFINITY
+
+  it('caps an absurd frame to MAX_TICK_DT of flight instead of jumping the plane', () => {
+    const store = useFlightStore.getState()
+    const start = store.state.position.clone()
+    // R3F's stray uncapped tick as the cap turns on: a millisecond timestamp read as seconds.
+    store.tick(LEVEL, 49_997.5, ground)
+    const moved = store.state.position.distanceTo(start)
+    expect(moved).toBeGreaterThan(0)
+    expect(moved).toBeLessThanOrEqual(store.params.maxSpeed * MAX_TICK_DT)
+  })
+
+  it('ignores a negative frame', () => {
+    const store = useFlightStore.getState()
+    const start = store.state.position.clone()
+    store.tick(LEVEL, -50_000, ground)
+    expect(store.state.position.distanceTo(start)).toBe(0)
   })
 })
