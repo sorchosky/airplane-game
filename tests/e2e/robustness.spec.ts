@@ -91,3 +91,50 @@ test('a lost WebGL context remounts the canvas and keeps flying', async ({ page 
   await expect(page.getByRole('dialog', { name: 'Paused' })).toBeHidden()
   await expect(page.getByTestId('hud')).toBeVisible()
 })
+
+test('a canvas that cannot get a new context is retried, not dropped', async ({ page }) => {
+  // The GPU refuses the next WebGL context it is asked for, as a phone under memory pressure can
+  // right after a loss. Without the retry the world unmounted for good, leaving the CSS sky.
+  await page.addInitScript(() => {
+    const getContext = HTMLCanvasElement.prototype.getContext
+    HTMLCanvasElement.prototype.getContext = function (
+      this: HTMLCanvasElement,
+      type: string,
+      ...rest: unknown[]
+    ) {
+      const flags = window as unknown as { __refuseWebgl?: number }
+      if (type === 'webgl2' && (flags.__refuseWebgl ?? 0) > 0) {
+        flags.__refuseWebgl! -= 1
+        return null
+      }
+      return (getContext as (...args: unknown[]) => RenderingContext | null).call(
+        this,
+        type,
+        ...rest,
+      )
+    } as typeof getContext
+  })
+  // `?debug` for the snapshot hook.
+  await page.goto('/?input=keyboard&debug')
+  await page.getByRole('button', { name: 'Start' }).click()
+  await expect(page.locator('[data-context-generation="0"] canvas')).toBeVisible()
+
+  await page.evaluate(() => {
+    const canvas = document.querySelector('[data-testid="world"] canvas[data-engine]')
+    const gl = (canvas as HTMLCanvasElement | null)?.getContext('webgl2')
+    Object.assign(window, { __refuseWebgl: 1 })
+    gl?.getExtension('WEBGL_lose_context')?.loseContext()
+  })
+
+  // Generation 1 couldn't start; generation 2 is the retry.
+  await expect(page.locator('[data-context-generation="2"] canvas')).toBeVisible()
+  await expect(page.getByTestId('hud')).toBeVisible()
+  // The sim runs inside the canvas: it moving again means the world is back, not just its element.
+  const position = () =>
+    page.evaluate(() => {
+      const flight = window.__driftwing?.snapshot().flight
+      return flight ? `${flight.x.toFixed(1)},${flight.z.toFixed(1)}` : null
+    })
+  const before = await position()
+  await expect.poll(position, { timeout: 15_000 }).not.toBe(before)
+})
