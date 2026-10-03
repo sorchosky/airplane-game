@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { heightAt } from './heightfield'
 import { ROUTE } from './route'
+import { withoutRouteRiver } from './routeRiver'
 import { applyRouteValley, smoothMax, valleyAt, valleyWeight, type ValleyHit } from './routeValley'
 import { plungePoolCenter } from './stations'
 import { TERRAIN_CONFIG } from './terrainConfig'
 
-const config = TERRAIN_CONFIG
+// The valley on its own: the route river (#174) cuts its floor on purpose, and has its own tests.
+const config = withoutRouteRiver(TERRAIN_CONFIG)
 const pool = plungePoolCenter(config.plungePool)
 const valley = config.valley
 const [cut, returnNotch] = config.basin.notches

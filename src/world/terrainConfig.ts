@@ -201,6 +201,39 @@ export interface PlungePoolConfig {
   depth: number
 }
 
+/**
+ * The lake the route river runs into (#174), scooped round the return notch's route point by
+ * `applyRiverLake` in `routeRiver.ts`.
+ */
+export interface RiverLakeConfig {
+  /** m, radius of the lake's flat bed, and where its shore has blended back into the ground */
+  innerRadius: number
+  outerRadius: number
+  /** m below `waterLevel` the bed lies. At least the channel's `depth`, so the channel ends unseen. */
+  depth: number
+}
+
+/**
+ * The river along the route's low stretches (#174), cut down the route's centreline by
+ * `applyRouteRiver` in `routeRiver.ts` wherever the route's designed `floorHeight` is in the low
+ * band. Noise rivers are kept out of the valley corridor.
+ */
+export interface RouteRiverConfig {
+  /**
+   * m above `waterLevel`: at or below `fullFloor` the designed floor holds the whole channel, by
+   * `dryFloor` none, and between them the channel tapers out on the floor.
+   */
+  fullFloor: number
+  dryFloor: number
+  /** m, half the width of the channel's flat bed */
+  halfWidth: number
+  /** m beyond the bed over which the banks ease back into the floor */
+  bankWidth: number
+  /** m below `waterLevel` the bed lies */
+  depth: number
+  lake: RiverLakeConfig
+}
+
 export interface TerrainConfig {
   /** World seed. Same seed = same world. Any string works. */
   seed: string
@@ -244,6 +277,8 @@ export interface TerrainConfig {
   /** The valley along the authored route, between the basin's two notches. */
   valley: RouteValleyConfig
   plungePool: PlungePoolConfig
+  /** The river along the route's low stretches, and the lake it runs into. */
+  river: RouteRiverConfig
   /** Terrain color bands. */
   bands: TerrainBands
   /** m, edge length of one terrain chunk */
@@ -323,6 +358,17 @@ export const TERRAIN_CONFIG: TerrainConfig = {
     innerRadius: 30,
     outerRadius: 55,
     depth: 4,
+  },
+  river: {
+    // Full on the 33 to 36 m river reaches, gone by 38 m: the waterfall (37.8 m) and the arch
+    // (39 m) stations stay dry.
+    fullFloor: 4,
+    dryFloor: 6,
+    halfWidth: 20,
+    bankWidth: 50,
+    depth: 4,
+    // Inside the return notch's 250 m half floor, so the shore stays on flat ground.
+    lake: { innerRadius: 110, outerRadius: 230, depth: 6 },
   },
   bands: {
     sandHeight: 3,
