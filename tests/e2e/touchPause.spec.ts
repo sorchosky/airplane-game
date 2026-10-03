@@ -20,21 +20,26 @@ async function enterTouchFlight(
   return { context, page }
 }
 
-test('touch Pause clears the clock at supported landscape sizes', async ({ browser }) => {
-  for (const viewport of VIEWPORTS) {
+for (const viewport of VIEWPORTS) {
+  test(`touch Pause clears the sun and moon dial at ${viewport.width}x${viewport.height}`, async ({
+    browser,
+  }) => {
+    // Each viewport boots the flight scene, which runs at 300 to 550 ms a frame on a
+    // software-GL runner (#216, #217).
+    test.setTimeout(60_000)
     const { context, page } = await enterTouchFlight(browser, viewport)
     const pauseBox = await page.getByTestId('touch-pause-action').boundingBox()
-    const clockBox = await page.getByTestId('clock-readout').boundingBox()
+    const dialBox = await page.getByTestId('sun-moon-dial').boundingBox()
     expect(pauseBox).not.toBeNull()
-    expect(clockBox).not.toBeNull()
-    expect(pauseBox!.y).toBeGreaterThanOrEqual(clockBox!.y + clockBox!.height)
+    expect(dialBox).not.toBeNull()
+    expect(pauseBox!.y).toBeGreaterThanOrEqual(dialBox!.y + dialBox!.height)
 
     if (viewport.width === 844) {
       await page.screenshot({ path: 'docs/screenshots/130-touch-pause.png' })
     }
     await context.close()
-  }
-})
+  })
+}
 
 test('touch Pause excludes the joystick, opens once, and clears debug controls', async ({
   browser,
