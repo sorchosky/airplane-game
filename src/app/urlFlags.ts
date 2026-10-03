@@ -28,10 +28,10 @@ export function isMaterialsSceneMode(): boolean {
   return new URLSearchParams(window.location.search).get('scene') === 'materials'
 }
 
-/** `?map[=<km>]` replaces the game with the world-authoring map. */
+/** `?map[=<km>]` replaces the game with the world-authoring map. Up to 48 km: two world periods. */
 export function mapSizeKm(): number | null {
   const params = new URLSearchParams(window.location.search)
   if (!params.has('map')) return null
   const value = Number(params.get('map'))
-  return Number.isFinite(value) && value > 0 ? Math.min(40, Math.max(1, value)) : 16
+  return Number.isFinite(value) && value > 0 ? Math.min(48, Math.max(1, value)) : 16
 }

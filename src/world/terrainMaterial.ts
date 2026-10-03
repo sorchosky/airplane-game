@@ -25,6 +25,40 @@ function float(value: number): string {
   return value.toFixed(5)
 }
 
+/**
+ * Noise frequency (1/m) closest to `1 / scale` that fits a whole number of value-noise cells into
+ * one world period, so the colour noise repeats with the terrain (#176). Off by under 1 %.
+ */
+export function periodicFrequency(scale: number, period: number): number {
+  return Math.max(1, Math.round(period / scale)) / period
+}
+
+/** Lattice cells per world period at `frequency` (1/m). A whole number when it repeats. */
+export function cellsPerPeriod(frequency: number, period: number): number {
+  return Math.round(frequency * period)
+}
+
+/**
+ * The colour noise layers' frequencies (1/m). Each second layer used to be the first times a
+ * stretch (2.3, 1.7); here the stretch is rounded to whole cells per period as well.
+ */
+export function terrainNoiseFrequencies(config: TerrainConfig) {
+  const period = config.worldPeriod
+  const b = config.bands
+  const color = periodicFrequency(b.noiseScale, period)
+  const macro = periodicFrequency(b.macroScale, period)
+  return {
+    color,
+    colorFine: periodicFrequency(1 / (color * 2.3), period),
+    macro,
+    macroFine: periodicFrequency(1 / (macro * 1.7), period),
+    brush: periodicFrequency(b.brushScale, period),
+  }
+}
+
+/** Value-noise lattice period along y, which doesn't wrap: past any terrain height. */
+const NO_WRAP = 65536
+
 /** m, shore foam fades out between these camera distances so it never shimmers far away */
 const FOAM_FADE_START = 400
 const FOAM_FADE_END = 1500
@@ -32,6 +66,11 @@ const FOAM_FADE_END = 1500
 export function terrainColorGlsl(config: TerrainConfig): string {
   const b = config.bands
   const p = TERRAIN_PALETTE
+  const period = config.worldPeriod
+  const f = terrainNoiseFrequencies(config)
+  const cells = (frequency: number) => float(cellsPerPeriod(frequency, period))
+  // Frequencies print with more digits than `float`: 57 / 24000 m needs them to stay periodic.
+  const freq = (frequency: number) => frequency.toPrecision(10)
   return /* glsl */ `
 const vec3 TERRAIN_GRASS_LIGHT = ${vec3(p.grassLight)};
 const vec3 TERRAIN_GRASS_SHADOW = ${vec3(p.grassShadow)};
@@ -50,21 +89,34 @@ float terrainHash(vec2 p) {
   return fract((p3.x + p3.y) * p3.z);
 }
 
-float terrainValueNoise(vec2 p) {
+// The lattice repeats every \`period\` cells (#176): the world wraps every ${float(period)} m, and
+// each layer's frequency fits a whole number of cells into that, so the colour has no seam.
+float terrainValueNoise(vec2 p, vec2 period) {
   vec2 i = floor(p);
   vec2 f = fract(p);
   vec2 u = f * f * (3.0 - 2.0 * f);
-  float a = terrainHash(i);
-  float b = terrainHash(i + vec2(1.0, 0.0));
-  float c = terrainHash(i + vec2(0.0, 1.0));
-  float d = terrainHash(i + vec2(1.0, 1.0));
+  vec2 i0 = mod(i, period);
+  vec2 i1 = mod(i + 1.0, period);
+  float a = terrainHash(i0);
+  float b = terrainHash(vec2(i1.x, i0.y));
+  float c = terrainHash(vec2(i0.x, i1.y));
+  float d = terrainHash(i1);
   return mix(mix(a, b, u.x), mix(c, d, u.x), u.y) * 2.0 - 1.0;
 }
 
 // Two octaves: broad patches plus a little breakup inside them.
 float terrainNoise(vec2 worldXZ) {
-  vec2 p = worldXZ / ${float(b.noiseScale)};
-  return clamp(terrainValueNoise(p) * 0.7 + terrainValueNoise(p * 2.3 + 17.0) * 0.3, -1.0, 1.0);
+  float a = terrainValueNoise(worldXZ * ${freq(f.color)}, vec2(${cells(f.color)}));
+  float b = terrainValueNoise(worldXZ * ${freq(f.colorFine)} + 17.0, vec2(${cells(f.colorFine)}));
+  return clamp(a * 0.7 + b * 0.3, -1.0, 1.0);
+}
+
+// Macro grass drift: hue from the first layer, value from the second.
+vec2 terrainMacroNoise(vec2 worldXZ) {
+  return vec2(
+    terrainValueNoise(worldXZ * ${freq(f.macro)}, vec2(${cells(f.macro)})),
+    terrainValueNoise(worldXZ * ${freq(f.macroFine)} + 41.0, vec2(${cells(f.macroFine)}))
+  );
 }
 
 // World-space triplanar brush breakup. Flat ground reads the XZ projection while cliffs select
@@ -74,10 +126,12 @@ float terrainBrushNoise(vec3 world, vec3 normal) {
   vec3 weights = abs(normal);
   weights *= weights;
   weights /= max(weights.x + weights.y + weights.z, 1e-4);
-  vec3 p = world / ${float(b.brushScale)};
-  float x = terrainValueNoise(p.yz + 71.0);
-  float y = terrainValueNoise(p.xz + 113.0);
-  float z = terrainValueNoise(p.xy + 157.0);
+  // x and z wrap with the world; y never does.
+  vec3 p = world * vec3(${freq(f.brush)}, ${freq(1 / b.brushScale)}, ${freq(f.brush)});
+  float wrap = ${cells(f.brush)};
+  float x = terrainValueNoise(p.yz + 71.0, vec2(${float(NO_WRAP)}, wrap));
+  float y = terrainValueNoise(p.xz + 113.0, vec2(wrap));
+  float z = terrainValueNoise(p.xy + 157.0, vec2(wrap, ${float(NO_WRAP)}));
   return clamp(x * weights.x + y * weights.y + z * weights.z, -1.0, 1.0);
 }
 
@@ -173,7 +227,7 @@ function fragmentColor(config: TerrainConfig): string {
   float terrainNoiseValue = terrainNoise(vTerrainWorld.xz);
   float terrainSlope = 1.0 - clamp(terrainNormal.y, 0.0, 1.0);
   float terrainDistance = length(vViewPosition);
-  vec2 terrainMacroP = vTerrainWorld.xz / ${float(config.bands.macroScale)};
+  vec2 terrainMacro = terrainMacroNoise(vTerrainWorld.xz);
   // Fade when a 70 m feature approaches six pixels. fwidth follows actual DPR, including 0.75.
   float terrainDetailFootprint = length(fwidth(vTerrainWorld)) / ${float(config.bands.brushScale)};
   float terrainDetailCoverage = 1.0 - smoothstep(0.0625, 0.1667, terrainDetailFootprint);
@@ -181,8 +235,8 @@ function fragmentColor(config: TerrainConfig): string {
     vTerrainWorld.y,
     terrainSlope,
     terrainNoiseValue,
-    terrainValueNoise(terrainMacroP),
-    terrainValueNoise(terrainMacroP * 1.7 + 41.0),
+    terrainMacro.x,
+    terrainMacro.y,
     terrainBrushNoise(vTerrainWorld, terrainNormal),
     terrainDetailCoverage,
     terrainDistance,

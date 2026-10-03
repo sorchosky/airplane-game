@@ -1,9 +1,10 @@
-import { createNoise2D, type NoiseFunction2D } from 'simplex-noise'
+import { createNoise4D, type NoiseFunction4D } from 'simplex-noise'
 import { applyBasin } from './basin'
 import { applyRiverLake, applyRouteRiver, noiseRiverKeep } from './routeRiver'
 import { applyRouteValley, isFullFloor, valleyAt, valleyFloor } from './routeValley'
 import { applyPlungePool } from './stations'
 import type { TerrainConfig } from './terrainConfig'
+import { sampleTorus, torusPoint, torusRadius, wrapNear, type TorusPoint } from './torusNoise'
 
 // Pure, deterministic terrain shape. No React or Three: this runs both on the main thread (soft
 // floor, spawn point) and inside the terrain worker, and must give identical answers in both.
@@ -20,17 +21,32 @@ import type { TerrainConfig } from './terrainConfig'
 //   noise. It bends every feature so nothing lines up on a grid or visibly repeats.
 // - Carving: after the land is shaped, lakes and rivers are dug into it. Anything that ends up
 //   below `waterLevel` is under the water plane (`Water.tsx`).
+// - Wrapping (#176): the world repeats every `worldPeriod` m on x and z. Every noise is sampled on
+//   a torus (`torusNoise.ts`), so it repeats with no seam, and the designed features (basin, route
+//   valley, river, stations) sit inside one period round the basin centre, found by wrapping the
+//   query point to its nearest copy (the minimum image).
 
 interface NoiseSet {
-  warpX: NoiseFunction2D
-  warpZ: NoiseFunction2D
-  hills: NoiseFunction2D
-  rangeMask: NoiseFunction2D
-  ridges: NoiseFunction2D
-  peaks: NoiseFunction2D
-  plateaus: NoiseFunction2D
-  detail: NoiseFunction2D
-  rivers: NoiseFunction2D
+  warpX: NoiseFunction4D
+  warpZ: NoiseFunction4D
+  hills: NoiseFunction4D
+  rangeMask: NoiseFunction4D
+  ridges: NoiseFunction4D
+  peaks: NoiseFunction4D
+  plateaus: NoiseFunction4D
+  detail: NoiseFunction4D
+  rivers: NoiseFunction4D
+  /** Torus radius of each field's first octave, for this set's world period. */
+  radius: {
+    warp: number
+    hills: number
+    rangeMask: number
+    ridges: number
+    peaks: number
+    plateaus: number
+    detail: number
+    rivers: number
+  }
 }
 
 /** FNV-1a string hash, used to turn a seed string into a 32-bit PRNG seed. */
@@ -55,11 +71,25 @@ export function mulberry32(seed: number): () => number {
 }
 
 const noiseCache = new Map<string, NoiseSet>()
+// `heightAt` runs per vertex with one config, so the last lookup is kept to skip building a key.
+let lastConfig: TerrainConfig | null = null
+let lastSet: NoiseSet | null = null
 
-function noiseFor(seed: string): NoiseSet {
-  const cached = noiseCache.get(seed)
+function noiseFor(config: TerrainConfig): NoiseSet {
+  if (config === lastConfig && lastSet) return lastSet
+  const set = noiseSetFor(config)
+  lastConfig = config
+  lastSet = set
+  return set
+}
+
+function noiseSetFor(config: TerrainConfig): NoiseSet {
+  const { seed, worldPeriod: period, riverScale } = config
+  const key = `${seed}|${period}|${riverScale}`
+  const cached = noiseCache.get(key)
   if (cached) return cached
-  const make = (layer: string) => createNoise2D(mulberry32(hashString(`${seed}:${layer}`)))
+  const make = (layer: string) => createNoise4D(mulberry32(hashString(`${seed}:${layer}`)))
+  const radius = (scale: number) => torusRadius(scale, period)
   const set: NoiseSet = {
     warpX: make('warpX'),
     warpZ: make('warpZ'),
@@ -70,19 +100,29 @@ function noiseFor(seed: string): NoiseSet {
     plateaus: make('plateaus'),
     detail: make('detail'),
     rivers: make('rivers'),
+    radius: {
+      warp: radius(WARP_SCALE),
+      hills: radius(HILL_SCALE),
+      rangeMask: radius(RANGE_MASK_SCALE),
+      ridges: radius(RIDGE_SCALE),
+      peaks: radius(PEAK_SCALE),
+      plateaus: radius(PLATEAU_SCALE),
+      detail: radius(DETAIL_SCALE),
+      rivers: radius(riverScale),
+    },
   }
-  noiseCache.set(seed, set)
+  noiseCache.set(key, set)
   return set
 }
 
-/** fBm, normalized to roughly -1..1. */
-function fbm(noise: NoiseFunction2D, x: number, z: number, octaves: number): number {
+/** fBm on the torus, normalized to roughly -1..1. `radius` is the first octave's. */
+function fbm(noise: NoiseFunction4D, p: TorusPoint, radius: number, octaves: number): number {
   let sum = 0
   let amplitude = 1
   let frequency = 1
   let total = 0
   for (let i = 0; i < octaves; i++) {
-    sum += amplitude * noise(x * frequency, z * frequency)
+    sum += amplitude * sampleTorus(noise, p, radius * frequency)
     total += amplitude
     amplitude *= 0.5
     frequency *= 2
@@ -90,14 +130,14 @@ function fbm(noise: NoiseFunction2D, x: number, z: number, octaves: number): num
   return sum / total
 }
 
-/** Ridged multifractal, 0..1. 1 is the crest of a ridge. */
-function ridged(noise: NoiseFunction2D, x: number, z: number, octaves: number): number {
+/** Ridged multifractal on the torus, 0..1. 1 is the crest of a ridge. */
+function ridged(noise: NoiseFunction4D, p: TorusPoint, radius: number, octaves: number): number {
   let sum = 0
   let amplitude = 1
   let frequency = 1
   let total = 0
   for (let i = 0; i < octaves; i++) {
-    const n = 1 - Math.abs(noise(x * frequency, z * frequency))
+    const n = 1 - Math.abs(sampleTorus(noise, p, radius * frequency))
     sum += amplitude * n * n
     total += amplitude
     amplitude *= 0.5
@@ -125,21 +165,44 @@ const VALLEY_DETAIL_GAIN = 4
 
 /** Terrain height in metres at world (x, z). Deterministic for a given `config.seed`. */
 export function heightAt(x: number, z: number, config: TerrainConfig): number {
+  // Every designed feature lives inside the one period centred on the basin, so the point is
+  // wrapped to its copy there first: distances to them are the wrapped (minimum-image) ones.
+  const { centerX, centerZ } = config.basin
+  const lx = wrapNear(x, centerX, config.worldPeriod)
+  const lz = wrapNear(z, centerZ, config.worldPeriod)
   // The route river's lake (#174) is scooped into the return notch, then the waterfall's plunge
   // pool (#173) is dug last, into the valley floor in front of it.
-  return applyPlungePool(x, z, applyRiverLake(x, z, landHeight(x, z, config), config), config)
+  return applyPlungePool(lx, lz, applyRiverLake(lx, lz, landHeight(lx, lz, config), config), config)
 }
 
-function landHeight(x: number, z: number, config: TerrainConfig): number {
-  const n = noiseFor(config.seed)
+// Reused per call: `heightAt` runs per vertex and nothing keeps these past it.
+const at: TorusPoint = { cx: 1, sx: 0, cz: 1, sz: 0 }
+const warped: TorusPoint = { cx: 1, sx: 0, cz: 1, sz: 0 }
 
-  const wx = x + WARP_STRENGTH * fbm(n.warpX, x / WARP_SCALE, z / WARP_SCALE, 3)
-  const wz = z + WARP_STRENGTH * fbm(n.warpZ, x / WARP_SCALE, z / WARP_SCALE, 3)
+function landHeight(x: number, z: number, config: TerrainConfig): number {
+  const n = noiseFor(config)
+  const r = n.radius
+  const period = config.worldPeriod
+
+  torusPoint(x, z, period, at)
+  const wx = x + WARP_STRENGTH * fbm(n.warpX, at, r.warp, 3)
+  const wz = z + WARP_STRENGTH * fbm(n.warpZ, at, r.warp, 3)
+  // The warp itself repeats, so (wx, wz) moves by exactly one period when (x, z) does.
+  const w = torusPoint(wx, wz, period, warped)
 
   // Rolling hills everywhere: 0..hillHeight. `broadHills` is their broad shape, without the
-  // small bumps.
-  const hills = fbm(n.hills, wx / HILL_SCALE, wz / HILL_SCALE, 5)
-  const broadHills = fbm(n.hills, wx / HILL_SCALE, wz / HILL_SCALE, 2)
+  // small bumps: the same fBm stopped after two octaves.
+  let hillSum = 0
+  let hillAmplitude = 1
+  let hillTotal = 0
+  let broadHills = 0
+  for (let i = 0; i < 5; i++) {
+    hillSum += hillAmplitude * sampleTorus(n.hills, w, r.hills * 2 ** i)
+    hillTotal += hillAmplitude
+    if (i === 1) broadHills = hillSum / hillTotal
+    hillAmplitude *= 0.5
+  }
+  const hills = hillSum / hillTotal
 
   // The route valley (#172) is applied last, but on its floor it replaces the land outright, so
   // there the rest is never built. The hills' finer octaves (what `hills` adds over `broadHills`,
@@ -155,49 +218,38 @@ function landHeight(x: number, z: number, config: TerrainConfig): number {
 
   // Mountain ranges: a very low-frequency mask decides where ranges exist at all, so most of the
   // world stays hills and ranges come as distinct bands. Ridged noise shapes the range itself.
-  const rangeMask = smoothstep(
-    0.05,
-    0.35,
-    fbm(n.rangeMask, wx / RANGE_MASK_SCALE, wz / RANGE_MASK_SCALE, 2),
-  )
+  const rangeMask = smoothstep(0.05, 0.35, fbm(n.rangeMask, w, r.rangeMask, 2))
   if (rangeMask > 0) {
-    const ridge = ridged(n.ridges, wx / RIDGE_SCALE, wz / RIDGE_SCALE, 5)
+    const ridge = ridged(n.ridges, w, r.ridges, 5)
     height += rangeMask * ridge * ridge * config.mountainHeight
   }
 
   // Isolated peaks: only where the peak noise spikes, and never inside a range (keeps them
   // standing alone, and keeps total height under the flight ceiling).
-  const peakShape = smoothstep(0.62, 1, n.peaks(wx / PEAK_SCALE, wz / PEAK_SCALE))
+  // Deep inside a range neither peaks nor plateaus show, so their noise isn't sampled there.
+  const outsideRange = 1 - rangeMask
+  const peakShape = outsideRange > 0 ? smoothstep(0.62, 1, sampleTorus(n.peaks, w, r.peaks)) : 0
   if (peakShape > 0) {
-    height += (1 - rangeMask) * peakShape * peakShape * config.peakHeight
+    height += outsideRange * peakShape * peakShape * config.peakHeight
   }
 
   // Plateaus: a sharp mask lifts the ground to one flat level, which leaves steep cliff edges.
-  const plateauMask = smoothstep(
-    0.42,
-    0.5,
-    fbm(n.plateaus, wx / PLATEAU_SCALE, wz / PLATEAU_SCALE, 2),
-  )
+  const plateauMask =
+    outsideRange > 0 ? smoothstep(0.42, 0.5, fbm(n.plateaus, w, r.plateaus, 2)) : 0
   if (plateauMask > 0) {
     const plateauTop =
-      config.hillHeight * 0.5 +
-      config.plateauHeight +
-      n.detail(wx / DETAIL_SCALE, wz / DETAIL_SCALE) * 3
-    height += (Math.max(height, plateauTop) - height) * plateauMask * (1 - rangeMask)
+      config.hillHeight * 0.5 + config.plateauHeight + sampleTorus(n.detail, w, r.detail) * 3
+    height += (Math.max(height, plateauTop) - height) * plateauMask * outsideRange
   }
 
   // Lakes are sized by the broad shape of the land, so they fill whole valleys instead of every
   // little dip.
   height = carveLakes(height, height + (broadHills - hills) * 0.5 * config.hillHeight, config)
   // Noise rivers stay out of the route valley's corridor: the route river runs its floor (#174).
-  const riverKeep = noiseRiverKeep(valley, config.valley)
+  // They have faded out entirely by `riverMaxHeight`, so higher ground skips their noise.
+  const riverKeep = height < config.riverMaxHeight ? noiseRiverKeep(valley, config.valley) : 0
   if (riverKeep > 0) {
-    height = carveRivers(
-      height,
-      fbm(n.rivers, wx / config.riverScale, wz / config.riverScale, 3),
-      config,
-      riverKeep,
-    )
+    height = carveRivers(height, fbm(n.rivers, w, r.rivers, 3), config, riverKeep)
   }
   // The home basin goes after the land so its designed floor and ridge heights hold (#171).
   height = applyBasin(x, z, height, config.basin)

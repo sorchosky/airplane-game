@@ -8,7 +8,9 @@ import {
   distanceFalloff,
   FOLIAGE_KINDS,
   GroundPatch,
+  groveAt,
   growth,
+  isExcluded,
   scatterChunk,
   selectFoliage,
   type ChunkFoliage,
@@ -231,5 +233,46 @@ describe('budget at medium (density 1)', () => {
     const { triangles, draws } = budget(x, y, z)
     expect(draws).toBeLessThan(12)
     expect(triangles).toBeLessThan(120_000)
+  })
+})
+
+describe('wrapping world (#176)', () => {
+  const P = config.worldPeriod
+
+  it('fits a whole number of scatter cells into a world period', () => {
+    const pitch = f.foliageChunk / Math.max(1, Math.round(f.foliageChunk / f.treeCell))
+    expect(Number.isInteger(P / pitch)).toBe(true)
+  })
+
+  it('grows the same foliage one period over', () => {
+    // A period is not a whole number of foliage chunks, so compare a strip by position.
+    const strip = (cx0: number, minX: number) =>
+      [0, 1, 2]
+        .flatMap((k) => allInstances(scatterChunk(cx0 + k, 4, config, [], meadow)))
+        .filter((i) => i.x >= minX && i.x < minX + 200)
+        .map((i) => ({ ...i, x: i.x - minX }))
+        .sort((a, b) => a.x - b.x || a.z - b.z)
+    const home = strip(0, 20)
+    const copy = strip(Math.floor((P + 20) / f.foliageChunk), P + 20)
+    expect(home.length).toBeGreaterThan(5)
+    expect(copy).toHaveLength(home.length)
+    copy.forEach((instance, k) => {
+      const original = home[k]!
+      expect(instance.x).toBeCloseTo(original.x, 6)
+      expect(instance.z).toBeCloseTo(original.z, 6)
+      expect(instance.keep).toBe(original.keep)
+      expect(instance.scale).toBe(original.scale)
+    })
+  })
+
+  it('repeats the grove noise and keeps exclusions on every copy', () => {
+    for (let i = 0; i < 50; i++) {
+      const x = i * 731 - 5000
+      const z = i * -293 + 3000
+      expect(groveAt(x + P, z - P, config)).toBeCloseTo(groveAt(x, z, config), 9)
+    }
+    const zone = { x: 100, z: 200, radius: 30 }
+    expect(isExcluded(100 + P, 200 - 2 * P, [zone], P)).toBe(true)
+    expect(isExcluded(100 + P, 200, [zone])).toBe(false)
   })
 })

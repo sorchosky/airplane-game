@@ -133,3 +133,53 @@ describe('findSpawnPoint', () => {
     expect(spawn.groundHeight).toBeLessThan(config.hillHeight * 0.5)
   })
 })
+
+describe('wrapping world (#176)', () => {
+  const P = config.worldPeriod
+  const { centerX, centerZ } = config.basin
+
+  it('repeats every world period on x and on z, everywhere', () => {
+    // Spread over several periods, including the basin, the route and the wrap seam.
+    for (let i = 0; i < 300; i++) {
+      const x = centerX + Math.sin(i * 12.9898) * 1.5 * P
+      const z = centerZ + Math.cos(i * 78.233) * 1.5 * P
+      const h = heightAt(x, z, config)
+      expect(Math.abs(heightAt(x + P, z, config) - h)).toBeLessThan(1e-6)
+      expect(Math.abs(heightAt(x, z + P, config) - h)).toBeLessThan(1e-6)
+      expect(Math.abs(heightAt(x - 2 * P, z - P, config) - h)).toBeLessThan(1e-6)
+    }
+  })
+
+  it('has no seam: the slope across the wrap edge matches the slope beside it', () => {
+    // The copy round the basin flips to the next one half a period out from its centre.
+    const seams: [number, number, 'x' | 'z'][] = []
+    for (let k = 0; k < 60; k++) {
+      seams.push([centerX + P / 2, centerZ - P / 2 + (k + 0.5) * (P / 60), 'x'])
+      seams.push([centerX - P / 2 + (k + 0.5) * (P / 60), centerZ - P / 2, 'z'])
+    }
+    for (const [x, z, axis] of seams) {
+      const at = (d: number) =>
+        axis === 'x' ? heightAt(x + d, z, config) : heightAt(x, z + d, config)
+      const across = (at(0.05) - at(-0.05)) / 0.1
+      const before = (at(-0.05) - at(-0.15)) / 0.1
+      const after = (at(0.15) - at(0.05)) / 0.1
+      expect(Math.abs(across)).toBeLessThan(5)
+      expect(Math.abs(across - (before + after) / 2)).toBeLessThan(0.05)
+    }
+  })
+
+  it('normals repeat too, so lighting has no seam', () => {
+    for (let i = 0; i < 40; i++) {
+      const x = i * 613 - 9000
+      const z = i * -419 + 7000
+      const a = normalAt(x, z, config)
+      const b = normalAt(x + P, z - P, config)
+      for (let k = 0; k < 3; k++) expect(b[k]).toBeCloseTo(a[k]!, 5)
+    }
+  })
+
+  it('keeps the world in one period that holds no repeat within view', () => {
+    expect(P).toBeGreaterThan(2 * config.viewDistance)
+    for (const ring of config.lodRings) expect(P % ring.spacing).toBe(0)
+  })
+})
