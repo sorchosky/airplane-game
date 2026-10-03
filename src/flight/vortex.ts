@@ -107,6 +107,15 @@ export function clearVortexTrail(trail: VortexTrail): void {
   trail.lastTime = -Infinity
 }
 
+/** Moves every recorded sample by (`dx`, 0, `dz`): the world wrapped under the plane (#177). */
+export function shiftVortexTrail(trail: VortexTrail, dx: number, dz: number): void {
+  const { position } = trail
+  for (let i = 0; i < trail.count; i++) {
+    position[i * 3] = (position[i * 3] ?? 0) + dx
+    position[i * 3 + 2] = (position[i * 3 + 2] ?? 0) + dz
+  }
+}
+
 /**
  * Records the tip at sim time `now` if `sampleInterval` has passed since the last sample. Samples
  * are kept while not streaming too (marked off) so a ribbon that stops fades from its tail rather

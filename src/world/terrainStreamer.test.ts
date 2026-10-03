@@ -163,4 +163,24 @@ describe('TerrainStreamer', () => {
     flush()
     expect(streamer.viewDistance).toBe(1500)
   })
+
+  it('crossing the seam moves the tiles and rebuilds nothing (#177)', () => {
+    const { streamer, workers, flush, visible } = setup()
+    const P = config.worldPeriod
+    // Just inside the +x edge, then a step past it, which the sim wraps to the -x edge.
+    const edge = P / 2 - 10
+    streamer.update(edge, 100)
+    flush()
+    const before = new Map(visible().map((mesh) => [mesh, mesh.position.x]))
+
+    streamer.shift({ x: -P, z: 0 })
+    streamer.update(edge + 5 - P, 100)
+    for (const worker of workers) expect(worker.requests).toHaveLength(0)
+    expect(visible()).toHaveLength(before.size)
+    for (const mesh of visible()) {
+      expect(mesh.position.x).toBeCloseTo((before.get(mesh) ?? Number.NaN) - P, 6)
+      // Drawn round the plane's new side of the seam.
+      expect(Math.abs(mesh.position.x - (edge - P))).toBeLessThan(config.viewDistance + 1024)
+    }
+  })
 })

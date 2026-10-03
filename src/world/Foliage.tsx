@@ -12,7 +12,7 @@ import {
 } from 'three'
 import { activeShot } from '../debug/shots'
 import { usePerfStore } from '../debug/perfStore'
-import { useFlightStore } from '../flight/flightStore'
+import { onWorldWrap, useFlightStore } from '../flight/flightStore'
 import { useQualityStore } from '../render/qualityStore'
 import { CellCache } from './cellCache'
 import { allFoliageExclusions, foliageExclusionVersion } from './foliageExclusions'
@@ -32,8 +32,9 @@ import {
   type ChunkFoliage,
   type FoliageKind,
 } from './scatter'
-import { chunkCoord } from './chunks'
+import { chunkCoord, chunkKey } from './chunks'
 import { TERRAIN_CONFIG } from './terrainConfig'
+import { commonPeriod, WrapFrame, type WrapShift } from './wrap'
 
 /** Instances each variant's buffer holds. Well above what `selectFoliage` picks at full density. */
 const CAPACITY: Record<FoliageKind, number> = {
@@ -85,6 +86,25 @@ function createVariant(kind: FoliageKind): Variant {
   return { body, hull, keep, materials: [bodyMaterial, hullMaterial] }
 }
 
+/**
+ * m, where the foliage chunk grid and the world period line up again (48 km: 24 km is 187.5
+ * chunks). The foliage frame is taken back by this much whenever it has drifted that far (#177).
+ */
+const FRAME_ANCHOR = commonPeriod(TERRAIN_CONFIG.worldPeriod, TERRAIN_CONFIG.foliage.foliageChunk)
+
+/** Moves a cached chunk's instances by `move` (whole `FRAME_ANCHOR`s) and returns its new key. */
+function moveChunk(key: string, chunk: ChunkFoliage, move: WrapShift): string {
+  for (const kind of FOLIAGE_KINDS) {
+    for (const instance of chunk[kind]) {
+      instance.x += move.x
+      instance.z += move.z
+    }
+  }
+  const [cx = 0, cz = 0] = key.split(',').map(Number)
+  const size = TERRAIN_CONFIG.foliage.foliageChunk
+  return chunkKey(cx + Math.round(move.x / size), cz + Math.round(move.z / size))
+}
+
 const matrix = new Matrix4()
 const position = new Vector3()
 const rotation = new Quaternion()
@@ -121,6 +141,11 @@ function upload(variant: Variant, instances: ChunkFoliage[FoliageKind], outlined
  * outline hull, so at most eight draw calls. Chunks are scattered a few per frame into a cache
  * (`scatter.ts`); the GPU buffers are rebuilt when the plane crosses into a new foliage chunk, the
  * governor's density changes, or an exclusion is added. Per frame, only uniforms change.
+ *
+ * The world wraps (#177): chunks are scattered in a `WrapFrame` that runs on across the seam, and
+ * the group is drawn moved by the frame's offset, so a wrap moves the group and rebuilds nothing.
+ * Every 48 km of drift the frame is taken back to keep the instance numbers small: the cached
+ * chunks move and re-key in place and the buffers are uploaded once, with no scattering.
  */
 export function Foliage() {
   const group = useMemo(() => new Group(), [])
@@ -137,7 +162,11 @@ export function Foliage() {
       ),
     [],
   )
+  const frame = useMemo(() => new WrapFrame(), [])
   const state = useRef({
+    /** Frame offset the uploaded buffers were written in: where the group is drawn. */
+    drawX: 0,
+    drawZ: 0,
     cellX: Number.NaN,
     cellZ: Number.NaN,
     density: Number.NaN,
@@ -158,10 +187,30 @@ export function Foliage() {
     }
   }, [group, variants])
 
+  useEffect(() => {
+    const move: WrapShift = { x: 0, z: 0 }
+    return onWorldWrap((shift) => {
+      const s = state.current
+      frame.shift(shift)
+      s.drawX += shift.x
+      s.drawZ += shift.z
+      group.position.set(s.drawX, 0, s.drawZ)
+      if (frame.rebase(FRAME_ANCHOR, move)) {
+        cache.rekey((key, chunk) => moveChunk(key, chunk, move))
+        // Re-want the moved keys; they're all cached, so the upload follows this frame.
+        s.cellX = Number.NaN
+        s.dirty = true
+      }
+    })
+  }, [cache, frame, group])
+
   useFrame((_state, delta) => {
     const f = TERRAIN_CONFIG.foliage
     const s = state.current
-    const { x, z } = useFlightStore.getState().state.position
+    const position = useFlightStore.getState().state.position
+    // The plane in the foliage frame, where the chunks and the uniforms live.
+    const x = frame.localX(position.x)
+    const z = frame.localZ(position.z)
     const density = useQualityStore.getState().foliageDensity
 
     // Uniforms: the plane, and the density eased toward the governor's (snapped for shots).
@@ -202,6 +251,9 @@ export function Foliage() {
         if (variant) upload(variant, selection.instances[kind], selection.outlined[kind])
       }
       s.dirty = false
+      s.drawX = frame.offsetX
+      s.drawZ = frame.offsetZ
+      group.position.set(s.drawX, 0, s.drawZ)
     }
     if (ready !== s.ready) {
       s.ready = ready

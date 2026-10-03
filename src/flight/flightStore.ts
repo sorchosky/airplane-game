@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import type { ControlInput } from '../input/types'
 import { findSpawnPoint } from '../world/heightfield'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
+import { wrapPosition, type WrapShift } from '../world/wrap'
 import {
   DEFAULT_FLIGHT_PARAMS,
   createInitialFlightState,
@@ -65,6 +66,35 @@ const BOOST_START: BoostEvent = { type: 'start' }
 export function onBoost(listener: BoostListener): () => void {
   boostListeners.add(listener)
   return () => boostListeners.delete(listener)
+}
+
+type WorldWrapListener = (shift: WrapShift) => void
+const worldWrapListeners = new Set<WorldWrapListener>()
+const wrapShift: WrapShift = { x: 0, z: 0 }
+
+/**
+ * Wrapping world hook (#177): called in the same frame the plane's position moves by a whole
+ * world period (`wrapWorld`), with that move. Anything that keeps world positions from earlier
+ * frames (camera springs, trails, a last position) adds the move to them. The shift object is
+ * reused; copy what you need. Returns the unsubscribe function.
+ */
+export function onWorldWrap(listener: WorldWrapListener): () => void {
+  worldWrapListeners.add(listener)
+  return () => worldWrapListeners.delete(listener)
+}
+
+/**
+ * Keeps the plane inside [-P/2, P/2) on x and z, P = `TERRAIN_CONFIG.worldPeriod`: when it has
+ * flown out of one side it moves a whole period to the other, where the world is the same, and
+ * every `onWorldWrap` listener moves with it. Runs once at the start of each frame (`WorldWrap`),
+ * before anything reads the plane, so a frame never mixes positions from both sides of the seam.
+ * Returns whether the plane moved.
+ */
+export function wrapWorld(): boolean {
+  const { state } = useFlightStore.getState()
+  if (!wrapPosition(state.position, TERRAIN_CONFIG.worldPeriod, wrapShift)) return false
+  for (const listener of worldWrapListeners) listener(wrapShift)
+  return true
 }
 
 // The input the sim flies on while it levels off after a hand-off; written in place each tick.

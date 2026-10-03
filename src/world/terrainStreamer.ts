@@ -3,6 +3,7 @@ import { chunkCoord, selectTiles, type TileSpec } from './chunks'
 import type { TerrainConfig } from './terrainConfig'
 import type { TileRequest, TileResult } from './terrainWorkerProtocol'
 import { buildTileIndices, tileVertexCount } from './tileGeometry'
+import { WrapFrame, type WrapShift } from './wrap'
 
 interface Tile {
   spec: TileSpec
@@ -19,6 +20,11 @@ interface Tile {
  *   swaps in one frame. No holes while loading, and old and new tiles never overlap.
  * - Meshes and their geometries are pooled by grid size and refilled in place, so streaming
  *   doesn't allocate new GPU buffers.
+ * - The world wraps (#177): tiles are planned in a `WrapFrame` that runs on smoothly across the
+ *   seam, so a wrap (`shift`) only moves the meshes and rebuilds nothing. The 512 m chunk grid
+ *   doesn't divide the 24 km period, so the copy of a chunk one period away isn't a chunk of the
+ *   same grid; the frame sidesteps that. Its offset only ever grows by whole periods and is held
+ *   in doubles, and the meshes are drawn near the plane, so it never costs precision.
  */
 export class TerrainStreamer {
   private readonly workers: Worker[] = []
@@ -30,6 +36,7 @@ export class TerrainStreamer {
   private desired = new Map<string, TileSpec>()
   private readonly pool = new Map<number, Mesh[]>()
   private readonly indices = new Map<number, BufferAttribute>()
+  private readonly frame = new WrapFrame()
   private chunkX = Number.NaN
   private chunkZ = Number.NaN
   /** View distance the governor asked for; taken up on the next chunk crossing. */
@@ -57,8 +64,8 @@ export class TerrainStreamer {
 
   /** Call every frame with the plane's position. Only re-plans on a chunk boundary crossing. */
   update(x: number, z: number): void {
-    const cx = chunkCoord(x, this.config.chunkSize)
-    const cz = chunkCoord(z, this.config.chunkSize)
+    const cx = chunkCoord(this.frame.localX(x), this.config.chunkSize)
+    const cz = chunkCoord(this.frame.localZ(z), this.config.chunkSize)
     if (cx === this.chunkX && cz === this.chunkZ) return
     this.chunkX = cx
     this.chunkZ = cz
@@ -96,6 +103,16 @@ export class TerrainStreamer {
     )
     this.pump()
     this.commitIfReady()
+  }
+
+  /**
+   * The plane wrapped round the world by `shift` (#177). Every tile, drawn or still building, moves
+   * with it; the layout stays as it was, so nothing is rebuilt.
+   */
+  shift(shift: WrapShift): void {
+    this.frame.shift(shift)
+    for (const tile of this.active.values()) this.place(tile)
+    for (const tile of this.staged.values()) this.place(tile)
   }
 
   /**
@@ -162,10 +179,12 @@ export class TerrainStreamer {
     if (spec) {
       this.pending.delete(result.key)
       const mesh = this.acquire(spec.quads)
+      const tile = { spec, mesh }
       fillMesh(mesh, spec, result)
+      this.place(tile)
       mesh.visible = false
       this.group.add(mesh)
-      this.staged.set(spec.key, { spec, mesh })
+      this.staged.set(spec.key, tile)
     }
     this.pump()
     this.commitIfReady()
@@ -185,6 +204,16 @@ export class TerrainStreamer {
     }
     this.staged.clear()
     this.committedViewDistance = this.plannedViewDistance
+  }
+
+  /** Draws a tile where the plane sees it: its frame origin moved by the frame's offset. */
+  private place(tile: Tile): void {
+    tile.mesh.position.set(
+      tile.spec.originX + this.frame.offsetX,
+      0,
+      tile.spec.originZ + this.frame.offsetZ,
+    )
+    tile.mesh.updateMatrix()
   }
 
   private acquire(quads: number): Mesh {
@@ -231,7 +260,4 @@ function fillMesh(mesh: Mesh, spec: TileSpec, result: TileResult): void {
   if (geometry.boundingBox && geometry.boundingSphere) {
     geometry.boundingBox.getBoundingSphere(geometry.boundingSphere)
   }
-
-  mesh.position.set(spec.originX, 0, spec.originZ)
-  mesh.updateMatrix()
 }

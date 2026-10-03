@@ -8,6 +8,7 @@ import {
   recordVortex,
   ribbonPoints,
   segmentDistance,
+  shiftVortexTrail,
   vortexAlpha,
   vortexCapacity,
   vortexEmitting,
@@ -54,6 +55,14 @@ describe('trail', () => {
     expect(trail.position[trail.head * 3]).toBe(6)
     clearVortexTrail(trail)
     expect(trail.count).toBe(0)
+  })
+
+  it('moves every recorded sample with a world wrap (#177)', () => {
+    const trail = createVortexTrail(4)
+    recordVortex(trail, 100, 5, 20, 0, true)
+    recordVortex(trail, 110, 6, 30, 1, true)
+    shiftVortexTrail(trail, -24000, 0)
+    expect(Array.from(trail.position.slice(0, 6))).toEqual([-23900, 5, 20, -23890, 6, 30])
   })
 })
 

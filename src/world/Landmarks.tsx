@@ -1,6 +1,7 @@
 import { useFrame } from '@react-three/fiber'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import {
+  type Group,
   IcosahedronGeometry,
   InstancedMesh,
   Matrix4,
@@ -26,11 +27,15 @@ import { buildTower } from './models/tower'
 import { buildTree } from './models/tree'
 import { buildWaterfall } from './models/waterfall'
 import { TERRAIN_CONFIG } from './terrainConfig'
+import { imageShift, nearestImages } from './wrap'
 
 /** Mist puffs at the foot of the waterfall. */
 const MIST_PUFFS = 12
 /** s, how long one puff takes to billow up and fade */
 const MIST_CYCLE = 5
+
+/** Copies of the merged landmark mesh: enough for every landmark's nearest image (#177). */
+const COPIES = 4
 
 /** Model-to-world matrix: turn by the landmark's yaw, then move to its origin. */
 function landmarkMatrix(landmark: Landmark): Matrix4 {
@@ -98,9 +103,18 @@ function buildLandmarkMeshes(landmarks: readonly Landmark[]): LandmarkMeshes {
  * The five landmarks (#76): tower, arch, waterfall, giant tree and ruins, placed at their route
  * stations (#173) by `placeLandmarks`. Four draw calls in all: every solid model merged into one toon
  * mesh plus its outline hull, the waterfall's ribbon, and its instanced mist.
+ *
+ * The world wraps (#177): each landmark is drawn at its copy nearest the camera. The merged mesh
+ * is drawn once per distinct image shift (`nearestImages`), so away from the seam it is one copy
+ * and two draw calls as before; looking across the seam it can take up to four.
  */
 export function Landmarks() {
-  const meshes = useMemo(() => buildLandmarkMeshes(getLandmarks()), [])
+  const landmarks = getLandmarks()
+  const meshes = useMemo(() => buildLandmarkMeshes(landmarks), [landmarks])
+  const copies = useRef<(Group | null)[]>([])
+  const waterfallRef = useRef<Group>(null)
+  const shifts = useMemo(() => new Float64Array(COPIES * 2), [])
+  const waterfall = landmarks.find((landmark) => landmark.kind === 'waterfall') ?? null
   const material = useMemo(() => createLandmarkMaterial(), [])
   const outline = useMemo(() => createLandmarkOutlineMaterial(), [])
   const ribbonMaterial = useMemo(() => createRibbonMaterial(), [])
@@ -142,7 +156,21 @@ export function Landmarks() {
     [meshes, material, outline, ribbonMaterial, mistMaterial, mist],
   )
 
-  useFrame((_state, delta) => {
+  useFrame(({ camera }, delta) => {
+    const period = TERRAIN_CONFIG.worldPeriod
+    const { x: cx, z: cz } = camera.position
+    const count = nearestImages(landmarks, cx, cz, period, shifts)
+    for (let i = 0; i < COPIES; i++) {
+      const copy = copies.current[i]
+      if (!copy) continue
+      copy.visible = i < count
+      if (copy.visible) copy.position.set(shifts[i * 2] ?? 0, 0, shifts[i * 2 + 1] ?? 0)
+    }
+    const fall = waterfallRef.current
+    if (fall && waterfall) {
+      fall.position.set(imageShift(waterfall.x, cx, period), 0, imageShift(waterfall.z, cz, period))
+    }
+
     // `?shot=` bookmarks freeze the water so a capture is repeatable.
     if (!activeShot()) landmarkTimeUniform.value += delta
     if (!mist || !meshes.plunge) return
@@ -171,11 +199,23 @@ export function Landmarks() {
 
   return (
     <group>
-      <mesh geometry={meshes.solid} material={material}>
-        <mesh geometry={meshes.hull} material={outline} raycast={() => undefined} />
-      </mesh>
-      {meshes.ribbon && <mesh geometry={meshes.ribbon} material={ribbonMaterial} />}
-      {mist && <primitive object={mist} />}
+      {Array.from({ length: COPIES }, (_, i) => (
+        <group
+          key={i}
+          ref={(group) => {
+            copies.current[i] = group
+          }}
+          visible={i === 0}
+        >
+          <mesh geometry={meshes.solid} material={material}>
+            <mesh geometry={meshes.hull} material={outline} raycast={() => undefined} />
+          </mesh>
+        </group>
+      ))}
+      <group ref={waterfallRef}>
+        {meshes.ribbon && <mesh geometry={meshes.ribbon} material={ribbonMaterial} />}
+        {mist && <primitive object={mist} />}
+      </group>
     </group>
   )
 }
