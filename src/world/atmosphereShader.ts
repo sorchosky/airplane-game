@@ -80,11 +80,38 @@ const fogParsVertex = /* glsl */ `
 #endif
 `
 
-const fogVertex = /* glsl */ `
-#ifdef USE_FOG
+/** m, how far a point `distance` m from the camera (horizontally) drops under the bend (#178). */
+export function horizonDrop(distance: number, radius: number): number {
+  return (distance * distance) / (2 * radius)
+}
+
+/**
+ * The fog vertex chunk, optionally with the horizon bend (#178, `?curve=<km>`): every vertex drops
+ * by d² / 2R, d its horizontal distance from the camera, so the ground falls away toward the
+ * horizon as on a planet of radius R while flight stays flat. It lives here because every world
+ * material (terrain, water, foliage, landmarks, clouds, their outlines) runs this chunk right after
+ * computing `mvPosition` and `gl_Position`, so one include bends them all alike and nothing floats.
+ * With no radius the chunk is unchanged, so the flag costs nothing when off.
+ */
+export function fogVertexChunk(curveRadius: number | null): string {
+  const bend =
+    curveRadius === null
+      ? ''
+      : /* glsl */ `
+  {
+    // The camera-to-vertex offset back in world space, then the drop along world down in view space
+    // (column 1 of the view matrix is world +Y seen from the camera).
+    vec3 curveOffset = (vec4(mvPosition.xyz, 0.0) * viewMatrix).xyz;
+    float curveDrop = dot(curveOffset.xz, curveOffset.xz) * ${glslFloat(1 / (2 * curveRadius))};
+    mvPosition.xyz -= curveDrop * viewMatrix[1].xyz;
+    gl_Position = projectionMatrix * mvPosition;
+  }`
+  return /* glsl */ `
+#ifdef USE_FOG${bend}
   vAtmosphereView = mvPosition.xyz;
 #endif
 `
+}
 
 // The far fade runs from the scene fog's `near` to its `far`: three.js uploads both to every
 // fog material, so the governor can move the fade with the view distance without recompiling.
@@ -134,15 +161,19 @@ let installed = false
  *
  * The preset's uniforms go into every built-in shader that takes fog, so each built-in material
  * gets them when it compiles (sharing the arrays, see `atmosphereUniforms.ts`).
+ *
+ * `curveRadius` (m) turns on the horizon bend spike (#178), see `fogVertexChunk`.
  */
-export function installAtmosphereFog(): void {
+export function installAtmosphereFog({
+  curveRadius = null,
+}: { curveRadius?: number | null } = {}): void {
   if (installed) return
   installed = true
   for (const shader of Object.values(ShaderLib)) {
     if ('fogColor' in shader.uniforms) Object.assign(shader.uniforms, atmosphereUniforms)
   }
   ShaderChunk.fog_pars_vertex = fogParsVertex
-  ShaderChunk.fog_vertex = fogVertex
+  ShaderChunk.fog_vertex = fogVertexChunk(curveRadius)
   ShaderChunk.fog_pars_fragment = fogParsFragment
   ShaderChunk.fog_fragment = fogFragment
 }

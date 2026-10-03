@@ -1,6 +1,8 @@
 import { Quaternion, Vector3 } from 'three'
 import type { FlightState } from '../flight/flightModel'
+import { surfaceHeightAt } from '../world/heightfield'
 import { activeLighting } from '../world/lightingPreset'
+import { TERRAIN_CONFIG } from '../world/terrainConfig'
 
 /**
  * `?shot=<name>`: fixed camera bookmarks for before/after screenshots. Every art PR captures the
@@ -276,9 +278,26 @@ export function findShot(name: string | null): ShotBookmark | null {
   return SHOT_BOOKMARKS.find((shot) => shot.name === name) ?? null
 }
 
-/** The bookmark named by `?shot=`, or null (unknown names are ignored). */
+/**
+ * The bookmark lifted or lowered to `agl` m above the ground (or lake) under it, so contact sheets
+ * compare shots at the same height (#178).
+ */
+export function shotAtAltitude(shot: ShotBookmark, agl: number): ShotBookmark {
+  const [x, , z] = shot.position
+  return { ...shot, position: [x, surfaceHeightAt(x, z, TERRAIN_CONFIG) + agl, z] }
+}
+
+/**
+ * The bookmark named by `?shot=`, or null (unknown names are ignored). `&shotAgl=<m>` overrides its
+ * height with that many metres above the ground.
+ */
 export function getShotFromUrl(search: string = window.location.search): ShotBookmark | null {
-  return findShot(new URLSearchParams(search).get('shot'))
+  const params = new URLSearchParams(search)
+  const shot = findShot(params.get('shot'))
+  const agl = Number(params.get('shotAgl'))
+  return shot && params.has('shotAgl') && Number.isFinite(agl) && agl > 0
+    ? shotAtAltitude(shot, agl)
+    : shot
 }
 
 let cached: ShotBookmark | null | undefined

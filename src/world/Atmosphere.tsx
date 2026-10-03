@@ -5,6 +5,7 @@ import { useClockStore } from './clockStore'
 import { useQualityStore } from '../render/qualityStore'
 import { hazeForViewDistance, SUN_DIRECTION } from './atmosphere'
 import { applyBlendedLighting } from './atmosphereUniforms'
+import { horizonCurveRadius } from '../app/urlFlags'
 import { installAtmosphereFog } from './atmosphereShader'
 import { Clouds } from './Clouds'
 import { activeLighting } from './lightingPreset'
@@ -14,7 +15,7 @@ import { createBlendedLighting, timeOfDay } from './timeOfDay'
 import { Stars } from './Stars'
 
 // Patch Three's fog chunks at import time, before any material in the scene compiles.
-installAtmosphereFog()
+installAtmosphereFog({ curveRadius: horizonCurveRadius() })
 
 /** m, how far along `SUN_DIRECTION` the light sits. Only the direction matters for a sun. */
 const SUN_LIGHT_DISTANCE = 100

@@ -35,3 +35,12 @@ export function mapSizeKm(): number | null {
   const value = Number(params.get('map'))
   return Number.isFinite(value) && value > 0 ? Math.min(48, Math.max(1, value)) : 16
 }
+
+/**
+ * `?curve=<km>`: the horizon bend spike (#178), the radius in metres of the world the ground
+ * appears to curve over, or null when off (the default). Clamped to 5..1000 km.
+ */
+export function horizonCurveRadius(search: string = window.location.search): number | null {
+  const value = Number(new URLSearchParams(search).get('curve'))
+  return Number.isFinite(value) && value > 0 ? Math.min(1000, Math.max(5, value)) * 1000 : null
+}

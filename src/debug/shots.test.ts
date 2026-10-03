@@ -10,6 +10,8 @@ import {
   titleBookmark,
 } from './shots'
 import { CHASE_CAMERA_PARAMS } from '../flight/cameraMath'
+import { surfaceHeightAt } from '../world/heightfield'
+import { TERRAIN_CONFIG } from '../world/terrainConfig'
 
 describe('shot bookmarks', () => {
   it('have unique names, usable in a URL', () => {
@@ -28,6 +30,17 @@ describe('shot bookmarks', () => {
     expect(getShotFromUrl('?shot=nope')).toBeNull()
     expect(getShotFromUrl('')).toBeNull()
     expect(findShot(null)).toBeNull()
+  })
+
+  it('move to a height above the ground with &shotAgl= (#178)', () => {
+    const shot = getShotFromUrl('?shot=mountain-vista&shotAgl=100')
+    const [x, y, z] = shot!.position
+    expect(y).toBeCloseTo(surfaceHeightAt(x, z, TERRAIN_CONFIG) + 100, 6)
+    expect([x, z]).toEqual([
+      findShot('mountain-vista')!.position[0],
+      findShot('mountain-vista')!.position[2],
+    ])
+    expect(getShotFromUrl('?shot=spawn&shotAgl=-5')).toBe(findShot('spawn'))
   })
 })
 
