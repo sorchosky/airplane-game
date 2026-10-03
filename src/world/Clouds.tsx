@@ -19,7 +19,6 @@ import {
 } from './cloudMath'
 import { useCloudStore } from './cloudStore'
 import { createGoldenPathRoute } from './goldenPath'
-import { getLandmarks } from './landmarks'
 
 /**
  * Two cloud layers, two draw calls (#70):
@@ -37,11 +36,12 @@ import { getLandmarks } from './landmarks'
 export function Clouds() {
   const puffs = useMemo(() => {
     const field = cumulusLayout(CUMULUS_CONFIG)
-    const arch = getLandmarks().find((landmark) => landmark.kind === 'arch')
-    if (!arch) return field
-    const start = useFlightStore.getState().state.position
-    const route = createGoldenPathRoute(start, arch)
-    return [...field, ...cloudGateLayout(route.cloud, route.rings.at(-1) ?? start)]
+    const route = createGoldenPathRoute()
+    const gate = route.gates[route.cloud]
+    if (!gate) return field
+    const { position, normal } = gate
+    const approach = { x: position.x - normal.x, z: position.z - normal.z }
+    return [...field, ...cloudGateLayout(position, approach)]
   }, [])
   const sheets = useMemo(() => stratusLayout(STRATUS_CONFIG), [])
 

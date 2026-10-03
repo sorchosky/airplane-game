@@ -194,11 +194,28 @@ export const SHOT_BOOKMARKS: readonly ShotBookmark[] = [
   },
   {
     name: 'cloud-gate',
-    position: [1205, 136, 903],
-    heading: 0.674,
+    position: [4739, 102, 476],
+    heading: -2.536,
     bank: 0,
     pitchAngle: 0,
-    purpose: 'Golden-path approach: the dense cumulus gate bank centred on the route.',
+    purpose: 'Golden-path approach: the cumulus gate bank on the route, 450 m out (#175).',
+  },
+  {
+    name: 'golden-ring',
+    position: [1979, 96, 1145],
+    heading: -0.399,
+    bank: 0,
+    pitchAngle: 0,
+    purpose:
+      'Golden-path wind ring through the outbound cut, 250 m out, the next ring beyond (#175).',
+  },
+  {
+    name: 'golden-ring-arch',
+    position: [783, 88, 3167],
+    heading: 1.076,
+    bank: 0,
+    pitchAngle: 0,
+    purpose: 'The last ring before the arch, 250 m out, lined up with the arch opening (#175).',
   },
   {
     name: 'plane-hero',

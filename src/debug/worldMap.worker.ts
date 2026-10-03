@@ -25,10 +25,7 @@ const scope = self as unknown as WorkerScope
 scope.onmessage = ({ data }) => {
   const spawn = findSpawnPoint(TERRAIN_CONFIG)
   const landmarks = placeLandmarks(TERRAIN_CONFIG)
-  const arch = landmarks.find((landmark) => landmark.kind === 'arch')
-  const route = arch
-    ? createGoldenPathRoute({ x: spawn.x, y: spawn.groundHeight + 120, z: spawn.z }, arch)
-    : null
+  const route = createGoldenPathRoute()
   const heights = new Float32Array(data.samples * data.samples)
   const step = data.sizeMeters / (data.samples - 1)
   for (let row = 0; row < data.samples; row++) {
@@ -45,8 +42,8 @@ scope.onmessage = ({ data }) => {
       heights,
       spawn,
       landmarks,
-      rings: route?.rings ?? [],
-      gate: arch ? { x: arch.x, z: arch.z } : null,
+      rings: route.rings.flatMap((index) => route.gates[index]?.position ?? []),
+      gate: route.gates[route.cloud]?.position ?? null,
     },
     [heights.buffer],
   )
