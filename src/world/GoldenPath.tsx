@@ -10,8 +10,8 @@ import {
   Vector3,
 } from 'three'
 import { playWhoosh } from '../audio/audioEngine'
-import { useFlightStore } from '../flight/flightStore'
 import { color, space, type } from '../styles/tokens'
+import { onWorldWrap, useFlightStore } from '../flight/flightStore'
 import { useCloudStore } from './cloudStore'
 import { useGoldenPathStore } from './goldenPathStore'
 import {
@@ -21,9 +21,12 @@ import {
   createGoldenPathRoute,
   initialProgress,
   stationsPassed,
+  type Gate,
   type LoopProgress,
   type PathPoint,
 } from './goldenPath'
+import { TERRAIN_CONFIG } from './terrainConfig'
+import { imageShift } from './wrap'
 
 const PUFFS_PER_RING = 8
 const dummy = new Object3D()
@@ -31,8 +34,26 @@ const forward = new Vector3(0, 0, 1)
 const direction = new Vector3()
 const lit = new Color(color.textPrimary)
 const passedColor = new Color(color.controlInactive)
+// The plane's step this frame in the route's period, written in place.
+const homeCurrent: PathPoint = { x: 0, y: 0, z: 0 }
+const homeFrom: PathPoint = { x: 0, y: 0, z: 0 }
 
-/** Wind rings and the cloud gate along the loop, completing a lap at the return notch. */
+/** Places ring `i` at its gate, moved by (`dx`, `dz`) to the gate's copy nearest the camera. */
+function placeRing(rings: InstancedMesh, i: number, gate: Gate, dx: number, dz: number): void {
+  direction.set(gate.normal.x, 0, gate.normal.z)
+  dummy.position.set(gate.position.x + dx, gate.position.y, gate.position.z + dz)
+  dummy.quaternion.setFromUnitVectors(forward, direction)
+  dummy.scale.setScalar(1)
+  dummy.updateMatrix()
+  rings.setMatrixAt(i, dummy.matrix)
+}
+
+/**
+ * Wind rings and the cloud gate along the loop, completing a lap at the return notch.
+ *
+ * The world wraps (#177): gates count in the route's own period (the plane is taken to its copy
+ * nearest the basin), and each ring is drawn at its copy nearest the camera.
+ */
 export function GoldenPath({ paused }: { paused: boolean }) {
   const ringsRef = useRef<InstancedMesh>(null)
   const puffsRef = useRef<InstancedMesh>(null)
@@ -42,6 +63,8 @@ export function GoldenPath({ paused }: { paused: boolean }) {
   const cloudBurst = useRef(false)
   const previous = useRef<PathPoint | null>(null)
   const shownProgress = useRef<LoopProgress | null>(null)
+  // Per ring, the image shift (x, z) its matrix was last written with.
+  const ringShifts = useMemo(() => new Float64Array(ringCount * 2), [ringCount])
 
   const ringGeometry = useMemo(() => new TorusGeometry(GOLDEN_PATH.ringRadius, 0.7, 8, 48), [])
   const puffGeometry = useMemo(() => new IcosahedronGeometry(1, 0), [])
@@ -71,15 +94,22 @@ export function GoldenPath({ paused }: { paused: boolean }) {
     if (!rings) return
     route.rings.forEach((gateIndex, i) => {
       const gate = route.gates[gateIndex]
-      if (!gate) return
-      direction.set(gate.normal.x, 0, gate.normal.z)
-      dummy.position.set(gate.position.x, gate.position.y, gate.position.z)
-      dummy.quaternion.setFromUnitVectors(forward, direction)
-      dummy.updateMatrix()
-      rings.setMatrixAt(i, dummy.matrix)
+      if (gate) placeRing(rings, i, gate, 0, 0)
     })
+    ringShifts.fill(0)
     rings.instanceMatrix.needsUpdate = true
-  }, [route])
+  }, [route, ringShifts])
+
+  // The plane wrapped round the world: its last position moves with it, so the next frame's
+  // step is the short hop it really flew, not a jump across the world.
+  useEffect(
+    () =>
+      onWorldWrap((shift) => {
+        const last = previous.current
+        if (last) previous.current = { x: last.x + shift.x, y: last.y, z: last.z + shift.z }
+      }),
+    [],
+  )
 
   useEffect(
     () => () => {
@@ -100,8 +130,23 @@ export function GoldenPath({ paused }: { paused: boolean }) {
     }
     const { state, params } = useFlightStore.getState()
     const now = clock.elapsedTime
-    const current = state.position
-    const from = previous.current ?? { x: current.x, y: current.y, z: current.z }
+    const position = state.position
+    // The plane's copy in the route's period, round the basin; the last position moves the same.
+    const { centerX, centerZ } = TERRAIN_CONFIG.basin
+    const period = TERRAIN_CONFIG.worldPeriod
+    const homeX = imageShift(position.x, centerX, period)
+    const homeZ = imageShift(position.z, centerZ, period)
+    const current = homeCurrent
+    current.x = position.x + homeX
+    current.y = position.y
+    current.z = position.z + homeZ
+    const last = previous.current
+    const from = last ? homeFrom : current
+    if (last) {
+      homeFrom.x = last.x + homeX
+      homeFrom.y = last.y
+      homeFrom.z = last.z + homeZ
+    }
 
     const crossed = stationsPassed(route.gates, from, current)
     if (crossed.length > 0) {
@@ -142,6 +187,24 @@ export function GoldenPath({ paused }: { paused: boolean }) {
     }
 
     const rings = ringsRef.current
+    if (rings) {
+      let moved = false
+      route.rings.forEach((gateIndex, i) => {
+        const gate = route.gates[gateIndex]
+        if (!gate) return
+        const dx = imageShift(gate.position.x, camera.position.x, period)
+        const dz = imageShift(gate.position.z, camera.position.z, period)
+        if (dx === ringShifts[i * 2] && dz === ringShifts[i * 2 + 1]) return
+        ringShifts[i * 2] = dx
+        ringShifts[i * 2 + 1] = dz
+        placeRing(rings, i, gate, dx, dz)
+        moved = true
+      })
+      if (moved) {
+        rings.instanceMatrix.needsUpdate = true
+        rings.computeBoundingSphere()
+      }
+    }
     const { progress } = useGoldenPathStore.getState()
     if (rings && progress !== shownProgress.current) {
       shownProgress.current = progress
@@ -165,9 +228,9 @@ export function GoldenPath({ paused }: { paused: boolean }) {
             const spread = 16 + age * 18
             const across = Math.cos(angle) * spread
             dummy.position.set(
-              gate.position.x - gate.normal.z * across,
+              gate.position.x - gate.normal.z * across + (ringShifts[ringIndex * 2] ?? 0),
               gate.position.y + Math.sin(angle) * spread,
-              gate.position.z + gate.normal.x * across,
+              gate.position.z + gate.normal.x * across + (ringShifts[ringIndex * 2 + 1] ?? 0),
             )
             dummy.quaternion.copy(camera.quaternion)
             dummy.scale.setScalar(Math.max(0.01, 3 * (1 - age / 1.2)))
@@ -181,7 +244,7 @@ export function GoldenPath({ paused }: { paused: boolean }) {
       puffs.instanceMatrix.needsUpdate = true
     }
 
-    previous.current = { x: current.x, y: current.y, z: current.z }
+    previous.current = { x: position.x, y: position.y, z: position.z }
   })
 
   return (

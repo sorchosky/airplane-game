@@ -6,6 +6,8 @@ import { useFlightStore } from '../flight/flightStore'
 import { useInputStore } from '../input/inputStore'
 import { useCloudStore } from '../world/cloudStore'
 import { getLandmarks, insideTrigger } from '../world/landmarks'
+import { TERRAIN_CONFIG } from '../world/terrainConfig'
+import { imageShift } from '../world/wrap'
 import { playCue, playWhoosh, setDucked, setMuted, updateAudioParams } from './audioEngine'
 import { computeAudioParams, type EngineWindParams } from './audioParams'
 import { useAudioStore } from './audioStore'
@@ -64,9 +66,12 @@ export function useAudioEngine(): void {
       const cloud = useCloudStore.getState()
       if (cloud.bursts !== lastCloudBursts) playWhoosh('cloud')
       lastCloudBursts = cloud.bursts
-      position[0] = state.position.x
+      // The plane's copy in the landmarks' period, round the basin: the world wraps (#177).
+      const { centerX, centerZ } = TERRAIN_CONFIG.basin
+      const period = TERRAIN_CONFIG.worldPeriod
+      position[0] = state.position.x + imageShift(state.position.x, centerX, period)
       position[1] = state.position.y
-      position[2] = state.position.z
+      position[2] = state.position.z + imageShift(state.position.z, centerZ, period)
       for (let i = 0; i < landmarks.length; i += 1) {
         const landmark = landmarks[i]
         if (!landmark) continue

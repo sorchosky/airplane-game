@@ -10,12 +10,13 @@ import {
   type Mesh,
 } from 'three'
 import { color } from '../styles/tokens'
-import { useFlightStore } from './flightStore'
+import { onWorldWrap, useFlightStore } from './flightStore'
 import {
   VORTEX_PARAMS,
   buildRibbonIndex,
   clearVortexTrail,
   createVortexTrail,
+  shiftVortexTrail,
   recordVortex,
   ribbonPoints,
   vortexEmitting,
@@ -73,6 +74,18 @@ export function WingtipVortices({ paused }: WingtipVorticesProps) {
 
   const sim = useRef({ time: 0, lastOn: -Infinity, last: new Vector3(), started: false })
   const tip = useRef(new Vector3())
+
+  // The plane wrapped round the world (#177): the trails and the teleport check move with it, so
+  // the ribbons carry on across the seam instead of being cut as a teleport.
+  useEffect(
+    () =>
+      onWorldWrap((shift) => {
+        for (const trail of trails) shiftVortexTrail(trail, shift.x, shift.z)
+        sim.current.last.x += shift.x
+        sim.current.last.z += shift.z
+      }),
+    [trails],
+  )
 
   useFrame(({ camera }, delta) => {
     const mesh = meshRef.current

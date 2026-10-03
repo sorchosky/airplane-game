@@ -1,6 +1,6 @@
 import { PerspectiveCamera } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { PerspectiveCamera as ThreePerspectiveCamera } from 'three'
 import { Quaternion, Vector3 } from 'three'
 import { shotCameraPosition, shotLookTarget, type ShotBookmark } from '../debug/shots'
@@ -18,7 +18,7 @@ import {
 } from './cameraMath'
 import { flybyHandoff } from './flybyHandoff'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
-import { useFlightStore } from './flightStore'
+import { onWorldWrap, useFlightStore } from './flightStore'
 import { cameraShake, speedVfxIntensity } from './flightVfxMath'
 
 function prefersReducedMotion(): boolean {
@@ -58,6 +58,24 @@ export function ChaseCamera({ shot = null }: ChaseCameraProps) {
       prefersReducedMotion()
         ? reducedMotionChaseCameraParams(CHASE_CAMERA_PARAMS)
         : CHASE_CAMERA_PARAMS,
+    [],
+  )
+
+  // The plane wrapped round the world (#177): the springs and the camera move with it, so the
+  // chase carries on across the seam with no catch-up.
+  useEffect(
+    () =>
+      onWorldWrap((shift) => {
+        smoothedPosition.current.x += shift.x
+        smoothedPosition.current.z += shift.z
+        smoothedLookAt.current.x += shift.x
+        smoothedLookAt.current.z += shift.z
+        const camera = cameraRef.current
+        if (camera) {
+          camera.position.x += shift.x
+          camera.position.z += shift.z
+        }
+      }),
     [],
   )
 

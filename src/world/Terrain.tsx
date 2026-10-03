@@ -2,7 +2,7 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import { Group } from 'three'
 import { usePerfStore } from '../debug/perfStore'
-import { useFlightStore } from '../flight/flightStore'
+import { onWorldWrap, useFlightStore } from '../flight/flightStore'
 import { useQualityStore } from '../render/qualityStore'
 import { TERRAIN_CONFIG } from './terrainConfig'
 import { createTerrainMaterial } from './terrainMaterial'
@@ -46,7 +46,10 @@ export function Terrain() {
       workerCount(),
     )
     streamerRef.current = streamer
+    // The plane wrapped round the world (#177): the tiles move with it, nothing is rebuilt.
+    const unsubscribe = onWorldWrap((shift) => streamer.shift(shift))
     return () => {
+      unsubscribe()
       streamer.dispose()
       streamerRef.current = null
     }

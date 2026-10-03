@@ -65,4 +65,26 @@ describe('CellCache', () => {
     counting.work(Infinity)
     expect(rebuilt).toBe(4)
   })
+
+  it('rekey moves cached cells to new keys without rebuilding them (#177)', () => {
+    let rebuilt = 0
+    const cache = new CellCache(
+      (c) => {
+        rebuilt++
+        return { x: c.x }
+      },
+      10,
+      () => 0,
+    )
+    cache.want([cell(0), cell(1)])
+    cache.work(Infinity)
+    cache.rekey((_key, data) => {
+      data.x += 5
+      return cell(data.x).key
+    })
+    cache.want([cell(5), cell(6)])
+    expect(cache.work(Infinity)).toBe(true)
+    expect(rebuilt).toBe(2)
+    expect(cache.wantedData()).toEqual([{ x: 5 }, { x: 6 }])
+  })
 })

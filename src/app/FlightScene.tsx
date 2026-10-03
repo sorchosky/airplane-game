@@ -7,6 +7,7 @@ import { Plane } from '../flight/Plane'
 import { TitleCamera } from '../flight/TitleCamera'
 import { FlightVfx } from '../flight/FlightVfx'
 import { useFlightStore } from '../flight/flightStore'
+import { WorldWrap } from '../flight/WorldWrap'
 import { PostFX } from '../render/PostFX'
 import { QualityGovernor } from '../render/QualityGovernor'
 import { useQualityStore } from '../render/qualityStore'
@@ -116,6 +117,7 @@ export function FlightScene({ mode, covered = false }: FlightSceneProps) {
         dpr={dpr}
         style={{ width: '100%', height: '100%', display: 'block' }}
       >
+        <WorldWrap />
         <Atmosphere />
         {flyby ? <TitleCamera frozen={frozen} /> : <ChaseCamera shot={parked} />}
         <Plane paused={paused || parked !== null} scripted={flyby} frozen={frozen} />

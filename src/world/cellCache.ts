@@ -56,6 +56,17 @@ export class CellCache<T> {
     this.cache.clear()
   }
 
+  /**
+   * Re-keys every cached cell: `rekey` returns a cell's new key (and may update its data in place).
+   * For a streamer whose frame moved under it (#177). Call `want` again afterwards: the wanted
+   * keys are not re-keyed.
+   */
+  rekey(rekey: (key: string, data: T) => string): void {
+    const entries = [...this.cache]
+    this.cache.clear()
+    for (const [key, data] of entries) this.cache.set(rekey(key, data), data)
+  }
+
   private evict(): void {
     if (this.cache.size <= this.limit) return
     // Maps iterate in insertion order, so this drops the oldest cells that aren't wanted.

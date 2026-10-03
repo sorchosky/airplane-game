@@ -2,7 +2,7 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import { BufferAttribute, BufferGeometry, InstancedMesh, Object3D, PlaneGeometry } from 'three'
 import { activeShot } from '../debug/shots'
-import { useFlightStore } from '../flight/flightStore'
+import { onWorldWrap, useFlightStore } from '../flight/flightStore'
 import { wrapAround } from './atmosphere'
 import { createCumulusMaterial, createStratusMaterial } from './cloudMaterial'
 import {
@@ -19,6 +19,11 @@ import {
 } from './cloudMath'
 import { useCloudStore } from './cloudStore'
 import { createGoldenPathRoute } from './goldenPath'
+import { TERRAIN_CONFIG } from './terrainConfig'
+import { commonPeriod, imageShift, WrapFrame, type WrapShift } from './wrap'
+
+/** m, where both drifting layers repeat: their window frame is taken back by this much (#177). */
+const FIELD_ANCHOR = commonPeriod(CUMULUS_CONFIG.fieldSize, STRATUS_CONFIG.fieldSize)
 
 /**
  * Two cloud layers, two draw calls (#70):
@@ -32,6 +37,11 @@ import { createGoldenPathRoute } from './goldenPath'
  *
  * Flying into a heap starts a burst: the six nearest heaps are pushed aside and ease back, and
  * `cloudStore` counts the burst for the screen veil and audio.
+ *
+ * The world wraps (#177). The window follows the plane in a `WrapFrame`, so a wrap doesn't move a
+ * single drifting cloud (the 19 km field doesn't divide the 24 km period); the frame is taken back
+ * by whole field sizes, where the field repeats. The cloud gate is drawn at its copy nearest the
+ * plane.
  */
 export function Clouds() {
   const puffs = useMemo(() => {
@@ -65,6 +75,15 @@ export function Clouds() {
 
   const dummy = useMemo(() => new Object3D(), [])
   const elapsed = useRef(0)
+  const frame = useMemo(() => new WrapFrame(), [])
+  useEffect(() => {
+    const rebased: WrapShift = { x: 0, z: 0 }
+    return onWorldWrap((shift) => {
+      frame.shift(shift)
+      // The field repeats every anchor, so moving its frame by whole anchors changes nothing.
+      frame.rebase(FIELD_ANCHOR, rebased)
+    })
+  }, [frame])
   // The burst: which heaps are pushed, which way (unit x, z per heap), and when it started.
   const burst = useMemo(
     () => ({
@@ -96,6 +115,11 @@ export function Clouds() {
     if (!shot) elapsed.current += delta
     const t = elapsed.current
     const { position } = useFlightStore.getState().state
+    // The window's centre in the cloud frame, and the move from that frame to the world.
+    const centerX = frame.localX(position.x)
+    const centerZ = frame.localZ(position.z)
+    const { offsetX, offsetZ } = frame
+    const period = TERRAIN_CONFIG.worldPeriod
 
     // Stratus: drift, wrap, write.
     const stratusX = STRATUS_CONFIG.windX * t
@@ -105,9 +129,9 @@ export function Clouds() {
       const sheet = sheets[i]
       if (!sheet) continue
       dummy.position.set(
-        wrapAround(sheet.x + stratusX, position.x, STRATUS_CONFIG.fieldSize),
+        wrapAround(sheet.x + stratusX, centerX, STRATUS_CONFIG.fieldSize) + offsetX,
         sheet.y,
-        wrapAround(sheet.z + stratusZ, position.z, STRATUS_CONFIG.fieldSize),
+        wrapAround(sheet.z + stratusZ, centerZ, STRATUS_CONFIG.fieldSize) + offsetZ,
       )
       dummy.rotation.set(0, 0, 0)
       dummy.scale.set(sheet.width, sheet.height, 1)
@@ -124,13 +148,9 @@ export function Clouds() {
       const puff = puffs[i]
       if (!puff) continue
       // The gate belongs to the route, while ambient clouds belong to the drifting wrap field.
-      const x = puff.fixed
-        ? puff.clusterX + puff.offsetX
-        : wrapAround(puff.clusterX + windX * t, position.x, fieldSize) + puff.offsetX
-      const z = puff.fixed
-        ? puff.clusterZ + puff.offsetZ
-        : wrapAround(puff.clusterZ + windZ * t, position.z, fieldSize) + puff.offsetZ
       if (puff.fixed) continue
+      const x = wrapAround(puff.clusterX + windX * t, centerX, fieldSize) + offsetX + puff.offsetX
+      const z = wrapAround(puff.clusterZ + windZ * t, centerZ, fieldSize) + offsetZ + puff.offsetZ
       const depth = heapDepth(position.x - x, position.y - puff.y, position.z - z, puff)
       filled = insertNearest(burst.nearest, burst.nearestDepth, filled, i, depth)
     }
@@ -147,8 +167,10 @@ export function Clouds() {
           const puff = index >= 0 ? puffs[index] : undefined
           if (!puff) continue
           // Away from the plane, level: the heaps part around it.
-          const x = wrapAround(puff.clusterX + windX * t, position.x, fieldSize) + puff.offsetX
-          const z = wrapAround(puff.clusterZ + windZ * t, position.z, fieldSize) + puff.offsetZ
+          const x =
+            wrapAround(puff.clusterX + windX * t, centerX, fieldSize) + offsetX + puff.offsetX
+          const z =
+            wrapAround(puff.clusterZ + windZ * t, centerZ, fieldSize) + offsetZ + puff.offsetZ
           const dx = x - position.x
           const dz = z - position.z
           const length = Math.hypot(dx, dz)
@@ -163,12 +185,13 @@ export function Clouds() {
     for (let i = 0; i < puffs.length; i++) {
       const puff = puffs[i]
       if (!puff) continue
+      // The gate is drawn at its copy nearest the plane.
       let x = puff.fixed
-        ? puff.clusterX + puff.offsetX
-        : wrapAround(puff.clusterX + windX * t, position.x, fieldSize) + puff.offsetX
+        ? puff.clusterX + puff.offsetX + imageShift(puff.clusterX, position.x, period)
+        : wrapAround(puff.clusterX + windX * t, centerX, fieldSize) + offsetX + puff.offsetX
       let z = puff.fixed
-        ? puff.clusterZ + puff.offsetZ
-        : wrapAround(puff.clusterZ + windZ * t, position.z, fieldSize) + puff.offsetZ
+        ? puff.clusterZ + puff.offsetZ + imageShift(puff.clusterZ, position.z, period)
+        : wrapAround(puff.clusterZ + windZ * t, centerZ, fieldSize) + offsetZ + puff.offsetZ
       if (push > 0) {
         for (let k = 0; k < CLOUD_BURST.pushedPuffs; k++) {
           if (burst.indices[k] !== i) continue
