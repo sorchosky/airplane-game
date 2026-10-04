@@ -19,7 +19,7 @@ import {
 } from './controlStateMachine'
 import { FRAME_PRIORITY, frameLoop } from './frameLoop'
 import { useGameStore } from './gameStore'
-import { useControlModeStore } from './controlModeStore'
+import { selectedInputSource, useControlModeStore } from './controlModeStore'
 
 const INITIAL_VIEW: ControlView = { prompt: null, paused: false, countdown: null }
 
@@ -76,7 +76,15 @@ function presence(): Presence {
 
 function apply({ state, command }: ControlStepResult, nowMs: number): void {
   const store = useControlStore.getState()
-  const view = controlView(state, nowMs, presence(), paramsForMode())
+  const { controlMode, inputOverride } = useControlModeStore.getState()
+  const view = controlView(
+    state,
+    nowMs,
+    presence(),
+    paramsForMode(),
+    inputOverride === 'keyboard' ? 'camera' : controlMode,
+    selectedInputSource(),
+  )
   if (state !== store.machine || !sameView(view, store.view)) {
     useControlStore.setState({
       machine: state,

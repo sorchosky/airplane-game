@@ -4,6 +4,7 @@ import {
   controlView,
   createControlMachineState,
   forcePause,
+  promptFor,
   startCountdown,
   stepControlMachine,
   togglePause,
@@ -38,17 +39,17 @@ describe('stepControlMachine', () => {
     state = stepControlMachine(state, { active: true, nowMs: 10 }).state
     expect(state.phase).toBe('active')
     state = stepControlMachine(state, { active: false, nowMs: 20 }).state
-    expect(state).toEqual({ phase: 'inactive', sinceMs: 20 })
+    expect(state).toEqual({ phase: 'inactive', sinceMs: 20, hasSteered: true })
   })
 
   it('returns the same state object when nothing changes', () => {
-    const state = { phase: 'active' as const, sinceMs: 0 }
+    const state = { phase: 'active' as const, sinceMs: 0, hasSteered: false }
     expect(stepControlMachine(state, { active: true, nowMs: 5000 }).state).toBe(state)
   })
 
   it('walks idle → prompt → pause → countdown → resume', () => {
     // Idle: arms drop at t=0.
-    let state: ControlMachineState = { phase: 'inactive', sinceMs: 0 }
+    let state: ControlMachineState = { phase: 'inactive', sinceMs: 0, hasSteered: false }
     expect(controlView(state, 0, 'in-frame').prompt).toBeNull()
 
     // Prompt after 300 ms.
@@ -89,7 +90,7 @@ describe('stepControlMachine', () => {
   })
 
   it('does not pause if the arms come back before 5 s', () => {
-    let result = run({ phase: 'inactive', sinceMs: 0 }, false, 0, 4900)
+    let result = run({ phase: 'inactive', sinceMs: 0, hasSteered: false }, false, 0, 4900)
     result = run(result.state, true, 4916, 4916)
     expect(result.state.phase).toBe('active')
     result = run(result.state, false, 4932, 9000)
@@ -98,7 +99,7 @@ describe('stepControlMachine', () => {
   })
 
   it('cancels the countdown back to paused if the arms drop', () => {
-    const state: ControlMachineState = { phase: 'countdown', sinceMs: 0 }
+    const state: ControlMachineState = { phase: 'countdown', sinceMs: 0, hasSteered: false }
     const result = stepControlMachine(state, { active: false, nowMs: 1500 })
     expect(result.state.phase).toBe('paused')
     expect(result.command).toBeNull()
@@ -108,18 +109,30 @@ describe('stepControlMachine', () => {
     const params = { ...DEFAULT_CONTROL_MACHINE_PARAMS, gesturePause: false }
 
     it('still shows the prompt but never auto-pauses', () => {
-      const result = run({ phase: 'inactive', sinceMs: 0 }, false, 0, 20_000, params)
+      const result = run(
+        { phase: 'inactive', sinceMs: 0, hasSteered: false },
+        false,
+        0,
+        20_000,
+        params,
+      )
       expect(result.commands).toEqual([])
       expect(controlView(result.state, 20_000, 'in-frame', params).prompt).toBe('spread-arms')
     })
 
     it('ignores arms out while paused', () => {
-      const result = run({ phase: 'paused', sinceMs: 0 }, true, 0, 5000, params)
+      const result = run({ phase: 'paused', sinceMs: 0, hasSteered: false }, true, 0, 5000, params)
       expect(result.state.phase).toBe('paused')
     })
 
     it('runs the countdown regardless of the arms, resuming into inactive', () => {
-      const result = run({ phase: 'countdown', sinceMs: 0 }, false, 0, 3008, params)
+      const result = run(
+        { phase: 'countdown', sinceMs: 0, hasSteered: false },
+        false,
+        0,
+        3008,
+        params,
+      )
       expect(result.commands).toEqual(['resume'])
       expect(result.state.phase).toBe('inactive')
     })
@@ -128,61 +141,98 @@ describe('stepControlMachine', () => {
 
 describe('togglePause', () => {
   it('pauses from flying', () => {
-    expect(togglePause({ phase: 'active', sinceMs: 0 }, 100)).toEqual({
-      state: { phase: 'paused', sinceMs: 100 },
+    expect(togglePause({ phase: 'active', sinceMs: 0, hasSteered: false }, 100)).toEqual({
+      state: { phase: 'paused', sinceMs: 100, hasSteered: false },
       command: 'pause',
     })
-    expect(togglePause({ phase: 'inactive', sinceMs: 0 }, 100).command).toBe('pause')
+    expect(togglePause({ phase: 'inactive', sinceMs: 0, hasSteered: false }, 100).command).toBe(
+      'pause',
+    )
   })
 
   it('starts the countdown from paused, and cancels a running countdown', () => {
-    const counting = togglePause({ phase: 'paused', sinceMs: 0 }, 100)
-    expect(counting).toEqual({ state: { phase: 'countdown', sinceMs: 100 }, command: null })
+    const counting = togglePause({ phase: 'paused', sinceMs: 0, hasSteered: false }, 100)
+    expect(counting).toEqual({
+      state: { phase: 'countdown', sinceMs: 100, hasSteered: false },
+      command: null,
+    })
     expect(togglePause(counting.state, 200).state.phase).toBe('paused')
   })
 })
 
 describe('startCountdown', () => {
   it('starts the countdown only from paused', () => {
-    expect(startCountdown({ phase: 'paused', sinceMs: 0 }, 100)).toEqual({
-      state: { phase: 'countdown', sinceMs: 100 },
+    expect(startCountdown({ phase: 'paused', sinceMs: 0, hasSteered: false }, 100)).toEqual({
+      state: { phase: 'countdown', sinceMs: 100, hasSteered: false },
       command: null,
     })
-    const active: ControlMachineState = { phase: 'active', sinceMs: 0 }
+    const active: ControlMachineState = { phase: 'active', sinceMs: 0, hasSteered: false }
     expect(startCountdown(active, 100).state).toBe(active)
   })
 })
 
 describe('forcePause', () => {
   it('pauses from flying and cancels a countdown, but leaves paused alone', () => {
-    expect(forcePause({ phase: 'active', sinceMs: 0 }, 100)).toEqual({
-      state: { phase: 'paused', sinceMs: 100 },
+    expect(forcePause({ phase: 'active', sinceMs: 0, hasSteered: false }, 100)).toEqual({
+      state: { phase: 'paused', sinceMs: 100, hasSteered: false },
       command: 'pause',
     })
-    expect(forcePause({ phase: 'inactive', sinceMs: 0 }, 100).command).toBe('pause')
-    expect(forcePause({ phase: 'countdown', sinceMs: 0 }, 100)).toEqual({
-      state: { phase: 'paused', sinceMs: 100 },
+    expect(forcePause({ phase: 'inactive', sinceMs: 0, hasSteered: false }, 100).command).toBe(
+      'pause',
+    )
+    expect(forcePause({ phase: 'countdown', sinceMs: 0, hasSteered: false }, 100)).toEqual({
+      state: { phase: 'paused', sinceMs: 100, hasSteered: false },
       command: null,
     })
-    const paused: ControlMachineState = { phase: 'paused', sinceMs: 0 }
+    const paused: ControlMachineState = { phase: 'paused', sinceMs: 0, hasSteered: false }
     expect(forcePause(paused, 100).state).toBe(paused)
   })
 })
 
 describe('controlView', () => {
   it('asks the player to step into view when nobody is detected', () => {
-    expect(controlView({ phase: 'inactive', sinceMs: 0 }, 400, 'out-of-frame').prompt).toBe(
-      'step-into-view',
-    )
+    expect(
+      controlView({ phase: 'inactive', sinceMs: 0, hasSteered: false }, 400, 'out-of-frame').prompt,
+    ).toBe('step-into-view')
   })
 
   it('shows no prompt while steering', () => {
-    expect(controlView({ phase: 'active', sinceMs: 0 }, 10_000, 'out-of-frame').prompt).toBeNull()
+    expect(
+      controlView({ phase: 'active', sinceMs: 0, hasSteered: false }, 10_000, 'out-of-frame')
+        .prompt,
+    ).toBeNull()
   })
 
   it('says the camera is lost rather than asking the player to step in', () => {
-    expect(controlView({ phase: 'inactive', sinceMs: 0 }, 400, 'camera-lost').prompt).toBe(
-      'camera-lost',
+    expect(
+      controlView({ phase: 'inactive', sinceMs: 0, hasSteered: false }, 400, 'camera-lost').prompt,
+    ).toBe('camera-lost')
+  })
+})
+
+describe('promptFor', () => {
+  it.each([
+    ['camera', 'pose', 'in-frame', false, 'spread-arms'],
+    ['camera', 'replay', 'out-of-frame', false, 'step-into-view'],
+    ['touch', 'keyboard', 'in-frame', false, 'touch-to-steer'],
+    ['mouse', 'keyboard', 'in-frame', false, 'move-mouse'],
+    ['camera', 'keyboard', 'in-frame', false, 'press-space'],
+    ['touch', 'keyboard', 'in-frame', true, null],
+    ['mouse', 'keyboard', 'in-frame', true, null],
+  ] as const)(
+    'picks %s mode with %s input as %s',
+    (mode, source, presence, hasSteered, expected) => {
+      expect(promptFor(mode, source, presence, hasSteered)).toBe(expected)
+    },
+  )
+
+  it('does not repeat touch teaching after manual control has engaged', () => {
+    let state = createControlMachineState(0)
+    expect(controlView(state, 400, 'in-frame', undefined, 'touch', 'keyboard').prompt).toBe(
+      'touch-to-steer',
     )
+    state = stepControlMachine(state, { active: true, nowMs: 500 }).state
+    state = stepControlMachine(state, { active: false, nowMs: 600 }).state
+    expect(controlView(state, 1000, 'in-frame', undefined, 'touch', 'keyboard').prompt).toBeNull()
   })
 })
