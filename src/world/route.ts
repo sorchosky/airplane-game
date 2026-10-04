@@ -56,6 +56,10 @@ interface Sample extends RoutePoint {
   readonly s: number
 }
 
+/**
+ * ~1 m chords, finer than the 2 m nearest samples, so those sit on the smooth spline (#221). On
+ * ~18 m chords their normals crossed ~300 m inside each chord's kink, within the valley's reach.
+ */
 const LOOKUP_STEPS_PER_POINT = 1024
 const NEAREST_SPACING = 2
 const GRID_SIZE = 32
