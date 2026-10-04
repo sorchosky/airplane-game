@@ -30,6 +30,7 @@ import { ROUTE } from './route'
 import { TERRAIN_CONFIG } from './terrainConfig'
 import { imageShift } from './wrap'
 import { useCourseSettingsStore } from '../app/courseSettingsStore'
+import { ringPointerFrame } from '../ui/ringPointerStore'
 
 const PUFFS_PER_RING = 8
 const dummy = new Object3D()
@@ -218,12 +219,18 @@ export function GoldenPath({ paused }: { paused: boolean }) {
       const mode = useCourseSettingsStore.getState().courseRings
       let visible = 0
       let moved = false
+      let nextRingIndex = -1
+      let nextRingDistance = Number.POSITIVE_INFINITY
       route.rings.forEach((gateIndex, i) => {
         const gate = route.gates[gateIndex]
         if (!gate) return
         const dx = imageShift(gate.position.x, camera.position.x, period)
         const dz = imageShift(gate.position.z, camera.position.z, period)
         const distance = (gate.s - nearestS + ROUTE.length) % ROUTE.length
+        if (distance < nextRingDistance) {
+          nextRingDistance = distance
+          nextRingIndex = i
+        }
         let rank = 0
         for (const otherIndex of route.rings) {
           const other = route.gates[otherIndex]!
@@ -253,6 +260,20 @@ export function GoldenPath({ paused }: { paused: boolean }) {
         rings.setColorAt(i, courseColor)
         moved = true
       })
+      const nextGateIndex = nextRingIndex < 0 ? undefined : route.rings[nextRingIndex]
+      const nextGate = nextGateIndex === undefined ? undefined : route.gates[nextGateIndex]
+      if (nextGate) {
+        ringPointerFrame.nextRing.set(
+          nextGate.position.x + (ringShifts[nextRingIndex * 2] ?? 0),
+          nextGate.position.y,
+          nextGate.position.z + (ringShifts[nextRingIndex * 2 + 1] ?? 0),
+        )
+        ringPointerFrame.viewProjection.multiplyMatrices(
+          camera.projectionMatrix,
+          camera.matrixWorldInverse,
+        )
+        ringPointerFrame.ready = true
+      }
       if (useGoldenPathStore.getState().visibleRingCount !== visible) {
         useGoldenPathStore.setState({ visibleRingCount: visible })
       }

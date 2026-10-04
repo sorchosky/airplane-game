@@ -109,6 +109,7 @@
   --size-camera-preview-width: 20vw;
   --size-calibrate-frame: 12px;
   --size-sun-moon-dial: clamp(104px, 12vh, 168px);
+  --size-ring-pointer: clamp(32px, 4vh, 56px);
   --size-hold-ring: clamp(40px, 4vw, 56px);
   --size-control-glyph: clamp(160px, min(24vw, 48vh), 480px);
   --size-glyph-stroke: clamp(2px, min(0.29vw, 0.58vh), 6px);
