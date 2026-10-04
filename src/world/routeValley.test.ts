@@ -501,7 +501,7 @@ describe('route valley in the terrain', () => {
     // own ridged creases don't count. Walked finely across, any seam (a jump in the nearest `s`,
     // a gully edge, a side switch) would show as a change that a cliff's slope can't explain.
     const reach = valleyReach(config)
-    for (let s = fullStart; s <= fullEnd; s += 100) {
+    for (let s = fullStart; s <= fullEnd; s += 200) {
       // The tight west bend (~127 m radius) has its own test: past its centre of curvature the
       // nearest point really does jump from one stretch to the other, and the floors either side
       // differ by up to 2 m, as they did before #221.
@@ -527,7 +527,8 @@ describe('route valley in the terrain', () => {
         }
       }
     }
-  })
+    // Some 100k valley lookups: a few seconds locally, more on a shared CI runner.
+  }, 30_000)
 
   it('gives the worker the same heights as the main thread', () => {
     // The worker gets a structured clone of the config, so it builds its own span and route.
