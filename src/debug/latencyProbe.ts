@@ -106,11 +106,19 @@ export class LatencyProbe {
     this.cameraStampReal = stampReal
   }
 
-  /** A detection ran on the latest camera frame. */
-  markDetect(startMs: number, endMs: number): void {
+  /** Camera stamp of the latest frame, for a detection that finishes after newer frames land. */
+  get cameraFrameMs(): number {
+    return this.cameraMs
+  }
+
+  /**
+   * A detection ran. `cameraMs` is the stamp of the frame it ran on, which defaults to the latest
+   * one; the worker path (#67) passes the stamp it captured when the frame was posted.
+   */
+  markDetect(startMs: number, endMs: number, cameraMs: number = this.cameraMs): void {
     this.detectStartMs = startMs
     this.detectEndMs = endMs
-    this.detectCameraMs = this.cameraMs
+    this.detectCameraMs = cameraMs
   }
 
   /** A `ControlInput` was written. Arms a sample when the roll jumped. */

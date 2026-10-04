@@ -12,7 +12,7 @@ function formatPoint(frame: PoseFrame | null, index: number): string {
 }
 
 /**
- * Pose detection readout behind `?debug`: model status and delegate, effective detection Hz,
+ * Pose detection readout behind `?debug`: model status, delegate and runner (worker or main), effective detection Hz,
  * inference ms, and live wrist positions (mirrored space) so you can see landmarks move. Text is
  * written straight into the DOM from an animation frame loop, never as React state. The Record
  * button captures detections into a replay fixture and downloads it (`tests/fixtures/replays/`).
@@ -23,10 +23,17 @@ export function PoseDebug({ reserveTouchPause = false }: { reserveTouchPause?: b
   useEffect(() => {
     let frame = 0
     const tick = () => {
-      const { modelStatus, delegate, hz, inferenceMs, frame: pose } = usePoseStore.getState()
+      const {
+        modelStatus,
+        delegate,
+        runner,
+        hz,
+        inferenceMs,
+        frame: pose,
+      } = usePoseStore.getState()
       if (textRef.current) {
         textRef.current.textContent =
-          `pose ${modelStatus}${delegate ? ` (${delegate})` : ''}\n` +
+          `pose ${modelStatus}${delegate ? ` (${delegate})` : ''}${runner ? ` ${runner}` : ''}\n` +
           `${hz.toFixed(1)} Hz  ${inferenceMs.toFixed(1)} ms\n` +
           `person ${pose ? 'yes' : 'no'}\n` +
           `L wrist ${formatPoint(pose, LANDMARK.LEFT_WRIST)}\n` +

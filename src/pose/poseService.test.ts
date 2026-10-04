@@ -44,7 +44,26 @@ describe('poseService', () => {
         numPoses: 1,
       }),
     )
-    expect(usePoseStore.getState()).toMatchObject({ modelStatus: 'ready', delegate: 'GPU' })
+    expect(usePoseStore.getState()).toMatchObject({
+      modelStatus: 'ready',
+      delegate: 'GPU',
+      runner: 'main',
+    })
+  })
+
+  it('reports an error rather than measuring the main thread when ?pose=worker cannot start', async () => {
+    window.history.replaceState(null, '', '/?pose=worker')
+    try {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined)
+      const { loadPoseModel } = await loadService()
+
+      // jsdom has no Worker, so the forced worker path fails.
+      await expect(loadPoseModel()).rejects.toThrow()
+      expect(createFromOptions).not.toHaveBeenCalled()
+      expect(usePoseStore.getState()).toMatchObject({ modelStatus: 'error', runner: null })
+    } finally {
+      window.history.replaceState(null, '', '/')
+    }
   })
 
   it('falls back to the CPU delegate when GPU init fails', async () => {
