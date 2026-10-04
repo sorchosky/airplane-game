@@ -28,6 +28,16 @@ export const color = {
   foliageLight: '#6da356',
   bark: '#6b5442',
 
+  // Fishing town (#224, art bible §2). Whitewashed walls and umber framing, two roofs, a weathered
+  // pier, and the warm light that comes on in the windows at dusk. #235 reuses `roofTerracotta`.
+  wallLime: '#e4e8cc',
+  timber: '#5c4030',
+  roofTerracotta: '#c0623d',
+  roofSlate: '#456c74',
+  pierGrey: '#8d8a83',
+  windowGlass: '#3c4d56',
+  windowGlow: '#ffb459',
+
   // Cel-shading linework: a cool near-black, so outlines read as ink rather than brown.
   outline: '#1f2a33',
   // Landscape linework is quieter than the aircraft silhouette and leans toward foliage shadow.

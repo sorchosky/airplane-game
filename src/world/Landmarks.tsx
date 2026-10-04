@@ -24,8 +24,10 @@ import { buildArch } from './models/arch'
 import { mergeParts, seededRandom, type LocalGround } from './models/kit'
 import { buildRuins } from './models/ruins'
 import { buildTower } from './models/tower'
+import { buildTown } from './models/town'
 import { buildTree } from './models/tree'
 import { buildWaterfall } from './models/waterfall'
+import { getTown } from './town'
 import { TERRAIN_CONFIG } from './terrainConfig'
 import { imageShift, nearestImages } from './wrap'
 
@@ -93,6 +95,13 @@ function buildLandmarkMeshes(landmarks: readonly Landmark[]): LandmarkMeshes {
     }
     solids.push(geometry.applyMatrix4(matrix))
   }
+  // The fishing town (#224) merges into the same draw, in the world's frame: no yaw.
+  const town = getTown()
+  solids.push(
+    buildTown(town.layout, town.ground).applyMatrix4(
+      new Matrix4().makeTranslation(town.x, town.y, town.z),
+    ),
+  )
   const solid = mergeParts(solids)
   // The hull wants one smoothed normal per corner, or it splits open along every facet edge.
   const hull = toCreasedNormals(solid, Math.PI)
@@ -101,7 +110,7 @@ function buildLandmarkMeshes(landmarks: readonly Landmark[]): LandmarkMeshes {
 
 /**
  * The five landmarks (#76): tower, arch, waterfall, giant tree and ruins, placed at their route
- * stations (#173) by `placeLandmarks`. Four draw calls in all: every solid model merged into one toon
+ * stations (#173) by `placeLandmarks`, and the fishing town (#224). Four draw calls in all: every solid model merged into one toon
  * mesh plus its outline hull, the waterfall's ribbon, and its instanced mist.
  *
  * The world wraps (#177): each landmark is drawn at its copy nearest the camera. The merged mesh
@@ -112,6 +121,8 @@ export function Landmarks() {
   const landmarks = getLandmarks()
   const meshes = useMemo(() => buildLandmarkMeshes(landmarks), [landmarks])
   const copies = useRef<(Group | null)[]>([])
+  // The merged mesh holds the town too, so its nearest copy counts when picking the copies drawn.
+  const imageAnchors = useMemo(() => [...landmarks, getTown()], [landmarks])
   const waterfallRef = useRef<Group>(null)
   const shifts = useMemo(() => new Float64Array(COPIES * 2), [])
   const waterfall = landmarks.find((landmark) => landmark.kind === 'waterfall') ?? null
@@ -159,7 +170,7 @@ export function Landmarks() {
   useFrame(({ camera }, delta) => {
     const period = TERRAIN_CONFIG.worldPeriod
     const { x: cx, z: cz } = camera.position
-    const count = nearestImages(landmarks, cx, cz, period, shifts)
+    const count = nearestImages(imageAnchors, cx, cz, period, shifts)
     for (let i = 0; i < COPIES; i++) {
       const copy = copies.current[i]
       if (!copy) continue

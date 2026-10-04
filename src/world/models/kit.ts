@@ -13,7 +13,7 @@ import {
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 // A tiny kit for procedural low-poly landmark models (#76). Every part ends up non-indexed with
-// `position`, `normal` and a linear `color` attribute, so a whole landmark (and all five of them)
+// `position`, `normal`, a linear `color` and a `glow` mask attribute, so a whole landmark (and all five of them)
 // merges into one geometry: one toon draw and one outline draw.
 
 /**
@@ -49,6 +49,11 @@ export interface PartOptions {
   seed?: number
   /** Smooth normals (foliage) instead of flat facets (stone, bark). */
   smooth?: boolean
+  /**
+   * 0..1, the part's night-glow mask (#224): windows and lanterns warm on at dusk and off at
+   * morning, by `landmarkMaterials`. Every part carries the attribute so they all merge.
+   */
+  glow?: number
 }
 
 function hashPosition(x: number, y: number, z: number, seed: number): number {
@@ -106,6 +111,10 @@ export function part(source: BufferGeometry, options: PartOptions): BufferGeomet
     colors[i * 3 + 2] = c.b
   }
   geometry.setAttribute('color', new BufferAttribute(colors, 3))
+  geometry.setAttribute(
+    'glow',
+    new BufferAttribute(new Float32Array(count).fill(options.glow ?? 0), 1),
+  )
   return geometry
 }
 
