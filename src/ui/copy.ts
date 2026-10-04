@@ -12,6 +12,8 @@ export const copy = {
     camera: 'Motion',
     mouse: 'Mouse',
     touch: 'Touch',
+    courseRingsNext3: 'Course rings: next 3',
+    courseRingsAll: 'Course rings: all',
   },
 
   // Storyboard frame 01: shown while the browser's camera prompt is open, and again if it's denied.
@@ -74,6 +76,8 @@ export const copy = {
     contrastOff: 'High contrast: off',
     captionsOn: 'Captions: on',
     captionsOff: 'Captions: off',
+    courseRingsNext3: 'Course rings: next 3',
+    courseRingsAll: 'Course rings: all',
   },
 
   captions: {

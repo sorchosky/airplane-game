@@ -14,9 +14,28 @@ test('keyboard: pause menu navigates with arrows and Enter quits to title', asyn
   await page.keyboard.press('ArrowRight')
   await expect(menu).toHaveAttribute('data-highlight', 'captions')
   await page.keyboard.press('ArrowRight')
+  await expect(menu).toHaveAttribute('data-highlight', 'courseRings')
+  await page.keyboard.press('ArrowRight')
   await expect(menu).toHaveAttribute('data-highlight', 'quit')
   await page.keyboard.press('Enter')
   await expect(page.getByRole('button', { name: 'Start' })).toBeVisible()
+})
+
+test('course rings toggle on control choice and by keyboard in pause', async ({ page }) => {
+  await page.goto('/?input=keyboard&debug')
+  const toggle = page.getByRole('button', { name: 'Course rings: next 3' })
+  await toggle.click()
+  await expect(page.getByRole('button', { name: 'Course rings: all' })).toBeVisible()
+  await page.getByRole('button', { name: 'Mouse' }).click()
+  await expect
+    .poll(() => page.evaluate(() => window.__driftwing?.snapshot().visibleRingCount))
+    .toBe(16)
+  await page.keyboard.press('Escape')
+  const menu = page.getByTestId('pause-menu')
+  for (let i = 0; i < 3; i += 1) await page.keyboard.press('ArrowRight')
+  await expect(menu).toHaveAttribute('data-highlight', 'courseRings')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('button', { name: 'Course rings: next 3' })).toBeVisible()
 })
 
 test('accessibility settings toggle and persist from the pause menu', async ({ page }) => {

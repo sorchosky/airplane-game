@@ -9,7 +9,8 @@
  * Keyboard and touch go through `movePauseMenu` and select directly.
  */
 
-export type PauseMenuItem = 'resume' | 'recalibrate' | 'seated' | 'contrast' | 'captions' | 'quit'
+export type PauseMenuItem =
+  'resume' | 'recalibrate' | 'seated' | 'contrast' | 'captions' | 'courseRings' | 'quit'
 
 export interface PauseMenuState {
   /** Index of the highlighted item. */

@@ -235,6 +235,26 @@ describe('design tokens', () => {
     expect(contrastRatio(color.navGreen, night.skyHorizon)).toBeGreaterThanOrEqual(3)
   })
 
+  it('gives course rings a 3:1 ink edge against every sky and grass preset', () => {
+    expect(contrastRatio(color.courseRing, color.outline)).toBeGreaterThanOrEqual(3)
+    for (const preset of Object.values(lightingPresets)) {
+      for (const background of [
+        preset.skyZenith,
+        preset.skyHorizon,
+        color.grassLight,
+        color.grassShadow,
+      ]) {
+        expect(
+          Math.max(
+            contrastRatio(color.courseRing, background),
+            contrastRatio(color.outline, background),
+          ),
+          background,
+        ).toBeGreaterThanOrEqual(3)
+      }
+    }
+  })
+
   it('mirrors every color, space and type value into tokens.css as a custom property', () => {
     const css = readFileSync('src/styles/tokens.css', 'utf-8')
     // Prettier normalizes quote style differently for JS (tokens.ts) vs. CSS (tokens.css) string

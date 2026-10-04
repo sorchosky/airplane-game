@@ -8,6 +8,7 @@ import { useCalibrationStore } from '../pose/calibrationStore'
 import { surfaceHeightAt } from '../world/heightfield'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import { shotFlightState } from './shots'
+import { useGoldenPathStore } from '../world/goldenPathStore'
 
 /** One read of the game's live state, as plain numbers and strings. */
 export interface DriftwingSnapshot {
@@ -27,6 +28,7 @@ export interface DriftwingSnapshot {
     boosting: boolean
   }
   replay: { phase: ReplayPhase; label: string | null; frameIndex: number; elapsedMs: number }
+  visibleRingCount: number
 }
 
 export interface DriftwingTestHook {
@@ -78,6 +80,7 @@ function snapshot(): DriftwingSnapshot {
       frameIndex: replayStatus.frameIndex,
       elapsedMs: replayStatus.elapsedMs,
     },
+    visibleRingCount: useGoldenPathStore.getState().visibleRingCount,
   }
 }
 

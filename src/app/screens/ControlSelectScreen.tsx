@@ -3,9 +3,12 @@ import { ControlChoice } from '../../ui/ControlChoice'
 import { isTouchDevice, useControlModeStore, type ControlMode } from '../controlModeStore'
 import { useGameStore } from '../gameStore'
 import './controlSelect.css'
+import { copy } from '../../ui/copy'
+import { useCourseSettingsStore } from '../courseSettingsStore'
 
 export function ControlSelectScreen() {
   const secondMode = isTouchDevice() ? 'touch' : 'mouse'
+  const courseRings = useCourseSettingsStore((s) => s.courseRings)
 
   const choose = (mode: ControlMode) => {
     useControlModeStore.getState().selectMode(mode)
@@ -34,7 +37,18 @@ export function ControlSelectScreen() {
         fontFamily: type.fontBody,
       }}
     >
-      <ControlChoice secondMode={secondMode} onChoose={choose} />
+      <div className="control-select-stack">
+        <ControlChoice secondMode={secondMode} onChoose={choose} />
+        <button
+          type="button"
+          className="course-rings-toggle"
+          onClick={() => useCourseSettingsStore.getState().toggleCourseRings()}
+        >
+          {courseRings === 'all'
+            ? copy.controlSelect.courseRingsAll
+            : copy.controlSelect.courseRingsNext3}
+        </button>
+      </div>
     </main>
   )
 }
