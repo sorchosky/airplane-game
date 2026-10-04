@@ -75,6 +75,8 @@ export const color = {
   textPrimary: '#f7f4ec',
   textMuted: '#cfd6dc',
   accent: '#58c3c9',
+  // Emissive course guidance, warm enough to separate from every sky and terrain preset.
+  courseRing: '#ffd166',
   // Hairline chrome and the calibration target silhouette (`docs/art-bible.md` UI tokens).
   line: 'rgba(247, 244, 236, 0.55)',
   glow: 'rgba(12, 18, 26, 0.6)',

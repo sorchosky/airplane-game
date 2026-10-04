@@ -90,6 +90,22 @@ export function createGoldenPathRoute(
   return { gates, rings, cloud, notch }
 }
 
+/** Ring gates immediately ahead of route position `s`, wrapping into the next lap. */
+export function nextGates(
+  s: number,
+  count: number,
+  route: GoldenPathRoute = createGoldenPathRoute(),
+): readonly Gate[] {
+  if (count <= 0 || route.rings.length === 0) return []
+  const ahead = route.rings.findIndex((index) => route.gates[index]!.s > s)
+  const start = ahead < 0 ? 0 : ahead
+  const result: Gate[] = []
+  for (let i = 0; i < Math.min(count, route.rings.length); i += 1) {
+    result.push(route.gates[route.rings[(start + i) % route.rings.length]!]!)
+  }
+  return result
+}
+
 /**
  * True when the frame's move from `from` to `to` crosses `gate`'s disc in the route's direction.
  * Swept, so a fast frame cannot skip it, and one-way, so flying the loop backwards counts nothing.

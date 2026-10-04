@@ -2,9 +2,11 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import {
   Color,
+  ConeGeometry,
   IcosahedronGeometry,
   InstancedMesh,
   MeshBasicMaterial,
+  MeshToonMaterial,
   Object3D,
   TorusGeometry,
   Vector3,
@@ -22,18 +24,20 @@ import {
   initialProgress,
   stationsPassed,
   type Gate,
-  type LoopProgress,
   type PathPoint,
 } from './goldenPath'
+import { ROUTE } from './route'
 import { TERRAIN_CONFIG } from './terrainConfig'
 import { imageShift } from './wrap'
+import { useCourseSettingsStore } from '../app/courseSettingsStore'
 
 const PUFFS_PER_RING = 8
 const dummy = new Object3D()
 const forward = new Vector3(0, 0, 1)
 const direction = new Vector3()
-const lit = new Color(color.textPrimary)
-const passedColor = new Color(color.controlInactive)
+const courseColor = new Color(color.courseRing)
+const RING_STRENGTH = [1, 0.7, 0.45] as const
+const FADE_SECONDS = 0.4
 // The plane's step this frame in the route's period, written in place.
 const homeCurrent: PathPoint = { x: 0, y: 0, z: 0 }
 const homeFrom: PathPoint = { x: 0, y: 0, z: 0 }
@@ -57,21 +61,33 @@ function placeRing(rings: InstancedMesh, i: number, gate: Gate, dx: number, dz: 
 export function GoldenPath({ paused }: { paused: boolean }) {
   const ringsRef = useRef<InstancedMesh>(null)
   const puffsRef = useRef<InstancedMesh>(null)
+  const chevronsRef = useRef<InstancedMesh>(null)
   const route = useMemo(() => createGoldenPathRoute(), [])
   const ringCount = route.rings.length
   const puffStarted = useRef(new Array<number>(ringCount).fill(-1))
   const cloudBurst = useRef(false)
   const previous = useRef<PathPoint | null>(null)
-  const shownProgress = useRef<LoopProgress | null>(null)
   // Per ring, the image shift (x, z) its matrix was last written with.
   const ringShifts = useMemo(() => new Float64Array(ringCount * 2), [ringCount])
+  const ringStrengths = useMemo(() => new Float32Array(ringCount), [ringCount])
+  const reducedMotion = useMemo(
+    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    [],
+  )
 
-  const ringGeometry = useMemo(() => new TorusGeometry(GOLDEN_PATH.ringRadius, 0.7, 8, 48), [])
+  const ringGeometry = useMemo(() => new TorusGeometry(GOLDEN_PATH.ringRadius, 1.8, 8, 48), [])
+  const chevronGeometry = useMemo(() => {
+    const geometry = new ConeGeometry(2.4, 6, 3)
+    geometry.rotateX(Math.PI / 2)
+    return geometry
+  }, [])
   const puffGeometry = useMemo(() => new IcosahedronGeometry(1, 0), [])
   const ringMaterial = useMemo(
     () =>
-      new MeshBasicMaterial({
-        color: color.textPrimary,
+      new MeshToonMaterial({
+        color: color.courseRing,
+        emissive: color.courseRing,
+        emissiveIntensity: 0.75,
         transparent: true,
         opacity: 0.55,
       }),
@@ -87,9 +103,17 @@ export function GoldenPath({ paused }: { paused: boolean }) {
       }),
     [],
   )
+  const chevronMaterial = useMemo(
+    () => new MeshBasicMaterial({ color: color.courseRing, toneMapped: false }),
+    [],
+  )
 
   useEffect(() => {
-    useGoldenPathStore.setState({ progress: initialProgress(route.gates.length), reveal: 0 })
+    useGoldenPathStore.setState({
+      progress: initialProgress(route.gates.length),
+      reveal: 0,
+      visibleRingCount: 0,
+    })
     const rings = ringsRef.current
     if (!rings) return
     route.rings.forEach((gateIndex, i) => {
@@ -115,14 +139,16 @@ export function GoldenPath({ paused }: { paused: boolean }) {
     () => () => {
       ringGeometry.dispose()
       puffGeometry.dispose()
+      chevronGeometry.dispose()
       ringMaterial.dispose()
       puffMaterial.dispose()
-      useGoldenPathStore.setState({ progress: initialProgress(0), reveal: 0 })
+      chevronMaterial.dispose()
+      useGoldenPathStore.setState({ progress: initialProgress(0), reveal: 0, visibleRingCount: 0 })
     },
-    [puffGeometry, puffMaterial, ringGeometry, ringMaterial],
+    [chevronGeometry, chevronMaterial, puffGeometry, puffMaterial, ringGeometry, ringMaterial],
   )
 
-  useFrame(({ clock, camera }) => {
+  useFrame(({ clock, camera }, delta) => {
     if (paused) {
       // Resume from where the plane is, not from where it was paused or parked.
       previous.current = null
@@ -188,32 +214,81 @@ export function GoldenPath({ paused }: { paused: boolean }) {
 
     const rings = ringsRef.current
     if (rings) {
+      const nearestS = ROUTE.nearest(current.x, current.z).s
+      const mode = useCourseSettingsStore.getState().courseRings
+      let visible = 0
       let moved = false
       route.rings.forEach((gateIndex, i) => {
         const gate = route.gates[gateIndex]
         if (!gate) return
         const dx = imageShift(gate.position.x, camera.position.x, period)
         const dz = imageShift(gate.position.z, camera.position.z, period)
-        if (dx === ringShifts[i * 2] && dz === ringShifts[i * 2 + 1]) return
+        const distance = (gate.s - nearestS + ROUTE.length) % ROUTE.length
+        let rank = 0
+        for (const otherIndex of route.rings) {
+          const other = route.gates[otherIndex]!
+          if ((other.s - nearestS + ROUTE.length) % ROUTE.length < distance) rank += 1
+        }
+        const target = rank < 3 ? RING_STRENGTH[rank]! : mode === 'all' ? 0.28 : 0
+        const strength = reducedMotion
+          ? target
+          : ringStrengths[i]! +
+            Math.sign(target - ringStrengths[i]!) *
+              Math.min(Math.abs(target - ringStrengths[i]!), delta / FADE_SECONDS)
+        ringStrengths[i] = strength
+        if (strength > 0.01) visible += 1
+        if (
+          dx === ringShifts[i * 2] &&
+          dz === ringShifts[i * 2 + 1] &&
+          Math.abs(strength - target) < 0.001
+        )
+          return
         ringShifts[i * 2] = dx
         ringShifts[i * 2 + 1] = dz
         placeRing(rings, i, gate, dx, dz)
+        rings.getMatrixAt(i, dummy.matrix)
+        dummy.scale.setScalar(strength)
+        dummy.updateMatrix()
+        rings.setMatrixAt(i, dummy.matrix)
+        rings.setColorAt(i, courseColor)
         moved = true
       })
+      if (useGoldenPathStore.getState().visibleRingCount !== visible) {
+        useGoldenPathStore.setState({ visibleRingCount: visible })
+      }
       if (moved) {
         rings.instanceMatrix.needsUpdate = true
+        if (rings.instanceColor) rings.instanceColor.needsUpdate = true
         rings.computeBoundingSphere()
       }
-    }
-    const { progress } = useGoldenPathStore.getState()
-    if (rings && progress !== shownProgress.current) {
-      shownProgress.current = progress
-      route.rings.forEach((gateIndex, i) =>
-        rings.setColorAt(i, progress.passed[gateIndex] ? passedColor : lit),
-      )
-      if (rings.instanceColor) rings.instanceColor.needsUpdate = true
-    }
 
+      const chevrons = chevronsRef.current
+      if (chevrons) {
+        let index = 0
+        route.rings.forEach((gateIndex, ringIndex) => {
+          const gate = route.gates[gateIndex]!
+          for (let chevron = 0; chevron < 3; chevron += 1) {
+            dummy.position.set(
+              gate.position.x + (ringShifts[ringIndex * 2] ?? 0),
+              gate.position.y + (chevron - 1) * 7,
+              gate.position.z + (ringShifts[ringIndex * 2 + 1] ?? 0),
+            )
+            dummy.quaternion.setFromUnitVectors(
+              forward,
+              direction.set(gate.normal.x, 0, gate.normal.z),
+            )
+            const pulse =
+              reducedMotion || window.location.search.includes('shot=')
+                ? 1
+                : 0.8 + 0.2 * Math.sin((now / 1.2) * Math.PI * 2 + chevron * 1.3)
+            dummy.scale.setScalar(ringStrengths[ringIndex]! * pulse)
+            dummy.updateMatrix()
+            chevrons.setMatrixAt(index++, dummy.matrix)
+          }
+        })
+        chevrons.instanceMatrix.needsUpdate = true
+      }
+    }
     const puffs = puffsRef.current
     if (puffs) {
       let index = 0
@@ -250,6 +325,11 @@ export function GoldenPath({ paused }: { paused: boolean }) {
   return (
     <>
       <instancedMesh ref={ringsRef} args={[ringGeometry, ringMaterial, ringCount]} />
+      <instancedMesh
+        ref={chevronsRef}
+        args={[chevronGeometry, chevronMaterial, ringCount * 3]}
+        frustumCulled={false}
+      />
       <instancedMesh
         ref={puffsRef}
         args={[puffGeometry, puffMaterial, ringCount * PUFFS_PER_RING]}

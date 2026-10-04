@@ -16,6 +16,7 @@ import {
 } from '../pauseMenu'
 import './pauseTeaching.css'
 import { useAccessibilityStore } from '../accessibilityStore'
+import { useCourseSettingsStore } from '../courseSettingsStore'
 
 let menuTeachingSeen = false
 useGameStore.subscribe((state, previous) => {
@@ -45,6 +46,9 @@ function selectItem(item: PauseMenuItem | undefined): void {
       return
     case 'captions':
       useAccessibilityStore.getState().toggleCaptions()
+      return
+    case 'courseRings':
+      useCourseSettingsStore.getState().toggleCourseRings()
       return
     case 'quit':
       useGameStore.getState().quitToTitle()
@@ -99,13 +103,14 @@ export function PauseMenu() {
   const items = useMemo<PauseMenuItem[]>(
     () =>
       keyboard
-        ? ['resume', 'contrast', 'captions', 'quit']
-        : ['resume', 'recalibrate', 'seated', 'contrast', 'captions', 'quit'],
+        ? ['resume', 'contrast', 'captions', 'courseRings', 'quit']
+        : ['resume', 'recalibrate', 'seated', 'contrast', 'captions', 'courseRings', 'quit'],
     [keyboard],
   )
   const seated = useAccessibilityStore((s) => s.seated)
   const highContrast = useAccessibilityStore((s) => s.highContrast)
   const captions = useAccessibilityStore((s) => s.captions)
+  const courseRings = useCourseSettingsStore((s) => s.courseRings)
   const personInFrame = usePoseStore((s) => s.frame !== null)
   const [highlight, setHighlight] = useState(INITIAL_PAUSE_MENU.index)
   const menuRef = useRef(INITIAL_PAUSE_MENU)
@@ -257,7 +262,11 @@ export function PauseMenu() {
                   ? captions
                     ? copy.pause.captionsOn
                     : copy.pause.captionsOff
-                  : copy.pause[item]
+                  : item === 'courseRings'
+                    ? courseRings === 'all'
+                      ? copy.pause.courseRingsAll
+                      : copy.pause.courseRingsNext3
+                    : copy.pause[item]
           return (
             <button
               key={item}
