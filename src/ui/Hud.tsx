@@ -11,6 +11,7 @@ import { PauseTeaching } from './PauseTeaching'
 import { Prompt } from './Prompt'
 import { WarmCaption } from './WarmCaption'
 import { AudioCaptions } from './AudioCaptions'
+import { RingPointer } from './RingPointer'
 
 /**
  * Flight HUD over the canvas: the control prompt and, when steering by pose, the camera preview
@@ -33,6 +34,7 @@ export function Hud() {
   return (
     <div data-testid="hud" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
       <LockInReveal />
+      <RingPointer />
       {showPreview && <CameraPreview controlState={active ? 'active' : 'inactive'} />}
       {showReticle && (
         <div
