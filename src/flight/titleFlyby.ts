@@ -56,15 +56,14 @@ export const TITLE_FLYBY: TitleFlybyParams = {
   altitudeSwing: 10,
   maxBank: deg(25),
   shotTime: 6,
-  // Behind, above and left of the plane, aimed left of it and a little above: the plane lands in
-  // the right two thirds and low of centre, and the camera looks about 13° down so the horizon sits
-  // in the upper third.
-  mastheadOffset: [-9, 9, -26],
-  mastheadLook: [-9, 3, 0],
+  // Behind, above and left of the plane, aimed left of it and above the lens: the plane lands in
+  // the right two thirds while the slight upward pitch holds the horizon near 60% screen height.
+  mastheadOffset: [-9, 3, -26],
+  mastheadLook: [-9, 6.35, 0],
   chooseOffset: [0, 3.5, -13],
   chooseLook: [0, 1.5, 0],
   cameraYawSwing: 0.3,
-  cameraDrift: [3, 1.5, 3],
+  cameraDrift: [3, 0.9, 3],
   fov: 60,
 }
 

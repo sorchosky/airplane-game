@@ -102,6 +102,20 @@ describe('title camera', () => {
     return { x: (ndc.x + 1) / 2, y: (1 - ndc.y) / 2 }
   }
 
+  function horizonScreenY(aspect: number, t: number): number {
+    const pose = titleFlyby(t, 0, createTitleFlybyPose())
+    const camera = new PerspectiveCamera(TITLE_FLYBY.fov, aspect, 1, 20000)
+    camera.position.copy(pose.cameraPosition)
+    camera.lookAt(pose.cameraLookAt)
+    camera.updateMatrixWorld()
+    const toward = pose.cameraLookAt.clone().sub(pose.cameraPosition).setY(0).normalize()
+    const horizon = pose.cameraPosition
+      .clone()
+      .addScaledVector(toward, 50000)
+      .setY(pose.cameraPosition.y)
+    return (1 - horizon.project(camera).y) / 2
+  }
+
   it('keeps the plane in the right two thirds at lean 0, sampled every second', () => {
     for (let t = 0; t < period; t += 1) {
       const { x, y } = screenOf(16 / 9, t, 0)
@@ -112,18 +126,21 @@ describe('title camera', () => {
     }
   })
 
-  it('puts the horizon in the upper half at the frozen shot', () => {
-    const pose = titleFlyby(TITLE_FLYBY.shotTime, 0, createTitleFlybyPose())
-    const camera = new PerspectiveCamera(TITLE_FLYBY.fov, 16 / 9, 1, 20000)
-    camera.position.copy(pose.cameraPosition)
-    camera.lookAt(pose.cameraLookAt)
-    camera.updateMatrixWorld()
-    const toward = pose.cameraLookAt.clone().sub(pose.cameraPosition).setY(0).normalize()
-    const horizon = pose.cameraPosition
-      .clone()
-      .addScaledVector(toward, 50000)
-      .setY(pose.cameraPosition.y)
-    expect((1 - horizon.project(camera).y) / 2).toBeLessThan(0.4)
+  it.each([
+    ['1920×1080', 1920 / 1080],
+    ['844×390', 844 / 390],
+  ])('puts the frozen-shot horizon in the 58–62 percent band at %s', (_label, aspect) => {
+    const y = horizonScreenY(aspect, TITLE_FLYBY.shotTime)
+    expect(y).toBeGreaterThanOrEqual(0.58)
+    expect(y).toBeLessThanOrEqual(0.62)
+  })
+
+  it('keeps the horizon 52–66% down throughout the masthead loop', () => {
+    for (let t = 0; t < period; t += 0.25) {
+      const y = horizonScreenY(16 / 9, t)
+      expect(y, `horizon at t = ${t}`).toBeGreaterThanOrEqual(0.52)
+      expect(y, `horizon at t = ${t}`).toBeLessThanOrEqual(0.66)
+    }
   })
 
   it('at lean 1 is closer and centred', () => {
