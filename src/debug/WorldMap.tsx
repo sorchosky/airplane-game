@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { color, lightingPresets, space, type } from '../styles/tokens'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
 import { ROUTE } from '../world/route'
+import { inletSegment, seaIslands, seaOutline, townSite } from '../world/sea'
 import type { WorldMapResult } from './worldMap.worker'
 import { hillshade, worldToMapPixel, type MapBounds } from './worldMapMath'
 
@@ -49,6 +50,51 @@ function drawRouteOverlay(
   })
   context.closePath()
   context.stroke()
+  context.restore()
+}
+
+/** The inland sea's authored plan (#223): outline, islands, the town's pad and the inlet. */
+function drawSeaOverlay(context: CanvasRenderingContext2D, bounds: MapBounds): void {
+  const outline = seaOutline(TERRAIN_CONFIG)
+  context.save()
+  context.strokeStyle = color.waterDeep
+  context.lineWidth = 3
+  context.setLineDash([10, 6])
+  context.beginPath()
+  outline.forEach((point, index) => {
+    const [x, y] = worldToMapPixel(point.x, point.z, bounds)
+    if (index === 0) context.moveTo(x, y)
+    else context.lineTo(x, y)
+  })
+  context.closePath()
+  context.stroke()
+  context.setLineDash([])
+  const pixelsPerMeter = bounds.pixels / bounds.sizeMeters
+  context.strokeStyle = color.sand
+  for (const island of seaIslands(TERRAIN_CONFIG)) {
+    const [x, y] = worldToMapPixel(island.x, island.z, bounds)
+    context.beginPath()
+    context.arc(x, y, island.radius * pixelsPerMeter, 0, Math.PI * 2)
+    context.stroke()
+  }
+  const inlet = inletSegment(TERRAIN_CONFIG)
+  const [ax, ay] = worldToMapPixel(inlet.ax, inlet.az, bounds)
+  const [bx, by] = worldToMapPixel(inlet.bx, inlet.bz, bounds)
+  context.strokeStyle = color.waterShallow
+  context.beginPath()
+  context.moveTo(ax, ay)
+  context.lineTo(bx, by)
+  context.stroke()
+  const town = townSite(TERRAIN_CONFIG)
+  const [tx, ty] = worldToMapPixel(town.x, town.z, bounds)
+  const half = Math.max(4, TERRAIN_CONFIG.sea.town.radius * pixelsPerMeter)
+  context.fillStyle = color.outline
+  context.fillRect(tx - half, ty - half, half * 2, half * 2)
+  context.font = `600 18px ${type.fontBody}`
+  context.strokeStyle = color.textPrimary
+  context.lineWidth = 3
+  context.strokeText('TOWN', tx + half + 6, ty - 10)
+  context.fillText('TOWN', tx + half + 6, ty - 10)
   context.restore()
 }
 
@@ -154,6 +200,7 @@ function drawMap(
   context.closePath()
   context.fill()
   context.fillText('SPAWN', spawnX + 14, spawnY - 10)
+  drawSeaOverlay(context, bounds)
   drawRouteOverlay(context, route, bounds)
 }
 

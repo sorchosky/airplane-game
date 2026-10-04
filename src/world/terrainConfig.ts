@@ -212,6 +212,86 @@ export interface MassifConfig {
   regions: readonly MassifRegion[]
 }
 
+/** A bay (positive `depth`, the water reaches out) or headland (negative) on the sea's outline. */
+export interface SeaFeature {
+  name: string
+  kind: 'bay' | 'headland'
+  /** degrees clockwise from north (-Z), seen from the sea's centre */
+  bearing: number
+  /** degrees, the bump's spread either side (one standard deviation) */
+  width: number
+  /** share of the radius the outline moves out (bay) or in (headland) at the bump's middle */
+  depth: number
+}
+
+/** One island in the sea (#223): a low dome with a wide beach and wider shallows round it. */
+export interface SeaIsland {
+  name: string
+  /** m, world centre */
+  x: number
+  z: number
+  /** m, nominal radius of the dry island */
+  radius: number
+  /** 0..1, how far its shore wanders in or out, as a share of `radius` */
+  noise: number
+  /** m above `waterLevel` of the dome's top */
+  peak: number
+  /** m inland the beach runs, and how far it rises over that */
+  beach: number
+  beachRise: number
+  /** m out from the shore the shallows run before the bed */
+  shallows: number
+}
+
+/**
+ * The inland sea east of the loop (#223), carved under the one water plane by `sea.ts`: a polar
+ * outline round an authored centre, islands, the west shore's town pad and the river's inlet.
+ */
+export interface SeaConfig {
+  /** m, world centre of the outline */
+  centerX: number
+  centerZ: number
+  /** m, semi-axes of the outline's ellipse along x and z */
+  radiusX: number
+  radiusZ: number
+  features: readonly SeaFeature[]
+  /** Noise round the ring: octaves, first octave frequency, and amplitude as a share of radius */
+  noiseOctaves: number
+  noiseFrequency: number
+  noiseAmplitude: number
+  /** degrees, bearing of the calm west shore that faces the route, its half arc and fade */
+  westBearing: number
+  westHalfArc: number
+  westFade: number
+  /** 0..1, share of `noiseAmplitude` left on the west shore */
+  westNoise: number
+  /** m below `waterLevel` the bed lies beyond the shallows */
+  bedDepth: number
+  /** m, how far the shallows shelve out from the shore, by bearing between these */
+  shallowsMin: number
+  shallowsMax: number
+  /** m, height of the beach's top, by bearing between these, and how far inland it runs */
+  beachMin: number
+  beachMax: number
+  beachWidth: number
+  /** m of flat-ish meadow behind the west shore's beach, before the hills */
+  meadowWidth: number
+  /** m rise per m, the hill slope behind the shore elsewhere and behind the west meadow */
+  hillSlope: number
+  meadowHillSlope: number
+  /** m of that slope the shore caps the land for, and over which it then lets go */
+  capHold: number
+  capFade: number
+  islands: readonly SeaIsland[]
+  /** The town's flat pad (#224) at the `town` station: radius, height, and blend back to land */
+  town: { radius: number; height: number; blend: number }
+  /**
+   * The inlet: the route river's branch to the west shore, from route arc length `s`, carved
+   * `overshoot` m past the waterline so it opens into the shallows.
+   */
+  inlet: { s: number; halfWidth: number; bankWidth: number; depth: number; overshoot: number }
+}
+
 /**
  * The route valley (#172): carved along `ROUTE` (`route.ts`) from the outbound cut to the return
  * notch, by `applyRouteValley` in `routeValley.ts`. The floor's height and width come from the
@@ -390,6 +470,8 @@ export interface TerrainConfig {
   basin: BasinConfig
   /** Mountain massifs flanking the loop. */
   massifs: MassifConfig
+  /** The inland sea east of the loop. */
+  sea: SeaConfig
   /** The valley along the authored route, between the basin's two notches. */
   valley: RouteValleyConfig
   plungePool: PlungePoolConfig
@@ -491,6 +573,79 @@ export const TERRAIN_CONFIG: TerrainConfig = {
       { name: 'north-coast', x: 7800, z: -3900, radiusX: 3000, radiusZ: 1300 },
       { name: 'south-coast', x: 7800, z: 7200, radiusX: 3000, radiusZ: 1300 },
     ],
+  },
+  sea: {
+    // 5 x 8 km round (7950, 1600): the west shore near x 5450 opposite the east river reach,
+    // inside the footprint #222 kept clear of massifs.
+    centerX: 7950,
+    centerZ: 1600,
+    radiusX: 2500,
+    radiusZ: 3900,
+    features: [
+      { name: 'Reed Bay', kind: 'bay', bearing: 252, width: 6, depth: 0.04 },
+      { name: 'Gull Point', kind: 'headland', bearing: 300, width: 7, depth: -0.1 },
+      { name: 'North Sound', kind: 'bay', bearing: 335, width: 11, depth: 0.08 },
+      { name: 'East Cape', kind: 'headland', bearing: 70, width: 9, depth: -0.12 },
+      { name: 'Haze Bay', kind: 'bay', bearing: 120, width: 13, depth: 0.08 },
+      { name: 'South Reach', kind: 'bay', bearing: 200, width: 10, depth: 0.06 },
+    ],
+    noiseOctaves: 5,
+    noiseFrequency: 1.4,
+    noiseAmplitude: 0.07,
+    westBearing: 270,
+    westHalfArc: 22,
+    westFade: 15,
+    westNoise: 0.3,
+    bedDepth: 6,
+    shallowsMin: 40,
+    shallowsMax: 120,
+    beachMin: 36,
+    beachMax: 42,
+    beachWidth: 80,
+    meadowWidth: 250,
+    hillSlope: 0.6,
+    meadowHillSlope: 0.35,
+    capHold: 100,
+    capFade: 300,
+    islands: [
+      // The resort island (#235), over 1.2 km across with a broad low top.
+      {
+        name: 'Long Isle',
+        x: 8600,
+        z: 300,
+        radius: 680,
+        noise: 0.1,
+        peak: 30,
+        beach: 90,
+        beachRise: 3,
+        shallows: 220,
+      },
+      {
+        name: 'Tern Isle',
+        x: 9550,
+        z: 2400,
+        radius: 400,
+        noise: 0.12,
+        peak: 42,
+        beach: 70,
+        beachRise: 3,
+        shallows: 180,
+      },
+      {
+        name: 'Seal Rock',
+        x: 8600,
+        z: 4000,
+        radius: 260,
+        noise: 0.12,
+        peak: 24,
+        beach: 60,
+        beachRise: 2.5,
+        shallows: 160,
+      },
+    ],
+    // 120 m across, 5 m over the water. Its blend ends at the waterline, 100 m from its centre.
+    town: { radius: 60, height: 37, blend: 40 },
+    inlet: { s: 6000, halfWidth: 18, bankWidth: 40, depth: 4, overshoot: 120 },
   },
   valley: {
     floorNoise: 3,

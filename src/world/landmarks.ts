@@ -21,7 +21,8 @@ export { bearingTo, bearingVector } from './stations'
 // (-sin b, 0, -cos b), so a plane with `heading = b` flies straight at it. 0 is -Z, the direction
 // the plane faces at spawn.
 
-export type LandmarkKind = LandmarkStation['kind']
+/** The kinds with a model. The town's station frames the sea; its buildings come in #224. */
+export type LandmarkKind = Exclude<LandmarkStation['kind'], 'town'>
 
 /** A circle on the ground, world m. Foliage (A3) skips anything inside one. */
 export interface Footprint {

@@ -22,7 +22,7 @@ export const ROUTE_POINTS: readonly RouteControlPoint[] = [
 
 /** Where a landmark stands along the loop (#173). */
 export interface LandmarkStation {
-  readonly kind: 'tower' | 'arch' | 'waterfall' | 'tree' | 'ruins'
+  readonly kind: 'tower' | 'arch' | 'waterfall' | 'tree' | 'ruins' | 'town'
   /** m of route from spawn: the station, the beat that frames the landmark */
   readonly s: number
   /**
@@ -41,6 +41,7 @@ export interface LandmarkStation {
  */
 export const LANDMARK_STATIONS: readonly LandmarkStation[] = [
   { kind: 'tower', s: 2000, lateral: 120 },
+  { kind: 'town', s: 5500, lateral: -180 },
   { kind: 'waterfall', s: 7100, lateral: 200 },
   { kind: 'tree', s: 9600, lateral: 80 },
   { kind: 'arch', s: 11650, lateral: 0 },
