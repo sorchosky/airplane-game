@@ -182,6 +182,7 @@ export function FlightScene({ mode, covered = false }: FlightSceneProps) {
           <PostFX />
           <WorldWatcher />
           <StillCapture />
+          {attract && <ShaderWarmup />}
           {attract && <AttractFrames covered={covered} />}
         </Canvas>
       </CanvasBoundary>
@@ -215,6 +216,15 @@ function StillCapture() {
     }
     useFrontDoorLookStore.getState().setCaptureStill(capture)
     return () => useFrontDoorLookStore.getState().setCaptureStill(null)
+  }, [gl, scene, camera])
+  return null
+}
+
+/** Compile world materials while the title is running, before flight can reveal them. */
+function ShaderWarmup() {
+  const { gl, scene, camera } = useThree()
+  useEffect(() => {
+    void gl.compileAsync(scene, camera)
   }, [gl, scene, camera])
   return null
 }

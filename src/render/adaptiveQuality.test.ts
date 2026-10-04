@@ -9,6 +9,8 @@ import {
   isCastMode,
   getBudgetFlag,
   governorParams,
+  HITCH_WINDOW_MS,
+  resetGovernorTiming,
   stepGovernor,
   type GovernorState,
   type QualitySettings,
@@ -29,18 +31,17 @@ describe('buildLadder', () => {
     const ladder = buildLadder(DESKTOP, 2)
     expect(ladder.map((_, i) => describeRung(ladder, i))).toEqual([
       'top',
-      'dpr 1.25',
-      'dpr 1',
-      'dpr 0.75',
       'post medium',
-      'post low',
-      'cap 30 fps',
       'foliage 60%',
-      'foliage 30%',
+      'dpr 1.25',
+      'cap 30 fps',
       'view 7 km',
+      'foliage 30%',
+      'post low',
+      'dpr 1',
     ])
     expect(ladder.at(-1)).toEqual({
-      dpr: 0.75,
+      dpr: 1,
       tier: 'low',
       capFps: 30,
       foliageDensity: 0.3,
@@ -51,16 +52,16 @@ describe('buildLadder', () => {
   it('skips the high tier for a phone that starts on medium', () => {
     const ladder = buildLadder(PHONE, 3)
     expect(ladder.map((r) => r.tier)).not.toContain('high')
-    expect(ladder).toHaveLength(9)
+    expect(ladder).toHaveLength(8)
   })
 
-  it('caps the frame rate after the pixel ratio and post tier, before foliage', () => {
+  it('caps the frame rate after the first foliage and pixel-ratio cuts', () => {
     const ladder = buildLadder(PHONE, 3)
     const cap = capRungIndex(ladder)
     expect(describeRung(ladder, cap)).toBe('cap 30 fps')
-    expect(ladder[cap - 1]?.tier).toBe('low')
+    expect(ladder[cap - 1]).toMatchObject({ tier: 'medium', dpr: 1.25, foliageDensity: 0.6 })
     expect(ladder[cap - 1]?.capFps).toBeNull()
-    expect(ladder[cap + 1]?.foliageDensity).toBeLessThan(1)
+    expect(ladder[cap + 1]?.viewDistance).toBe(7000)
     expect(ladder.slice(cap).every((r) => r.capFps === 30)).toBe(true)
   })
 
@@ -73,7 +74,8 @@ describe('buildLadder', () => {
   it('collapses pixel ratios above the screen into one rung', () => {
     const ladder = buildLadder(DESKTOP, 1)
     expect(ladder[0]?.dpr).toBe(1)
-    expect(describeRung(ladder, 1)).toBe('dpr 0.75')
+    expect(ladder.every((rung) => rung.dpr === 1)).toBe(true)
+    expect(ladder.at(-1)?.dpr).toBe(1)
   })
 })
 
@@ -101,6 +103,14 @@ describe('stepGovernor', () => {
     let { state } = feed(createGovernorState(), BUDGET * 2, 0, 2500)
     ;({ state } = feed(state, BUDGET * 0.8, 3000, 500))
     const after = feed(state, BUDGET * 2, 4000, 2500)
+    expect(after.changes).toEqual([])
+  })
+
+  it('breaks over-budget timing when a known hitch is ignored', () => {
+    let state = createGovernorState()
+    state = feed(state, BUDGET * 2, 0, 2500).state
+    state = resetGovernorTiming(state)
+    const after = feed(state, BUDGET * 2, HITCH_WINDOW_MS, 2500)
     expect(after.changes).toEqual([])
   })
 

@@ -8,6 +8,7 @@ import {
   type FrameSummary,
 } from '../debug/frameStats'
 import { TERRAIN_CONFIG } from '../world/terrainConfig'
+import { usePerfStore } from '../debug/perfStore'
 import {
   buildLadder,
   createGovernorState,
@@ -16,6 +17,8 @@ import {
   capRungIndex,
   CAST_GOVERNOR_PARAMS,
   governorParams,
+  HITCH_WINDOW_MS,
+  resetGovernorTiming,
   stepGovernor,
   type QualitySettings,
 } from './adaptiveQuality'
@@ -71,6 +74,8 @@ export function QualityGovernor({ paused = false }: { paused?: boolean }) {
   })
   const sinceSample = useRef(0)
   const settle = useRef(SETTLE_TIME)
+  const terrainWasReady = useRef(usePerfStore.getState().terrainReady)
+  const terrainHitch = useRef(0)
 
   useEffect(() => {
     const { tier, pinned, capFps } = useQualityStore.getState()
@@ -105,6 +110,18 @@ export function QualityGovernor({ paused = false }: { paused?: boolean }) {
     }
     if (settle.current > 0) {
       settle.current -= delta
+      return
+    }
+    const terrainReady = usePerfStore.getState().terrainReady
+    if (terrainReady && !terrainWasReady.current) {
+      terrainHitch.current = HITCH_WINDOW_MS / 1000
+      governor.current = resetGovernorTiming(governor.current)
+      resetFrameStats(stats.current)
+      sinceSample.current = 0
+    }
+    terrainWasReady.current = terrainReady
+    if (terrainHitch.current > 0) {
+      terrainHitch.current -= delta
       return
     }
     const frameMs = delta * 1000
