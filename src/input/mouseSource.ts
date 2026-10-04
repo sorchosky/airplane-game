@@ -20,8 +20,8 @@ export function useMouseSource(enabled: boolean): void {
   useEffect(() => {
     if (!enabled) return
     let position: { x: number; y: number } | null = null
-    // Selection happens via a pointer inside the page; preserve that state until it leaves.
-    let inside = document.hasFocus()
+    // Wait for real pointer movement. Focus alone does not mean the player has tried steering.
+    let inside = false
 
     const update = () => {
       if (position) {

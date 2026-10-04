@@ -20,6 +20,8 @@ export interface ControlMachineState {
   phase: ControlPhase
   /** `nowMs` the current phase started at. */
   sinceMs: number
+  /** Whether manual control has engaged during this flight. */
+  hasSteered: boolean
 }
 
 export interface ControlMachineInput {
@@ -55,11 +57,19 @@ export interface ControlStepResult {
 }
 
 export function createControlMachineState(nowMs: number): ControlMachineState {
-  return { phase: 'inactive', sinceMs: nowMs }
+  return { phase: 'inactive', sinceMs: nowMs, hasSteered: false }
 }
 
-function enter(phase: ControlPhase, nowMs: number, command: ControlCommand = null) {
-  return { state: { phase, sinceMs: nowMs }, command }
+function enter(
+  state: ControlMachineState,
+  phase: ControlPhase,
+  nowMs: number,
+  command: ControlCommand = null,
+) {
+  return {
+    state: { phase, sinceMs: nowMs, hasSteered: state.hasSteered || phase === 'active' },
+    command,
+  }
 }
 
 /**
@@ -77,12 +87,12 @@ export function stepControlMachine(
 
   switch (state.phase) {
     case 'active':
-      return active ? unchanged : enter('inactive', nowMs)
+      return active ? unchanged : enter(state, 'inactive', nowMs)
 
     case 'inactive':
-      if (active) return enter('active', nowMs)
+      if (active) return enter(state, 'active', nowMs)
       if (params.gesturePause && elapsed >= params.pauseAfterMs) {
-        return enter('paused', nowMs, 'pause')
+        return enter(state, 'paused', nowMs, 'pause')
       }
       return unchanged
 
@@ -90,9 +100,9 @@ export function stepControlMachine(
       return unchanged
 
     case 'countdown':
-      if (params.gesturePause && !active) return enter('paused', nowMs)
+      if (params.gesturePause && !active) return enter(state, 'paused', nowMs)
       if (elapsed >= params.countdownMs) {
-        return enter(active ? 'active' : 'inactive', nowMs, 'resume')
+        return enter(state, active ? 'active' : 'inactive', nowMs, 'resume')
       }
       return unchanged
   }
@@ -106,17 +116,17 @@ export function togglePause(state: ControlMachineState, nowMs: number): ControlS
   switch (state.phase) {
     case 'active':
     case 'inactive':
-      return enter('paused', nowMs, 'pause')
+      return enter(state, 'paused', nowMs, 'pause')
     case 'paused':
-      return enter('countdown', nowMs)
+      return enter(state, 'countdown', nowMs)
     case 'countdown':
-      return enter('paused', nowMs)
+      return enter(state, 'paused', nowMs)
   }
 }
 
 /** Resume picked from the pause menu: paused starts the countdown, anything else is unchanged. */
 export function startCountdown(state: ControlMachineState, nowMs: number): ControlStepResult {
-  return state.phase === 'paused' ? enter('countdown', nowMs) : { state, command: null }
+  return state.phase === 'paused' ? enter(state, 'countdown', nowMs) : { state, command: null }
 }
 
 /**
@@ -127,15 +137,22 @@ export function forcePause(state: ControlMachineState, nowMs: number): ControlSt
   switch (state.phase) {
     case 'active':
     case 'inactive':
-      return enter('paused', nowMs, 'pause')
+      return enter(state, 'paused', nowMs, 'pause')
     case 'countdown':
-      return enter('paused', nowMs)
+      return enter(state, 'paused', nowMs)
     case 'paused':
       return { state, command: null }
   }
 }
 
-export type ControlPrompt = 'spread-arms' | 'step-into-view' | 'camera-lost' | null
+export type ControlPrompt =
+  | 'spread-arms'
+  | 'step-into-view'
+  | 'camera-lost'
+  | 'touch-to-steer'
+  | 'move-mouse'
+  | 'press-space'
+  | null
 
 /**
  * Why the player isn't steering, which picks the inactive prompt: arms down (`in-frame`), nobody
@@ -147,6 +164,22 @@ const PROMPT_FOR: Record<Presence, Exclude<ControlPrompt, null>> = {
   'in-frame': 'spread-arms',
   'out-of-frame': 'step-into-view',
   'camera-lost': 'camera-lost',
+}
+
+export type PromptControlMode = 'camera' | 'mouse' | 'touch'
+export type PromptInputSource = 'keyboard' | 'pose' | 'replay'
+
+/** Picks teaching that matches the effective input, not the shared keyboard-backed writer. */
+export function promptFor(
+  mode: PromptControlMode,
+  source: PromptInputSource,
+  presence: Presence,
+  hasSteered: boolean,
+): ControlPrompt {
+  if (source === 'pose' || source === 'replay') return PROMPT_FOR[presence]
+  if (mode === 'touch') return hasSteered ? null : 'touch-to-steer'
+  if (mode === 'mouse') return hasSteered ? null : 'move-mouse'
+  return 'press-space'
 }
 
 export interface ControlView {
@@ -164,13 +197,15 @@ export function controlView(
   nowMs: number,
   presence: Presence,
   params: ControlMachineParams = DEFAULT_CONTROL_MACHINE_PARAMS,
+  mode: PromptControlMode = 'camera',
+  source: PromptInputSource = 'pose',
 ): ControlView {
   const elapsed = nowMs - state.sinceMs
   const showPrompt = state.phase === 'inactive' && elapsed >= params.promptDelayMs
   const countdownSeconds = Math.ceil(params.countdownMs / 1000)
 
   return {
-    prompt: showPrompt ? PROMPT_FOR[presence] : null,
+    prompt: showPrompt ? promptFor(mode, source, presence, state.hasSteered) : null,
     paused: state.phase === 'paused' || state.phase === 'countdown',
     countdown:
       state.phase === 'countdown'

@@ -8,6 +8,9 @@ const COPY: Record<Exclude<ControlPrompt, null>, string> = {
   'spread-arms': copy.hud.spreadArms,
   'step-into-view': copy.hud.stepIntoView,
   'camera-lost': copy.hud.cameraLost,
+  'touch-to-steer': copy.hud.touchToSteer,
+  'move-mouse': copy.hud.moveMouse,
+  'press-space': copy.hud.pressSpace,
 }
 
 function prefersReducedMotion(): boolean {
@@ -31,6 +34,26 @@ function WingIcon() {
       <circle cx="32" cy="7" r="4" />
       <path d="M4 15 L32 13 L60 15" />
       <path d="M32 13 L32 24 M32 24 L26 31 M32 24 L38 31" />
+    </svg>
+  )
+}
+
+/** Thumb-on-screen glyph for the touch teaching prompt. */
+function ThumbIcon() {
+  return (
+    <svg
+      viewBox="0 0 48 48"
+      width={48}
+      height={48}
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 25V10a5 5 0 0 1 10 0v11l4-3a5 5 0 0 1 7 7l-8 13a8 8 0 0 1-7 4h-4a8 8 0 0 1-7-4L8 28a5 5 0 0 1 9-5l1 2Z" />
+      <circle cx="23" cy="10" r="9" opacity=".45" />
     </svg>
   )
 }
@@ -77,6 +100,7 @@ export function Prompt({ prompt }: PromptProps) {
       }}
     >
       {displayed === 'spread-arms' && <WingIcon />}
+      {displayed === 'touch-to-steer' && <ThumbIcon />}
       <HairlineRule />
       <span>{COPY[displayed]}</span>
     </div>
