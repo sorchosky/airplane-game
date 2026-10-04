@@ -130,6 +130,19 @@ export interface BasinNotch {
 }
 
 /**
+ * A named high or low point on the basin's ridge crest (#222). The crest eases between consecutive
+ * points with a flat tangent at each, so peaks and saddles are the crest's extremes.
+ */
+export interface CrestPoint {
+  name: string
+  kind: 'peak' | 'saddle' | 'shoulder'
+  /** degrees clockwise from north (-Z), seen from the basin centre */
+  bearing: number
+  /** -1..1, crest height there is `crestHeight * (1 + crestVariation * shape)` */
+  shape: number
+}
+
+/**
  * The home basin (#171, `docs/world-route.md`): a gently sloped floor around the spawn, a ridge
  * ring, and two notches. Shaped by `applyBasin` in `basin.ts`, after lakes and rivers, so the
  * designed heights hold.
@@ -147,15 +160,56 @@ export interface BasinConfig {
   ridgeRadius: number
   /** m, radius where the basin has faded fully back into the noise terrain */
   blendRadius: number
-  /** m, mean absolute crest height. Varies round the ring by `crestVariation`. */
+  /** m, middle crest height. Varies round the ring by `crestVariation`. */
   crestHeight: number
   /** 0..1, how far the crest varies round the ring, as a share of `crestHeight` */
   crestVariation: number
+  /** The crest's named peaks and saddles, by bearing. The notches cut through it regardless. */
+  crestPoints: readonly CrestPoint[]
+  /** m, the most the ridged crags lift a peak's crest; they fade out toward the saddles */
+  cragHeight: number
+  /** m, feature size of the crags */
+  cragScale: number
   /** m, how far the terrain noise moves the floor and the ridge, at most */
   floorNoise: number
   ridgeNoise: number
   /** Outbound cut first, return notch second. */
   notches: readonly [BasinNotch, BasinNotch]
+}
+
+/** One authored mountain region (#222): an ellipse, full over its core, easing out to its rim. */
+export interface MassifRegion {
+  /** What it frames, for docs and tests */
+  name: string
+  /** m, world centre */
+  x: number
+  z: number
+  /** m, semi-axes along x and z */
+  radiusX: number
+  radiusZ: number
+}
+
+/**
+ * Mountain massifs along the loop (#222): ridged ranges raised by an authored mask in
+ * `massifs.ts`, kept out of the route valley, the home basin and the inland sea's footprint.
+ */
+export interface MassifConfig {
+  /** m, lift at full mask on a ridge crest. Hills and walls below add to it. */
+  height: number
+  /** 0..1, share of `height` every masked point gets as the massif's bulk; the rest is ridges */
+  bodyShare: number
+  /** m, feature size of the massifs' ridged noise */
+  ridgeScale: number
+  /** 0..1, share of a region's radius that is its full-strength core */
+  core: number
+  /** m past the route valley's reach before the mask starts, and how far it takes to rise */
+  valleyClearance: number
+  valleyRamp: number
+  /** m past the basin's `blendRadius` the mask takes to rise */
+  basinRamp: number
+  /** The inland sea's footprint (#223), kept clear: grown by `margin`, then a `ramp` m rise. */
+  sea: { minX: number; maxX: number; minZ: number; maxZ: number; margin: number; ramp: number }
+  regions: readonly MassifRegion[]
 }
 
 /**
@@ -334,6 +388,8 @@ export interface TerrainConfig {
   riverMaxHeight: number
   /** The home basin around the spawn. */
   basin: BasinConfig
+  /** Mountain massifs flanking the loop. */
+  massifs: MassifConfig
   /** The valley along the authored route, between the basin's two notches. */
   valley: RouteValleyConfig
   plungePool: PlungePoolConfig
@@ -395,13 +451,45 @@ export const TERRAIN_CONFIG: TerrainConfig = {
     clearRadius: 700,
     ridgeRadius: 1150,
     blendRadius: 1650,
-    crestHeight: 260,
-    crestVariation: 0.12,
+    // 200 to 420 m. The title camera looks east-northeast (bearing ~74°) with the masthead over
+    // its left third (~30 to 60°), so the lowest saddle sits there and the horns stand right of it.
+    // From the West Shoulder the crest falls past the cut (14°) to the Dawn Saddle.
+    crestHeight: 310,
+    crestVariation: 0.35,
+    crestPoints: [
+      { name: 'Dawn Saddle', kind: 'saddle', bearing: 45, shape: -1 },
+      { name: 'East Horn', kind: 'peak', bearing: 100, shape: 1 },
+      { name: 'Reed Saddle', kind: 'saddle', bearing: 150, shape: -0.45 },
+      { name: 'South Tooth', kind: 'peak', bearing: 195, shape: 0.9 },
+      { name: 'Fern Saddle', kind: 'saddle', bearing: 232, shape: -0.6 },
+      { name: 'West Shoulder', kind: 'shoulder', bearing: 300, shape: 0.25 },
+    ],
+    cragHeight: 80,
+    cragScale: 450,
     floorNoise: 4,
     ridgeNoise: 20,
     notches: [
       { x: 1938, z: 1248, floorHeight: 46, halfWidth: 160, flank: 300, extension: 550 },
       { x: 622, z: 2094, floorHeight: 35, halfWidth: 250, flank: 300, extension: 550 },
+    ],
+  },
+  massifs: {
+    height: 560,
+    bodyShare: 0.2,
+    ridgeScale: 1800,
+    core: 0.45,
+    // A margin for the coarse distance field's error, so the mask is exactly zero to the reach.
+    valleyClearance: 20,
+    valleyRamp: 400,
+    basinRamp: 300,
+    sea: { minX: 5450, maxX: 10450, minZ: -2400, maxZ: 5600, margin: 300, ramp: 400 },
+    regions: [
+      { name: 'inner', x: 3900, z: 1800, radiusX: 1100, radiusZ: 1600 },
+      { name: 'north', x: 3000, z: -1500, radiusX: 3200, radiusZ: 1400 },
+      { name: 'west', x: -900, z: 2300, radiusX: 1500, radiusZ: 2600 },
+      { name: 'south', x: 2400, z: 5000, radiusX: 3200, radiusZ: 1500 },
+      { name: 'north-coast', x: 7800, z: -3900, radiusX: 3000, radiusZ: 1300 },
+      { name: 'south-coast', x: 7800, z: 7200, radiusX: 3000, radiusZ: 1300 },
     ],
   },
   valley: {

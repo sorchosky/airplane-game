@@ -1,10 +1,10 @@
-import type { BasinConfig, BasinNotch } from './terrainConfig'
+import type { BasinConfig, BasinNotch, CrestPoint } from './terrainConfig'
 
 // Pure basin shape (#171). Pulls the noise terrain toward a designed profile around the spawn:
 //   floor   a gentle slope from `floorCenterHeight` at the centre to `floorEdgeHeight` at
 //           `clearRadius`
 //   ridge   a ring rising from there to a crest at `ridgeRadius`, its height varying round the
-//           ring by a few low harmonics and a little of the terrain noise (never a perfect circle)
+//           ring between named peaks and saddles, plus a little of the terrain noise
 //   notches two gaps along rays from the centre, each with a flat floor and smooth flanks
 // Every blend is a smoothstep of a distance, so the surface is C1.
 
@@ -23,10 +23,59 @@ export function notchRadius(basin: BasinConfig, notch: BasinNotch): number {
   return Math.hypot(notch.x - basin.centerX, notch.z - basin.centerZ)
 }
 
-/** Mean-free crest height at bearing `theta`, from two fixed harmonics. */
+const TURN = 360
+
+interface CrestTable {
+  /** The crest points sorted by bearing in 0..360 */
+  readonly points: readonly CrestPoint[]
+  /** Per whole degree of bearing, the index of the last point at or before it, or -1 */
+  readonly before: Int8Array
+}
+
+// `applyBasin` runs per vertex, so the search for the two points either side is done once.
+const crestTables = new WeakMap<BasinConfig, CrestTable>()
+
+function crestTableOf(basin: BasinConfig): CrestTable {
+  const cached = crestTables.get(basin)
+  if (cached) return cached
+  const points = basin.crestPoints
+    .map((point) => ({ ...point, bearing: ((point.bearing % TURN) + TURN) % TURN }))
+    .sort((a, b) => a.bearing - b.bearing)
+  const before = new Int8Array(TURN)
+  for (let degree = 0; degree < TURN; degree++) {
+    let index = -1
+    for (let i = 0; i < points.length; i++) if (points[i]!.bearing <= degree) index = i
+    before[degree] = index
+  }
+  const table = { points, before }
+  crestTables.set(basin, table)
+  return table
+}
+
+/**
+ * Crest shape (-1..1) at bearing `theta` (radians, clockwise from north): eased between the two
+ * named points either side, flat at each, so every peak and saddle is an extreme and the ring is C1.
+ */
+export function crestShapeAt(theta: number, basin: BasinConfig): number {
+  const { points, before } = crestTableOf(basin)
+  const count = points.length
+  if (count === 0) return 0
+  if (count === 1) return points[0]!.shape
+  const bearing = ((((theta * 180) / Math.PI) % TURN) + TURN) % TURN
+  // The last point at or before `bearing`: the table's, or one later in the same degree. Before
+  // the first point the segment wraps round from the last.
+  let index = before[Math.floor(bearing) % TURN]!
+  while (index + 1 < count && points[index + 1]!.bearing <= bearing) index++
+  const a = points[(index + count) % count]!
+  const b = points[(index + 1) % count]!
+  const span = (b.bearing - a.bearing + TURN) % TURN || TURN
+  const t = ((bearing - a.bearing + TURN) % TURN) / span
+  return mix(a.shape, b.shape, t * t * (3 - 2 * t))
+}
+
+/** Crest height at bearing `theta`, from the named peaks and saddles. */
 export function crestAt(theta: number, basin: BasinConfig): number {
-  const harmonics = 0.6 * Math.sin(3 * theta + 0.7) + 0.4 * Math.sin(5 * theta + 2.1)
-  return basin.crestHeight * (1 + basin.crestVariation * harmonics)
+  return basin.crestHeight * (1 + basin.crestVariation * crestShapeAt(theta, basin))
 }
 
 /** Floor height with no noise, at radius `r`. */
@@ -75,11 +124,20 @@ function prepare(basin: BasinConfig): Prepared {
   return result
 }
 
+const noCrags = (): number => 0
+
 /**
  * Basin height at (x, z), given the terrain's own `noiseHeight` there. Returns `noiseHeight`
- * unchanged beyond `blendRadius`.
+ * unchanged beyond `blendRadius`. `crags` samples a ridged noise (0..1, 1 on a crest) for the rock
+ * relief on the peaks; it is only called where a peak needs it.
  */
-export function applyBasin(x: number, z: number, noiseHeight: number, basin: BasinConfig): number {
+export function applyBasin(
+  x: number,
+  z: number,
+  noiseHeight: number,
+  basin: BasinConfig,
+  crags: () => number = noCrags,
+): number {
   const dx = x - basin.centerX
   const dz = z - basin.centerZ
   const rSquared = dx * dx + dz * dz
@@ -93,10 +151,17 @@ export function applyBasin(x: number, z: number, noiseHeight: number, basin: Bas
   // Ring: floor, rising to the crest and holding it, then fading back into the noise.
   const rise = smoothstep(basin.clearRadius, basin.ridgeRadius, r)
   const floor = floorAt(r, basin)
-  const crest = crestAt(theta, basin)
+  // On the floor the crest doesn't count, so its lookup is skipped there.
+  const shape = rise > 0 ? crestShapeAt(theta, basin) : 0
+  const crest = rise > 0 ? basin.crestHeight * (1 + basin.crestVariation * shape) : 0
+  // Crags: lift-only ridged rock on the peaks' upper slopes, none on the saddles, so a horn reads
+  // as rock rather than a smooth dome.
+  const cragWeight = rise * rise * smoothstep(0, 1, shape)
+  const crag = cragWeight > 0 ? cragWeight * basin.cragHeight * crags() : 0
   const target =
     floor +
-    (crest - basin.floorEdgeHeight) * rise +
+    (rise > 0 ? (crest - basin.floorEdgeHeight) * rise : 0) +
+    crag +
     wobble * mix(basin.floorNoise, basin.ridgeNoise, rise)
   const weight = 1 - smoothstep(basin.ridgeRadius + 100, basin.blendRadius, r)
   let height = mix(noiseHeight, target, weight)

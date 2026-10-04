@@ -1,5 +1,6 @@
 import { createNoise4D, type NoiseFunction4D } from 'simplex-noise'
 import { applyBasin } from './basin'
+import { massifMask } from './massifs'
 import { applyRiverLake, applyRouteRiver, noiseRiverKeep } from './routeRiver'
 import { applyRouteValley, isFullFloor, valleyAt, valleyFloor } from './routeValley'
 import { applyPlungePool } from './stations'
@@ -32,6 +33,8 @@ interface NoiseSet {
   hills: NoiseFunction4D
   rangeMask: NoiseFunction4D
   ridges: NoiseFunction4D
+  massifs: NoiseFunction4D
+  crags: NoiseFunction4D
   peaks: NoiseFunction4D
   plateaus: NoiseFunction4D
   detail: NoiseFunction4D
@@ -42,6 +45,8 @@ interface NoiseSet {
     hills: number
     rangeMask: number
     ridges: number
+    massifs: number
+    crags: number
     peaks: number
     plateaus: number
     detail: number
@@ -85,7 +90,9 @@ function noiseFor(config: TerrainConfig): NoiseSet {
 
 function noiseSetFor(config: TerrainConfig): NoiseSet {
   const { seed, worldPeriod: period, riverScale } = config
-  const key = `${seed}|${period}|${riverScale}`
+  const massifScale = config.massifs.ridgeScale
+  const cragScale = config.basin.cragScale
+  const key = `${seed}|${period}|${riverScale}|${massifScale}|${cragScale}`
   const cached = noiseCache.get(key)
   if (cached) return cached
   const make = (layer: string) => createNoise4D(mulberry32(hashString(`${seed}:${layer}`)))
@@ -96,6 +103,8 @@ function noiseSetFor(config: TerrainConfig): NoiseSet {
     hills: make('hills'),
     rangeMask: make('rangeMask'),
     ridges: make('ridges'),
+    massifs: make('massifs'),
+    crags: make('crags'),
     peaks: make('peaks'),
     plateaus: make('plateaus'),
     detail: make('detail'),
@@ -105,6 +114,8 @@ function noiseSetFor(config: TerrainConfig): NoiseSet {
       hills: radius(HILL_SCALE),
       rangeMask: radius(RANGE_MASK_SCALE),
       ridges: radius(RIDGE_SCALE),
+      massifs: radius(massifScale),
+      crags: radius(cragScale),
       peaks: radius(PEAK_SCALE),
       plateaus: radius(PLATEAU_SCALE),
       detail: radius(DETAIL_SCALE),
@@ -160,6 +171,11 @@ const RIDGE_SCALE = 2200
 const PEAK_SCALE = 4500
 const PLATEAU_SCALE = 5500
 const DETAIL_SCALE = 180
+// Massif mask (0..1) by which ranges, peaks and plateaus have given way to it.
+const MASSIF_YIELD = 0.3
+// The massifs stand 1 km and more from the loop, where a fifth octave (~90 m) is under a few
+// vertices of the LOD drawing it, so four keep the build cost down.
+const MASSIF_OCTAVES = 4
 // Scales the hills' fine octaves (about -0.3..0.3) to the -1..1 detail the valley floor takes.
 const VALLEY_DETAIL_GAIN = 4
 
@@ -178,6 +194,12 @@ export function heightAt(x: number, z: number, config: TerrainConfig): number {
 // Reused per call: `heightAt` runs per vertex and nothing keeps these past it.
 const at: TorusPoint = { cx: 1, sx: 0, cz: 1, sz: 0 }
 const warped: TorusPoint = { cx: 1, sx: 0, cz: 1, sz: 0 }
+
+// The noise set `sampleCrags` reads, set by `landHeight` just before the basin may call it. A
+// fixed function rather than a closure per call, since `heightAt` runs per vertex.
+let cragSet: NoiseSet | null = null
+const sampleCrags = (): number =>
+  cragSet ? ridged(cragSet.crags, warped, cragSet.radius.crags, 2) : 0
 
 function landHeight(x: number, z: number, config: TerrainConfig): number {
   const n = noiseFor(config)
@@ -216,18 +238,32 @@ function landHeight(x: number, z: number, config: TerrainConfig): number {
 
   let height = (hills * 0.5 + 0.5) * config.hillHeight
 
+  // Massifs (#222): authored mountain regions flanking the loop, kept out of the route valley,
+  // the basin and the inland sea by their mask. A bulk lifts the whole region and ridged relief
+  // stands on it, so the ranges read as tall rock with saddles, not lone bumps.
+  const massif = massifMask(x, z, wx, wz, config)
+  if (massif > 0) {
+    const m = config.massifs
+    const ridge = ridged(n.massifs, w, r.massifs, MASSIF_OCTAVES)
+    height += massif * m.height * (m.bodyShare + (1 - m.bodyShare) * ridge * ridge)
+  }
+
   // Mountain ranges: a very low-frequency mask decides where ranges exist at all, so most of the
   // world stays hills and ranges come as distinct bands. Ridged noise shapes the range itself.
-  const rangeMask = smoothstep(0.05, 0.35, fbm(n.rangeMask, w, r.rangeMask, 2))
+  // A massif stands in for ranges, peaks and plateaus where they would meet, so they never stack.
+  // They give way over the massif's first 30 %, so most of a massif skips their noise.
+  const yieldToMassif = 1 - smoothstep(0, MASSIF_YIELD, massif)
+  const range = yieldToMassif > 0 ? smoothstep(0.05, 0.35, fbm(n.rangeMask, w, r.rangeMask, 2)) : 0
+  const rangeMask = yieldToMassif * range
   if (rangeMask > 0) {
     const ridge = ridged(n.ridges, w, r.ridges, 5)
     height += rangeMask * ridge * ridge * config.mountainHeight
   }
 
-  // Isolated peaks: only where the peak noise spikes, and never inside a range (keeps them
-  // standing alone, and keeps total height under the flight ceiling).
+  // Isolated peaks: only where the peak noise spikes, and never inside a range or a massif (keeps
+  // them standing alone, and keeps total height in check).
   // Deep inside a range neither peaks nor plateaus show, so their noise isn't sampled there.
-  const outsideRange = 1 - rangeMask
+  const outsideRange = yieldToMassif * (1 - range)
   const peakShape = outsideRange > 0 ? smoothstep(0.62, 1, sampleTorus(n.peaks, w, r.peaks)) : 0
   if (peakShape > 0) {
     height += outsideRange * peakShape * peakShape * config.peakHeight
@@ -245,14 +281,19 @@ function landHeight(x: number, z: number, config: TerrainConfig): number {
   // Lakes are sized by the broad shape of the land, so they fill whole valleys instead of every
   // little dip.
   height = carveLakes(height, height + (broadHills - hills) * 0.5 * config.hillHeight, config)
-  // Noise rivers stay out of the route valley's corridor: the route river runs its floor (#174).
-  // They have faded out entirely by `riverMaxHeight`, so higher ground skips their noise.
-  const riverKeep = height < config.riverMaxHeight ? noiseRiverKeep(valley, config.valley) : 0
+  // Noise rivers stay out of the route valley's corridor: the route river runs its floor (#174),
+  // and out of the massifs, as ranges do. They have faded out entirely by `riverMaxHeight`, so
+  // higher ground skips their noise.
+  const riverKeep =
+    height < config.riverMaxHeight && yieldToMassif > 0
+      ? yieldToMassif * noiseRiverKeep(valley, config.valley)
+      : 0
   if (riverKeep > 0) {
     height = carveRivers(height, fbm(n.rivers, w, r.rivers, 3), config, riverKeep)
   }
   // The home basin goes after the land so its designed floor and ridge heights hold (#171).
-  height = applyBasin(x, z, height, config.basin)
+  cragSet = n
+  height = applyBasin(x, z, height, config.basin, sampleCrags)
   // The route valley goes last: it carries the notches' floors on through the basin's outer ring
   // and out round the loop. Most of the world is beyond its reach and paid one grid lookup.
   if (!valley) return height

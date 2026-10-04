@@ -117,7 +117,14 @@ describe('normalAt', () => {
   })
 
   it('is straight up on flat ground', () => {
-    const flat = { ...config, hillHeight: 0, mountainHeight: 0, peakHeight: 0, plateauHeight: 0 }
+    const flat = {
+      ...config,
+      hillHeight: 0,
+      mountainHeight: 0,
+      peakHeight: 0,
+      plateauHeight: 0,
+      massifs: { ...config.massifs, height: 0 },
+    }
     const [x, y, z] = normalAt(100, 100, flat)
     expect(x).toBeCloseTo(0, 6)
     expect(y).toBeCloseTo(1, 6)

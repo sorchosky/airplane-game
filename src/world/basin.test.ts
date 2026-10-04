@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyBasin, crestAt, floorAt, notchRadius } from './basin'
+import { applyBasin, crestAt, crestShapeAt, floorAt, notchRadius } from './basin'
 import { heightAt } from './heightfield'
 import { ROUTE_POINTS } from './routePoints'
 import { withoutRouteRiver } from './routeRiver'
@@ -56,17 +56,65 @@ describe('applyBasin', () => {
         crest = Math.max(crest, heightAt(x, z, config))
       }
       const designed = crestAt(theta, basin)
+      // Crags lift the peaks' crest by up to `cragHeight`, fading out by the mid crest.
+      const shape = Math.min(1, Math.max(0, crestShapeAt(theta, basin)))
+      const crags = basin.cragHeight * shape * shape * (3 - 2 * shape)
       expect(crest).toBeGreaterThan(designed - basin.ridgeNoise - 1)
-      expect(crest).toBeLessThan(designed + basin.ridgeNoise + 1)
+      expect(crest).toBeLessThan(designed + basin.ridgeNoise + crags + 1)
       tallest = Math.max(tallest, crest)
     }
-    // Clearable at cruise: well under the 600 m flight ceiling.
-    expect(tallest).toBeLessThan(350)
+    // Clearable: under the 600 m flight ceiling.
+    expect(tallest).toBeLessThan(600)
   })
 
-  it('is not a perfect circle: the crest varies round the ring', () => {
-    const crests = Array.from({ length: 36 }, (_, i) => crestAt((i / 36) * Math.PI * 2, basin))
-    expect(Math.max(...crests) - Math.min(...crests)).toBeGreaterThan(basin.crestHeight * 0.1)
+  it('is not a perfect circle: the crest varies ±35 % round the ring', () => {
+    const crests = Array.from({ length: 720 }, (_, i) => crestAt((i / 720) * Math.PI * 2, basin))
+    expect(Math.max(...crests) / basin.crestHeight - 1).toBeCloseTo(0.35, 2)
+    expect(1 - Math.min(...crests) / basin.crestHeight).toBeCloseTo(0.35, 2)
+  })
+
+  it('names 3 to 5 saddles and 2 or 3 peaks, each an extreme of the crest', () => {
+    const saddles = basin.crestPoints.filter((p) => p.kind === 'saddle')
+    const peaks = basin.crestPoints.filter((p) => p.kind === 'peak')
+    expect(saddles.length).toBeGreaterThanOrEqual(3)
+    expect(saddles.length).toBeLessThanOrEqual(5)
+    expect(peaks.length).toBeGreaterThanOrEqual(2)
+    expect(peaks.length).toBeLessThanOrEqual(3)
+    for (const point of [...saddles, ...peaks]) {
+      expect(point.name).not.toBe('')
+      const theta = (point.bearing * Math.PI) / 180
+      const here = crestAt(theta, basin)
+      for (const step of [-0.05, 0.05]) {
+        const beside = crestAt(theta + step, basin)
+        if (point.kind === 'peak') expect(beside).toBeLessThan(here)
+        else expect(beside).toBeGreaterThan(here)
+      }
+    }
+    expect(crestShapeAt((saddles[0]!.bearing * Math.PI) / 180, basin)).toBe(saddles[0]!.shape)
+  })
+
+  it('stands only the named peaks over 400 m, and keeps the saddles off the notches', () => {
+    const notchBearings = basin.notches.map(bearingOf)
+    const crestHeightAt = (theta: number): number => {
+      let crest = 0
+      for (let r = basin.ridgeRadius - 40; r <= basin.ridgeRadius + 40; r += 10) {
+        crest = Math.max(crest, heightAt(...at(r, theta), config))
+      }
+      return crest
+    }
+    const peaks = basin.crestPoints.filter((p) => p.kind === 'peak')
+    for (const peak of peaks) {
+      expect(crestHeightAt((peak.bearing * Math.PI) / 180)).toBeGreaterThan(400)
+    }
+    for (let deg = 0; deg < 360; deg += 2) {
+      const theta = (deg * Math.PI) / 180
+      const nearPeak = peaks.some((p) => angularGap(theta, (p.bearing * Math.PI) / 180) < 0.45)
+      if (!nearPeak) expect(crestHeightAt(theta)).toBeLessThan(400)
+    }
+    for (const point of basin.crestPoints) {
+      const theta = (point.bearing * Math.PI) / 180
+      for (const b of notchBearings) expect(angularGap(theta, b)).toBeGreaterThan(0.4)
+    }
   })
 
   it.each([
