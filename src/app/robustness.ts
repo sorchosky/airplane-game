@@ -19,15 +19,18 @@ export function cameraRetryDelayMs(attempt: number): number {
 export const CAMERA_MUTE_GRACE_MS = 3000
 
 export interface ThermalWatchParams {
-  /** Frame-time p95 above this counts as struggling (under 30 fps). */
+  /** Frame-time p95 above this counts as struggling when there is no frame cap. */
   p95ThresholdMs: number
   /** How long it must stay above the threshold, continuously, before the caption shows. */
   sustainMs: number
+  /** A new flight cannot show the caption before this point. */
+  graceMs: number
 }
 
 export const DEFAULT_THERMAL_WATCH_PARAMS: ThermalWatchParams = {
   p95ThresholdMs: 33,
-  sustainMs: 10_000,
+  sustainMs: 30_000,
+  graceMs: 120_000,
 }
 
 export interface ThermalWatchState {
@@ -41,8 +44,13 @@ export const INITIAL_THERMAL_WATCH: ThermalWatchState = { overSinceMs: null, war
 
 export interface ThermalSample {
   p95Ms: number
-  /** Quality tier in use. Only `low` counts: above it, the adaptive tier (E3) steps down first. */
-  tier: string
+  /** Active frame cap, or null when the frame loop is open. */
+  capFps: number | null
+  /** Current governor rung, zero based, and total rung count. */
+  rung: number
+  rungCount: number
+  /** Time since this flight's HUD mounted. */
+  flightElapsedMs: number
   nowMs: number
 }
 
@@ -54,8 +62,8 @@ export interface ThermalStepResult {
 
 /**
  * Thermal throttling proxy, fed about once a second. The caption shows once, after the frame-time
- * p95 has stayed over the threshold on the `low` tier for `sustainMs`. Any good sample, or a tier
- * change, restarts the run.
+ * p95 has stayed over the cap-aware threshold on the governor's bottom rung for `sustainMs`.
+ * Any good sample, rung change, or sample inside the opening grace period restarts the run.
  */
 export function stepThermalWatch(
   state: ThermalWatchState,
@@ -63,7 +71,11 @@ export function stepThermalWatch(
   params: ThermalWatchParams = DEFAULT_THERMAL_WATCH_PARAMS,
 ): ThermalStepResult {
   if (state.warned) return { state, warn: false }
-  const slow = sample.tier === 'low' && sample.p95Ms > params.p95ThresholdMs
+  const thresholdMs = sample.capFps ? (1000 / sample.capFps) * 1.2 : params.p95ThresholdMs
+  const slow =
+    sample.flightElapsedMs >= params.graceMs &&
+    sample.rung === sample.rungCount - 1 &&
+    sample.p95Ms > thresholdMs
   if (!slow) {
     return { state: state.overSinceMs === null ? state : INITIAL_THERMAL_WATCH, warn: false }
   }

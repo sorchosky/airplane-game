@@ -2,7 +2,14 @@ import { useFrame } from '@react-three/fiber'
 import { useRef } from 'react'
 import { useFlightStore } from '../flight/flightStore'
 import { useQualityStore } from '../render/qualityStore'
-import { createFrameStats, pushFrame, summarizeFrames, type FrameSummary } from './frameStats'
+import { SETTLE_TIME, STALL_MS } from '../render/QualityGovernor'
+import {
+  createFrameStats,
+  pushFrame,
+  resetFrameStats,
+  summarizeFrames,
+  type FrameSummary,
+} from './frameStats'
 import { createLatencySummary, latencyProbe } from './latencyProbe'
 import { usePerfStore } from './perfStore'
 
@@ -27,17 +34,34 @@ export function PerfProbe() {
   const latency = useRef(createLatencySummary())
   const sinceLastPublish = useRef(0)
   const framesSincePublish = useRef(0)
+  const settleUntilMs = useRef(performance.now() + SETTLE_TIME * 1000)
+  const lastQualityChangeMs = useRef(-Infinity)
 
   useFrame(({ gl }, delta) => {
     latencyProbe.markFrame(useFlightStore.getState().state.bank, performance.now())
 
-    pushFrame(stats.current, delta * 1000)
+    const nowMs = performance.now()
+    const qualityChangeMs = useQualityStore.getState().lastChange?.atMs ?? -Infinity
+    if (qualityChangeMs !== lastQualityChangeMs.current) {
+      lastQualityChangeMs.current = qualityChangeMs
+      settleUntilMs.current = qualityChangeMs + SETTLE_TIME * 1000
+      resetFrameStats(stats.current)
+      sinceLastPublish.current = 0
+      framesSincePublish.current = 0
+    }
+    if (nowMs < settleUntilMs.current) return
+
+    const frameMs = delta * 1000
+    if (frameMs >= STALL_MS) return
+    pushFrame(stats.current, frameMs)
     sinceLastPublish.current += delta
     framesSincePublish.current += 1
     if (sinceLastPublish.current < PUBLISH_INTERVAL) return
 
     const summary = summarizeFrames(stats.current, window.current)
+    const sampleId = usePerfStore.getState().sampleId + 1
     usePerfStore.setState({
+      sampleId,
       fps: framesSincePublish.current / sinceLastPublish.current,
       frameMs: (sinceLastPublish.current / framesSincePublish.current) * 1000,
       p95Ms: summary.p95Ms,
