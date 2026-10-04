@@ -91,12 +91,10 @@ export const color = {
   titleCloudCool: '#bab5cc',
   titleText: '#e4e9f6',
   titleStartBorder: 'rgba(228, 233, 246, 0.7)',
-  // #73: the warm white the intro fades up from. #158: the contrast assist that keeps the wordmark
-  // and Start at 3:1 without a plate: a left-edge feathered scrim behind the masthead column and a
-  // soft glow in the same deep blue.
+  // #73: the warm white the intro fades up from. #229: the deep-blue tint used by the title's
+  // local vignette and shadows. Keeping the tint opaque here lets effects own their alpha.
   titleFade: '#fff4e6',
-  titleScrim: 'rgba(27, 39, 72, 0.6)',
-  titleGlow: 'rgba(27, 39, 72, 0.6)',
+  titleVignette: 'rgb(27, 39, 72)',
 } as const
 
 // 8pt spacing scale.
@@ -338,6 +336,11 @@ export const effect = {
   stillBlur: 'blur(8px) saturate(80%)',
   textGlow: `0 0 12px ${color.glow}`,
   ringGlow: `drop-shadow(0 0 6px ${color.glow})`,
+  // Local title contrast without a rectangular plate. The narrow horizontal radius clears the
+  // plane on phone viewports while the tall falloff stays natural around the centred masthead.
+  titleVignette: `radial-gradient(ellipse 24vw 70vh at calc(max(${space.xxxl}, env(safe-area-inset-left)) + 11vw) 46%, rgba(27, 39, 72, 0.36) 0%, rgba(27, 39, 72, 0.20) 40%, rgba(27, 39, 72, 0.06) 72%, rgba(27, 39, 72, 0) 100%)`,
+  titleTextShadow: '0 1px 2px rgba(27, 39, 72, 0.45), 0 0 24px rgba(27, 39, 72, 0.35)',
+  titleOutlineShadow: '0 0 16px rgba(27, 39, 72, 0.30)',
 } as const
 
 export const motion = {

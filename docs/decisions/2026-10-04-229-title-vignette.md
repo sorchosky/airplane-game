@@ -1,0 +1,1 @@
+- 2026-10-04 · ui · The title masthead uses a narrow deep-blue radial vignette plus tinted text and outline shadows, rather than the 0.6 left-edge slab from #158, and sits at the optical vertical centre · local contrast feels part of the scene while the fast horizontal falloff keeps the aircraft clean; supersedes the 2026-10-01 #158 masthead-contrast decision

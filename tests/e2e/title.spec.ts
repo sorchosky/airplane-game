@@ -1,5 +1,26 @@
 import { expect, test } from '@playwright/test'
 
+test('title masthead uses the centred vignette and tinted contrast effects', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await page.goto('/?shot=title')
+
+  const vignette = page.locator('[data-shared-element="scrim"]')
+  const wordmark = page.locator('[data-shared-element="wordmark"]')
+  const start = page.getByRole('button', { name: 'Start' })
+  await expect(vignette).toHaveCSS('background-image', /radial-gradient/)
+  await expect(vignette).toHaveCSS('backdrop-filter', 'none')
+  await expect(wordmark).toHaveCSS(
+    'text-shadow',
+    /rgba\(27, 39, 72, 0\.45\).*rgba\(27, 39, 72, 0\.35\)/,
+  )
+  await expect(start).toHaveCSS('box-shadow', /rgba\(27, 39, 72, 0\.3\)/)
+
+  const masthead = wordmark.locator('..')
+  const box = await masthead.boundingBox()
+  expect(box).not.toBeNull()
+  expect((box?.y ?? 0) + (box?.height ?? 0) / 2).toBeCloseTo(1080 * 0.46, 0)
+})
+
 test('title screen shows Start then control selection and camera calibration', async ({ page }) => {
   await page.goto('/')
   const start = page.getByRole('button', { name: 'Start' })
