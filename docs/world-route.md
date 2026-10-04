@@ -75,6 +75,18 @@ shoulders carry ±40 m of ridged noise, and six side gullies cut back through th
 basin its basin-facing wall keeps the #172 profile. The table values above (floor heights, widths)
 are still the route's design values. See `docs/decisions/2026-10-04-221-rough-valley.md`.
 
+**As built (#222).** Mountain massifs flank the loop: ridged ranges to the north, west and south,
+one inside the ring between the basin and the east reach, and two east of the loop framing the
+inland sea's footprint (#223) to its north and south, with the footprint itself kept clear. Their
+mask is zero out to the valley's outer flank fade and inside the basin's blend radius, so the
+valley walls and the basin keep their authored shape. Summits reach about 570 m, under the 600 m
+flight ceiling. The basin crest now runs 200 to 420 m between named points: the Dawn Saddle (45°,
+the lowest, under the title masthead), the East Horn (100°, a peak), the Reed Saddle (150°), the
+South Tooth (195°, a peak), the Fern Saddle (232°) and the West Shoulder (300°), with ridged
+crags on the peaks' upper slopes. Bearings are clockwise from north, seen from spawn. The ranges add no gaps of their own: every reveal and
+station sightline runs down the valley floor, which they never touch. See
+`docs/decisions/2026-10-04-222-massifs.md`.
+
 Each reveal is exactly 1.50 km before its station. The tower is technically visible from the open
 basin in today's terrain. The basin ridge and cut in the proposed terrain sketch provide the new
 occlusion boundary that makes its authored first reveal happen at `s = 0.50 km`. The same rule
