@@ -35,6 +35,7 @@ export const color = {
   roofTerracotta: '#c0623d',
   roofSlate: '#456c74',
   pierGrey: '#8d8a83',
+  dirtRoad: '#b08f62',
   windowGlass: '#3c4d56',
   windowGlow: '#ffb459',
 

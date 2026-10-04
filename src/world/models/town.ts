@@ -1,11 +1,13 @@
 import { BoxGeometry, BufferAttribute, BufferGeometry, Matrix4, Vector3 } from 'three'
 import { color } from '../../styles/tokens'
 import {
+  DOOR_OFFSET,
   ridgeHeight,
   type TownGround,
   type TownHouse,
   type TownLayout,
   type TownPier,
+  type TownRoad,
 } from '../townLayout'
 import { block, mergeParts, part, prism } from './kit'
 
@@ -197,7 +199,7 @@ function houseParts(house: TownHouse, ground: TownGround, floor: number): Buffer
     parts.push(
       block(new BoxGeometry(1.1, 2.0, 0.3), {
         color: color.timber,
-        position: [-L * 0.14, 1, wz],
+        position: [DOOR_OFFSET * L, 1, wz],
       }),
       window(L * 0.24, 1.6, wz, 0),
       window(-L * 0.36, 1.6, wz, 0),
@@ -485,6 +487,48 @@ function propParts(layout: TownLayout, ground: TownGround): BufferGeometry[] {
   return parts
 }
 
+/** m, how far a road floats over the ground: clear of the terrain mesh's coarser facets. */
+const ROAD_LIFT = 0.3
+
+/**
+ * A dirt road: a flat ribbon draped over the ground along its centre line, each cross-section
+ * `ROAD_LIFT` over the ground at both edges, so it follows the shore's slope.
+ */
+function roadRibbon(road: TownRoad, ground: TownGround): BufferGeometry {
+  const pts = road.points
+  const left: Vector3[] = []
+  const right: Vector3[] = []
+  const half = road.width / 2
+  pts.forEach(([x, z], i) => {
+    const [px, pz] = pts[Math.max(0, i - 1)]!
+    const [nx, nz] = pts[Math.min(pts.length - 1, i + 1)]!
+    const length = Math.hypot(nx - px, nz - pz) || 1
+    // Across the road: the tangent turned a quarter.
+    const ax = -(nz - pz) / length
+    const az = (nx - px) / length
+    // Ends taper to a point-ish round-off so a spur's end doesn't stop in a square.
+    const w = i === 0 || i === pts.length - 1 ? half * 0.8 : half
+    const l: [number, number] = [x + ax * w, z + az * w]
+    const r: [number, number] = [x - ax * w, z - az * w]
+    left.push(new Vector3(l[0], ground(...l) + ROAD_LIFT, l[1]))
+    right.push(new Vector3(r[0], ground(...r) + ROAD_LIFT, r[1]))
+  })
+  const positions: number[] = []
+  const tri = (a: Vector3, b: Vector3, c: Vector3) => {
+    // Wind every triangle to face up, so the toon side is the top.
+    const up = new Vector3().subVectors(b, a).cross(new Vector3().subVectors(c, a)).y >= 0
+    const [p, q] = up ? [b, c] : [c, b]
+    positions.push(a.x, a.y, a.z, p.x, p.y, p.z, q.x, q.y, q.z)
+  }
+  for (let i = 0; i < pts.length - 1; i++) {
+    tri(left[i]!, right[i]!, left[i + 1]!)
+    tri(right[i]!, right[i + 1]!, left[i + 1]!)
+  }
+  const geometry = new BufferGeometry()
+  geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3))
+  return part(geometry, { color: color.dirtRoad })
+}
+
 /**
  * The town's merged model in its own frame. `ground` is the terrain relative to the origin, so
  * footings and pilings reach the ground and the sea bed under them.
@@ -495,6 +539,7 @@ export function buildTown(layout: TownLayout, ground: TownGround): BufferGeometr
     ...deckParts(layout.pier, layout.fingers, ground),
     ...lighthouseParts(layout, ground),
     ...propParts(layout, ground),
+    ...layout.roads.map((road) => roadRibbon(road, ground)),
   ]
   return mergeParts(parts)
 }

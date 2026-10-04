@@ -5,7 +5,7 @@ import { windowGlowAmount } from './landmarkMaterials'
 import { allFoliageExclusions } from './foliageExclusions'
 import { buildTown, tallestRidge } from './models/town'
 import { getTown } from './town'
-import { ridgeHeight } from './townLayout'
+import { doorPoint, ridgeHeight, type TownHouse } from './townLayout'
 import { heightAt } from './heightfield'
 import { TERRAIN_CONFIG } from './terrainConfig'
 
@@ -171,6 +171,85 @@ describe('fishing town model', () => {
     }
     expect(lit).toBeGreaterThan(0)
     expect(lit / glow.count).toBeLessThan(0.3)
+  })
+})
+
+/** True if (x, z) is inside a house's footprint rectangle, grown by `margin` m. */
+function insideHouse(h: TownHouse, x: number, z: number, margin: number): boolean {
+  const dx = x - h.x
+  const dz = z - h.z
+  const cos = Math.cos(h.yaw)
+  const sin = Math.sin(h.yaw)
+  const lx = dx * cos - dz * sin
+  const lz = dx * sin + dz * cos
+  return Math.abs(lx) < h.length / 2 + margin && Math.abs(lz) < h.width / 2 + margin
+}
+
+describe('town dirt roads', () => {
+  const [shoreLane, backLane, pierRoad, ...spurs] = layout.roads
+
+  it('runs two lanes and a pier road, with a spur to every door', () => {
+    expect(shoreLane && backLane && pierRoad).toBeTruthy()
+    expect(spurs).toHaveLength(layout.houses.length)
+    layout.houses.forEach((house, i) => {
+      const [door] = spurs[i]!.points
+      const [dx, dz] = doorPoint(house)
+      expect(Math.hypot(door![0] - dx, door![1] - dz)).toBeLessThan(0.01)
+    })
+  })
+
+  it('joins every spur to a lane, and the pier road to the pier and the back lane', () => {
+    const near = (point: readonly [number, number], road: (typeof layout.roads)[number]) =>
+      Math.min(...road.points.map(([x, z]) => Math.hypot(x - point[0], z - point[1])))
+    for (const spur of spurs) {
+      const end = spur.points.at(-1)!
+      expect(Math.min(near(end, shoreLane!), near(end, backLane!))).toBeLessThan(6)
+    }
+    expect(Math.abs(pierRoad!.points[0]![0] - layout.pier.x0)).toBeLessThan(5)
+    expect(near(pierRoad!.points.at(-1)!, backLane!)).toBeLessThan(6)
+  })
+
+  it('stays on dry ground and out of the houses', () => {
+    const dry = TERRAIN_CONFIG.waterLevel - town.y + 0.5
+    for (const road of layout.roads) {
+      road.points.forEach(([x, z], k) => {
+        expect(ground(x, z)).toBeGreaterThan(dry)
+        // A spur's first point is at its own door, a little out from the wall.
+        if (road !== shoreLane && road !== backLane && road !== pierRoad && k === 0) return
+        for (const house of layout.houses) {
+          expect(insideHouse(house, x, z, 0.5), `road at ${x.toFixed(0)},${z.toFixed(0)}`).toBe(
+            false,
+          )
+        }
+      })
+    }
+  })
+
+  it('drapes the ribbon just over the ground and keeps trees off it', () => {
+    const position = geometry.getAttribute('position')
+    const colour = geometry.getAttribute('color')
+    const dirt = [0, 1, 2].map((k) =>
+      Number.parseInt(color.dirtRoad.slice(1 + 2 * k, 3 + 2 * k), 16),
+    )
+    let road = 0
+    for (let i = 0; i < position.count; i++) {
+      // Road vertices carry the dirt tint (linear, so compare to the token's red channel order).
+      if (
+        Math.abs(colour.getX(i) - (dirt[0]! / 255) ** 2.2) < 0.02 &&
+        colour.getY(i) < colour.getX(i)
+      ) {
+        road++
+        const lift = position.getY(i) - ground(position.getX(i), position.getZ(i))
+        expect(lift).toBeGreaterThan(0.1)
+        expect(lift).toBeLessThan(0.6)
+      }
+    }
+    expect(road).toBeGreaterThan(100)
+    const zones = allFoliageExclusions()
+    const [x, z] = shoreLane!.points[8]!
+    expect(
+      zones.some((zone) => Math.hypot(x + town.x - zone.x, z + town.z - zone.z) < zone.radius),
+    ).toBe(true)
   })
 })
 

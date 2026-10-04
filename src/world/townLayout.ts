@@ -79,7 +79,15 @@ export interface TownCircle {
   radius: number
 }
 
+/** A dirt road: a centre line of (x, z) points and its width, m. */
+export interface TownRoad {
+  points: readonly (readonly [number, number])[]
+  width: number
+}
+
 export interface TownLayout {
+  /** Dirt roads: two lanes along the shore, the pier road between them, and a spur to every door. */
+  roads: readonly TownRoad[]
   houses: readonly TownHouse[]
   pier: TownPier
   fingers: readonly TownFinger[]
@@ -162,6 +170,51 @@ function interpolate(zs: readonly number[], xs: readonly number[], z: number): n
   const a = xs[i] ?? 0
   const b = xs[i + 1] ?? a
   return a + (b - a) * (u - i)
+}
+
+/** Where a house's door sits on its front, as a share of its length from the centre. */
+export const DOOR_OFFSET = -0.14
+
+/**
+ * The town-frame point a house's door opens onto, `reach` m out from the wall: a step out for a
+ * house, 8 m up the beach for a boathouse, whose landward wall stands at the waterline.
+ */
+export function doorPoint(
+  house: TownHouse,
+  reach = house.variant === 'boathouse' ? 8 : 0.6,
+): [number, number] {
+  const boathouse = house.variant === 'boathouse'
+  // Local frame: the boathouse's landward door is its -x gable; the others front onto +z.
+  const lx = boathouse ? -house.length / 2 - reach : DOOR_OFFSET * house.length
+  const lz = boathouse ? 0 : house.width / 2 + reach
+  const cos = Math.cos(house.yaw)
+  const sin = Math.sin(house.yaw)
+  return [house.x + lx * cos + lz * sin, house.z - lx * sin + lz * cos]
+}
+
+/** The nearest point of a polyline to (x, z). */
+function nearestOn(
+  points: readonly (readonly [number, number])[],
+  x: number,
+  z: number,
+): [number, number] {
+  let best: [number, number] = [points[0]![0], points[0]![1]]
+  let bestD = Infinity
+  for (let i = 0; i < points.length - 1; i++) {
+    const [ax, az] = points[i]!
+    const [bx, bz] = points[i + 1]!
+    const dx = bx - ax
+    const dz = bz - az
+    const t = Math.min(1, Math.max(0, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)))
+    const px = ax + dx * t
+    const pz = az + dz * t
+    const d = (x - px) ** 2 + (z - pz) ** 2
+    if (d < bestD) {
+      bestD = d
+      best = [px, pz]
+    }
+  }
+  return best
 }
 
 export function planTown(ground: TownGround, config: TownPlanConfig = TOWN_PLAN): TownLayout {
@@ -291,6 +344,40 @@ export function planTown(ground: TownGround, config: TownPlanConfig = TOWN_PLAN)
     length: 7,
   }
 
+  // Roads. Two lanes follow the shore contour, one in front of each row of houses; the pier road
+  // joins them to the pier; every door gets a gently bent spur to the nearest lane.
+  const roadRandom = mulberry32(config.seed + 1)
+  const lane = (offset: number, z0: number, z1: number): [number, number][] => {
+    const points: [number, number][] = []
+    for (let z = z0; z <= z1; z += 10) {
+      const inv = 1 / Math.hypot(1, slope(z))
+      points.push([shoreAt(z) - offset * inv, z + offset * slope(z) * inv])
+    }
+    return points
+  }
+  const shoreLane = lane(20, -104, lighthouse.z)
+  const backLane = lane(55, -84, 112)
+  const pierRoad: [number, number][] = [
+    [pier.x0 + 3, pier.z],
+    [(pier.x0 + backLane[0]![0]) / 2, pier.z + 1.5],
+    nearestOn(backLane, pier.x0 - 40, pier.z),
+  ]
+  const roads: TownRoad[] = [
+    { points: shoreLane, width: 5 },
+    { points: backLane, width: 4.4 },
+    { points: pierRoad, width: 4.2 },
+  ]
+  for (const house of kept) {
+    const door = doorPoint(house)
+    const target = nearestOn(house.x > shoreAt(house.z) - 45 ? shoreLane : backLane, ...door)
+    const wobble = (roadRandom() - 0.5) * 3
+    const mid: [number, number] = [
+      (door[0] + target[0]) / 2 + wobble * 0.3,
+      (door[1] + target[1]) / 2 + wobble,
+    ]
+    roads.push({ points: [door, mid, target], width: 2.2 })
+  }
+
   const footprints: TownCircle[] = [
     ...kept.map((h) => ({
       x: h.x,
@@ -300,7 +387,26 @@ export function planTown(ground: TownGround, config: TownPlanConfig = TOWN_PLAN)
     { x: lighthouse.x, z: lighthouse.z, radius: lighthouse.radius + 8 },
     { x: rack.x, z: rack.z, radius: rack.length / 2 + 4 },
     { x: pierRoot - 6, z: pierZ, radius: 14 },
+    // Road circles, every ~16 m along each road, keep trees off the dirt.
+    ...roads
+      .slice(0, 3)
+      .flatMap((road) =>
+        road.points
+          .filter((_, k) => k % 2 === 0)
+          .map(([x, z]) => ({ x, z, radius: road.width / 2 + 6 })),
+      ),
   ]
 
-  return { houses: kept, pier, fingers, crates, barrels, rack, lighthouse, shoreAt, footprints }
+  return {
+    houses: kept,
+    roads,
+    pier,
+    fingers,
+    crates,
+    barrels,
+    rack,
+    lighthouse,
+    shoreAt,
+    footprints,
+  }
 }
