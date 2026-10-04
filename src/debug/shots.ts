@@ -160,6 +160,39 @@ export const SHOT_BOOKMARKS: readonly ShotBookmark[] = [
       'The fishing town (#224) at 150 m from the sea: pier, houses, boathouses and the lighthouse.',
   },
   {
+    // The island resort's close pass (#235): 150 m off the boardwalk's end over the shallows of
+    // Long Isle, west of the island, looking in at the lodge roof, the bungalows and the palms.
+    name: 'island-resort',
+    position: [8113, 68, 561],
+    heading: -1.077,
+    bank: 0,
+    pitchAngle: deg(-6),
+    purpose:
+      'The island resort (#235) at 150 m: thatched lodge, overwater bungalows on a curved boardwalk, jetty and palms.',
+  },
+  {
+    // 1 km off the lodge (#235): the range where its roof and the palm crowns still read against
+    // the haze. From the station, 3 km out, the resort is a few pixels wide.
+    name: 'resort-mid',
+    position: [7312, 95, 664],
+    heading: -1.381,
+    bank: 0,
+    pitchAngle: deg(-3),
+    purpose:
+      'The island resort (#235) at 1 km: thatched lodge roof and palm crowns as silhouettes against the haze.',
+  },
+  {
+    // The same resort from the lake-town station, 3.1 km across the water (#235): the lodge roof
+    // and the palm crowns as silhouettes against the haze. `lake-town` itself looks south.
+    name: 'resort-far',
+    position: [5148, 85, 1419],
+    heading: -1.28,
+    bank: 0,
+    pitchAngle: deg(-1),
+    purpose:
+      'The island resort (#235) across the inland sea from the town station: lodge roof and palm crowns against the haze.',
+  },
+  {
     name: 'river-lake',
     position: [151, 120, 2640],
     heading: -0.711,

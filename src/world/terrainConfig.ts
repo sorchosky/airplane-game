@@ -33,6 +33,14 @@ export interface TerrainBands {
   snowMaxSlope: number
   /** m, how far the noise moves the sand line up or down */
   sandJitter: number
+  /**
+   * The tropical beaches (#235): on the islands the sand line is `islandSandHeight` m over the
+   * water, nudged by only `islandSandJitter` m so the beach edge stays clean, and the sand is
+   * `sandTropical`. `islandFade` m past an island's dry radius the normal bands take back over.
+   */
+  islandSandHeight: number
+  islandSandJitter: number
+  islandFade: number
   /** m, how far the noise moves the snow line up or down */
   snowJitter: number
   /** how far the noise moves the rock and snow slope thresholds */
@@ -748,6 +756,9 @@ export const TERRAIN_CONFIG: TerrainConfig = {
     snowBlend: 12,
     snowMaxSlope: 0.4,
     sandJitter: 1.5,
+    islandSandHeight: 2,
+    islandSandJitter: 0.5,
+    islandFade: 40,
     snowJitter: 25,
     slopeJitter: 0.05,
     grassVariation: 0.4,

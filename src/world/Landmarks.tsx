@@ -24,9 +24,11 @@ import { buildArch } from './models/arch'
 import { mergeParts, seededRandom, type LocalGround } from './models/kit'
 import { buildRuins } from './models/ruins'
 import { buildTower } from './models/tower'
+import { buildResort } from './models/resort'
 import { buildTown } from './models/town'
 import { buildTree } from './models/tree'
 import { buildWaterfall } from './models/waterfall'
+import { getResort } from './resort'
 import { getTown } from './town'
 import { TERRAIN_CONFIG } from './terrainConfig'
 import { imageShift, nearestImages } from './wrap'
@@ -102,6 +104,13 @@ function buildLandmarkMeshes(landmarks: readonly Landmark[]): LandmarkMeshes {
       new Matrix4().makeTranslation(town.x, town.y, town.z),
     ),
   )
+  // The island resort (#235) merges in too, turned to face the sea.
+  const resort = getResort()
+  solids.push(
+    buildResort(resort.layout, resort.ground).applyMatrix4(
+      new Matrix4().makeRotationY(resort.yaw).setPosition(resort.x, resort.y, resort.z),
+    ),
+  )
   const solid = mergeParts(solids)
   // The hull wants one smoothed normal per corner, or it splits open along every facet edge.
   const hull = toCreasedNormals(solid, Math.PI)
@@ -121,8 +130,8 @@ export function Landmarks() {
   const landmarks = getLandmarks()
   const meshes = useMemo(() => buildLandmarkMeshes(landmarks), [landmarks])
   const copies = useRef<(Group | null)[]>([])
-  // The merged mesh holds the town too, so its nearest copy counts when picking the copies drawn.
-  const imageAnchors = useMemo(() => [...landmarks, getTown()], [landmarks])
+  // The merged mesh holds the town and the resort too, so its nearest copy counts when picking the copies drawn.
+  const imageAnchors = useMemo(() => [...landmarks, getTown(), getResort()], [landmarks])
   const waterfallRef = useRef<Group>(null)
   const shifts = useMemo(() => new Float64Array(COPIES * 2), [])
   const waterfall = landmarks.find((landmark) => landmark.kind === 'waterfall') ?? null

@@ -22,7 +22,12 @@ const EAVE = 0.9
 const SLAB = 0.28
 
 /** A solid triangular prism along x with its apex up: the gable's fill between the roof slabs. */
-function gableFill(halfWidth: number, rise: number, length: number, tint: string): BufferGeometry {
+export function gableFill(
+  halfWidth: number,
+  rise: number,
+  length: number,
+  tint: string,
+): BufferGeometry {
   const hx = length / 2
   const corners = [
     new Vector3(-hx, 0, -halfWidth),

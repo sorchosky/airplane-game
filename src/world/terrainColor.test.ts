@@ -250,3 +250,35 @@ describe('terrainColorAt with surface detail (#69)', () => {
     expect(sum(shaded)).toBeLessThan(sum(plain))
   })
 })
+
+describe('tropical sand (#235)', () => {
+  const lstar = (rgb: Rgb) => {
+    const y = luminance(rgb)
+    return y > 0.008856 ? 116 * Math.cbrt(y) - 16 : 903.3 * y
+  }
+
+  it('is paler and warmer than the plain sand, and under the cloud tops', () => {
+    const plain = TERRAIN_PALETTE.sand
+    const tropical = TERRAIN_PALETTE.sandTropical
+    expect(lstar(tropical)).toBeGreaterThan(lstar(plain) + 4)
+    // Art bible §2: clouds' lit tops are L* 94 to 97, the brightest thing besides the sun.
+    expect(lstar(tropical)).toBeLessThan(92)
+    // Warmer: more red against blue.
+    expect(tropical[0] / tropical[2]).toBeGreaterThan(plain[0] / plain[2])
+  })
+
+  it('shows on the island and moves the sand line down to the tropical beach', () => {
+    const w = config.waterLevel
+    const sandLine = w + b.islandSandHeight
+    expectColor(
+      terrainColorAt(sandLine - b.sandBlend, FLAT, 0, config, undefined, 1),
+      TERRAIN_PALETTE.sandTropical,
+    )
+    expectColor(terrainColorAt(w + 1, FLAT, 0, config, undefined, 0), TERRAIN_PALETTE.sand)
+    // Two metres up, plain sand is still sand where the island's line has turned to grass.
+    const h = w + 3.8
+    expect(terrainColorAt(h, FLAT, 0, config, undefined, 1)).not.toEqual(
+      terrainColorAt(h, FLAT, 0, config, undefined, 0),
+    )
+  })
+})

@@ -9,6 +9,7 @@ import {
 import { mergeGeometries, toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { color } from '../../styles/tokens'
 import type { FoliageKind } from '../scatter'
+import { buildPalm } from './palm'
 
 // Low-poly foliage models (#75), built once from primitives. Each is one geometry with per-vertex
 // colour, so a variant is one draw call for the body and one for its outline hull. Unit models:
@@ -136,6 +137,7 @@ export const FOLIAGE_MODEL_BUILDERS: Record<FoliageKind, () => FoliageModel> = {
   conifer: buildConifer,
   bush: buildBush,
   boulder: buildBoulder,
+  palm: buildPalm,
 }
 
 /** Triangles in a model, for the budget. */
