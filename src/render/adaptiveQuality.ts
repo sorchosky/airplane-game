@@ -20,7 +20,7 @@ export interface QualitySettings {
 }
 
 /** The issue's step order. Each list is walked from its first value down. */
-export const DPR_STEPS = [1.5, 1.25, 1, 0.75] as const
+export const DPR_STEPS = [1.5, 1.25, 1] as const
 export const TIER_STEPS: readonly QualityTier[] = ['high', 'medium', 'low']
 export const FOLIAGE_STEPS = [1, 0.6, 0.3] as const
 /**
@@ -36,10 +36,12 @@ export function isCastMode(search: string = window.location.search): boolean {
 /** The capped rate (#27), for `?cast` and for the governor's cap rung. */
 export const CAST_FPS = 30
 export const VIEW_DISTANCE_STEPS = [10_000, 7000] as const
+/** Known one-off terrain and shader hitches do not count toward sustained over-budget timing. */
+export const HITCH_WINDOW_MS = 500
 
 /**
- * Every rung from `start` down, one change per rung, in the issue's order: pixel ratio, then post
- * tier, then the 30 fps cap, then foliage, then view distance. Steps that wouldn't change anything are skipped: a phone
+ * Every rung from `start` down, one change per rung, in the issue's order: effects and distance
+ * before the final resolution step. Steps that wouldn't change anything are skipped: a phone
  * that starts on `medium` never has a `high` rung, and a pixel ratio above what the screen has
  * (`deviceDpr`) is the same frame as the screen's own, so it isn't a separate rung.
  */
@@ -53,20 +55,25 @@ export function buildLadder(start: QualitySettings, deviceDpr: number): QualityS
     current = { ...current, ...change }
     ladder.push(current)
   }
-  for (const dpr of DPR_STEPS) {
+  const lowerTier = (tier: QualityTier) => {
+    if (TIER_STEPS.indexOf(tier) > TIER_STEPS.indexOf(current.tier)) push({ tier })
+  }
+  const lowerDpr = (dpr: number) => {
     const next = effectiveDpr(dpr)
     if (next < current.dpr) push({ dpr: next })
   }
-  for (const tier of TIER_STEPS) {
-    if (TIER_STEPS.indexOf(tier) > TIER_STEPS.indexOf(current.tier)) push({ tier })
-  }
-  if (current.capFps === null) push({ capFps: CAST_FPS })
-  for (const foliageDensity of FOLIAGE_STEPS) {
+  const lowerFoliage = (foliageDensity: number) => {
     if (foliageDensity < current.foliageDensity) push({ foliageDensity })
   }
-  for (const viewDistance of VIEW_DISTANCE_STEPS) {
-    if (viewDistance < current.viewDistance) push({ viewDistance })
-  }
+
+  lowerTier('medium')
+  lowerFoliage(0.6)
+  lowerDpr(1.25)
+  if (current.capFps === null) push({ capFps: CAST_FPS })
+  if (current.viewDistance > 7000) push({ viewDistance: 7000 })
+  lowerFoliage(0.3)
+  lowerTier('low')
+  lowerDpr(1)
   return ladder
 }
 
@@ -249,6 +256,12 @@ export function stepGovernor(
     return { state, change: null }
   }
   return { state: { ...state, overSinceMs, underSinceMs }, change: null }
+}
+
+/** Break both sustained timers when an observable one-off hitch begins. */
+export function resetGovernorTiming(state: GovernorState): GovernorState {
+  if (state.overSinceMs === null && state.underSinceMs === null) return state
+  return { ...state, overSinceMs: null, underSinceMs: null }
 }
 
 /** `?budget=<ms>` for testing the governor on a fast machine (e.g. `?budget=8`). */
