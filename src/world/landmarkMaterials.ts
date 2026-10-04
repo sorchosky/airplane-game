@@ -59,6 +59,7 @@ export function windowGlowAmount(night: number): number {
  */
 function withWindowGlow(material: MeshToonMaterial): MeshToonMaterial {
   material.onBeforeCompile = (shader) => {
+    // `atmoNight` is declared and bound by the haze chunk (`ATMO_FAR_CAP`), the same shared array.
     shader.uniforms.atmoNight = atmosphereUniforms.atmoNight
     shader.vertexShader = shader.vertexShader
       .replace(
@@ -70,7 +71,6 @@ function withWindowGlow(material: MeshToonMaterial): MeshToonMaterial {
       .replace(
         '#include <common>',
         `#include <common>
-uniform float atmoNight;
 varying float vGlow;
 const vec3 WINDOW_GLOW = ${vec3(linearRgb(color.windowGlow))};`,
       )
