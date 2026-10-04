@@ -1,0 +1,1 @@
+- 2026-10-04 · camera · The title masthead camera pitches slightly upward and limits its vertical drift to 0.9 m, holding the horizon 52–66% down the frame while preserving the #157 flyby and the existing Choose endpoint · Two-thirds sky keeps the masthead off the busy horizon and matches the approved key-art composition.
