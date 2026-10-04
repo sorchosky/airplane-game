@@ -1,5 +1,5 @@
 import { type CSSProperties, type ReactNode, type Ref } from 'react'
-import { color, radius, space, type } from '../../styles/tokens'
+import { color, effect, radius, space, type } from '../../styles/tokens'
 import { copy } from '../../ui/copy'
 import { SHARED_ELEMENT_ATTR, SHARED_ELEMENTS } from '../../ui/sharedElement'
 
@@ -7,15 +7,8 @@ import { SHARED_ELEMENT_ATTR, SHARED_ELEMENTS } from '../../ui/sharedElement'
 
 /** Start's touch target (the 64 px floor for a phone held at arm's length). */
 const START_HEIGHT = space.xxxl
-/** The glow around the wordmark and Start's label: a soft halo, no offset. */
-const TEXT_GLOW = `0 0 0.4em ${color.titleGlow}`
 /** The masthead's left inset: the TV margin, or the notch's safe area when that is larger. */
 const MASTHEAD_INSET = `max(${space.xxxl}, env(safe-area-inset-left))`
-/** The scrim reaches this far across, solid through the masthead column then feathering out. */
-const SCRIM_WIDTH = '60vw'
-const SCRIM_SOLID = '70%'
-/** ...and down through the upper half, where the masthead sits. */
-const SCRIM_HEIGHT = '62%'
 
 /**
  * The masthead column in the left third, upper half, over sky: wordmark, rule and Start, top to
@@ -27,8 +20,9 @@ export function Masthead({ children }: { children: ReactNode }) {
     <div
       style={{
         position: 'absolute',
-        top: `max(${space.xl}, 8vh)`,
+        top: '50%',
         left: MASTHEAD_INSET,
+        transform: 'translateY(calc(-50% - 4vh))',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'stretch',
@@ -70,7 +64,8 @@ const startStyle: CSSProperties = {
   lineHeight: 1,
   letterSpacing: type.trackingStart,
   textTransform: 'uppercase',
-  textShadow: TEXT_GLOW,
+  textShadow: effect.titleTextShadow,
+  boxShadow: effect.titleOutlineShadow,
 }
 
 interface StartButtonProps {
@@ -104,25 +99,18 @@ export function StartSlot({ children, ref }: { children: ReactNode; ref?: Ref<HT
 }
 
 /**
- * A left-edge scrim of `titleScrim`: the contrast assist that keeps the wordmark and Start at 3:1
- * over any sky the lighting presets can put behind the column, without a plate. Solid across the
- * masthead column, feathering out to the right and above and below.
+ * A local vignette centred on the masthead. Its soft radial falloff supplies contrast without a
+ * box edge and clears the aircraft on the right.
  */
 export function TitleScrim() {
-  const vertical = 'linear-gradient(180deg, #000 0, #000 55%, transparent 100%)'
   return (
     <div
       aria-hidden="true"
       {...{ [SHARED_ELEMENT_ATTR]: SHARED_ELEMENTS.scrim }}
       style={{
         position: 'absolute',
-        top: 0,
-        left: 0,
-        width: SCRIM_WIDTH,
-        height: SCRIM_HEIGHT,
-        background: `linear-gradient(90deg, ${color.titleScrim} 0, ${color.titleScrim} ${SCRIM_SOLID}, transparent 100%)`,
-        maskImage: vertical,
-        WebkitMaskImage: vertical,
+        inset: 0,
+        background: effect.titleVignette,
         pointerEvents: 'none',
       }}
     />
@@ -149,7 +137,7 @@ export function TitleWordmark({ ref }: { ref?: Ref<HTMLHeadingElement> }) {
         letterSpacing: type.trackingDisplay,
         textTransform: 'uppercase',
         whiteSpace: 'nowrap',
-        textShadow: TEXT_GLOW,
+        textShadow: effect.titleTextShadow,
       }}
     >
       {copy.title.name}

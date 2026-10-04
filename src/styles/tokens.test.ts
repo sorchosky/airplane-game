@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { cloudOpacity, srgb, titleSkyAt, toHex } from '../ui/titleSkyShader'
 import {
   color,
   effect,
@@ -133,72 +132,22 @@ describe('design tokens', () => {
     expect(contrastRatio(color.accent, backdrop)).toBeGreaterThanOrEqual(3)
   })
 
-  // #158: the wordmark (tv-display) and Start (tv-body, 24 px minimum at 600) are WCAG large text,
-  // so AA is 3:1. They stand over the live world's sky with no plate, only the left-edge
-  // `titleScrim` (plus a `titleGlow` halo, not counted here). The masthead column sits in the upper
-  // half over sky, so the backdrops are every preset's gradient from zenith to horizon and its
-  // haze, the sun's glow, and the sunlit and shadowed cloud tones at full cover.
-  describe('title masthead contrast', () => {
-    const mix = (a: string, b: string, t: number) => compositeOver(withAlpha(b, t), a)
-    const withAlpha = (hex: string, alpha: number) => {
-      const [r, g, b] = srgb(hex).map((c) => Math.round(c * 255))
-      return `rgba(${r}, ${g}, ${b}, ${alpha})`
-    }
-
-    function mastheadBackdrops(preset: LightingPreset): string[] {
-      const clear = [
-        ...Array.from({ length: 11 }, (_, i) => mix(preset.skyZenith, preset.skyHorizon, i / 10)),
-        preset.skyHorizon,
-        preset.sunGlow,
-        preset.fog,
-      ]
-      return [
-        ...clear,
-        ...clear.flatMap((c) =>
-          [preset.cloudLight, preset.cloudShadow].map((cloud) => mix(c, cloud, 1)),
-        ),
-      ]
-    }
-
-    for (const [name, preset] of Object.entries(lightingPresets)) {
-      it(`holds 3:1 for the wordmark and Start over the scrimmed ${name} sky`, () => {
-        for (const backdrop of mastheadBackdrops(preset)) {
-          const behindText = compositeOver(color.titleScrim, backdrop)
-          expect(
-            contrastRatio(color.titleText, behindText),
-            `${name} ${backdrop}`,
-          ).toBeGreaterThanOrEqual(3)
-        }
-      })
-    }
-
-    it('holds 3:1 over the poster sky shown while the world streams in', () => {
-      const warm = color.titleCloudWarm
-      const cool = color.titleCloudCool
-      for (let y = 0; y <= 0.6; y += 0.02) {
-        const sky = toHex(titleSkyAt(y))
-        for (const backdrop of [
-          sky,
-          mix(sky, warm, cloudOpacity()),
-          mix(sky, cool, cloudOpacity()),
-        ]) {
-          const behindText = compositeOver(color.titleScrim, backdrop)
-          expect(contrastRatio(color.titleText, behindText), backdrop).toBeGreaterThanOrEqual(3)
-        }
-      }
-    })
-
-    it('records that the masthead needs the scrim: the bare day sky falls short of 3:1', () => {
-      const worst = Math.min(
-        ...mastheadBackdrops(lightingPresets.day).map((b) => contrastRatio(color.titleText, b)),
+  // #229: title contrast is local to the masthead. These assertions pin the approved tinted
+  // effects and keep the vignette from growing back into the rectangular slab that it replaces.
+  describe('title masthead contrast effects', () => {
+    it('uses the approved deep-blue vignette and never a black shadow', () => {
+      expect(color.titleVignette).toBe('rgb(27, 39, 72)')
+      expect(effect.titleVignette).toContain('radial-gradient(ellipse 24vw 70vh')
+      expect(effect.titleVignette).not.toContain('#000')
+      expect(effect.titleTextShadow).toBe(
+        '0 1px 2px rgba(27, 39, 72, 0.45), 0 0 24px rgba(27, 39, 72, 0.35)',
       )
-      expect(worst).toBeLessThan(3)
+      expect(effect.titleOutlineShadow).toBe('0 0 16px rgba(27, 39, 72, 0.30)')
     })
 
-    it('keeps the scrim a feathered assist rather than a plate', () => {
-      const alpha = Number(color.titleScrim.match(/([\d.]+)\)$/)?.[1])
-      expect(alpha).toBeGreaterThan(0)
-      expect(alpha).toBeLessThanOrEqual(0.65)
+    it('falls fully transparent before the vignette can become a screen-edge plate', () => {
+      expect(effect.titleVignette).toContain('rgba(27, 39, 72, 0) 100%')
+      expect(effect.titleVignette).not.toContain('linear-gradient')
     })
   })
 

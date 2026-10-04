@@ -68,8 +68,7 @@
   --color-title-text: #e4e9f6;
   --color-title-start-border: rgba(228, 233, 246, 0.7);
   --color-title-fade: #fff4e6;
-  --color-title-scrim: rgba(27, 39, 72, 0.6);
-  --color-title-glow: rgba(27, 39, 72, 0.6);
+  --color-title-vignette: rgb(27, 39, 72);
 
   --space-xs: 4px;
   --space-sm: 8px;
@@ -115,6 +114,15 @@
   --effect-still-blur: blur(8px) saturate(80%);
   --effect-tint-blur: blur(16px);
   --effect-text-glow: 0 0 12px var(--color-glow);
+  --effect-title-vignette: radial-gradient(
+    ellipse 24vw 70vh at calc(max(var(--space-xxxl), env(safe-area-inset-left)) + 11vw) 46%,
+    rgba(27, 39, 72, 0.36) 0%,
+    rgba(27, 39, 72, 0.2) 40%,
+    rgba(27, 39, 72, 0.06) 72%,
+    rgba(27, 39, 72, 0) 100%
+  );
+  --effect-title-text-shadow: 0 1px 2px rgba(27, 39, 72, 0.45), 0 0 24px rgba(27, 39, 72, 0.35);
+  --effect-title-outline-shadow: 0 0 16px rgba(27, 39, 72, 0.3);
 }
 
 * {
