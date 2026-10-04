@@ -4,6 +4,7 @@ import { massifMask } from './massifs'
 import { hashString, mulberry32 } from './seeded'
 import { applyRiverLake, applyRouteRiver, noiseRiverKeep } from './routeRiver'
 import { applyRouteValley, isFullFloor, valleyAt, valleyFloor } from './routeValley'
+import { applySeaShore, seaFloorAt, seaReach } from './sea'
 import { applyPlungePool } from './stations'
 import type { TerrainConfig } from './terrainConfig'
 import { sampleTorus, torusPoint, torusRadius, wrapNear, type TorusPoint } from './torusNoise'
@@ -168,9 +169,15 @@ export function heightAt(x: number, z: number, config: TerrainConfig): number {
   const { centerX, centerZ } = config.basin
   const lx = wrapNear(x, centerX, config.worldPeriod)
   const lz = wrapNear(z, centerZ, config.worldPeriod)
+  // Inside the inland sea's outline (#223) the ground is all authored, so the land is never built.
+  const sea = seaReach(lx, lz, config)
+  if (sea !== null && sea > 0) return seaFloorAt(lx, lz, sea, config)
+  let height = landHeight(lx, lz, config)
+  // On land near the sea, its shores, the town pad and the river's inlet shape what the land left.
+  if (sea !== null) height = applySeaShore(lx, lz, sea, height, config)
   // The route river's lake (#174) is scooped into the return notch, then the waterfall's plunge
   // pool (#173) is dug last, into the valley floor in front of it.
-  return applyPlungePool(lx, lz, applyRiverLake(lx, lz, landHeight(lx, lz, config), config), config)
+  return applyPlungePool(lx, lz, applyRiverLake(lx, lz, height, config), config)
 }
 
 // Reused per call: `heightAt` runs per vertex and nothing keeps these past it.

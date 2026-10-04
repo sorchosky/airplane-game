@@ -3,6 +3,7 @@ import { carveRivers, heightAt } from './heightfield'
 import { ROUTE } from './route'
 import { channelPresence, lakeSpot, noiseRiverKeep, withoutRouteRiver } from './routeRiver'
 import { valleyProfileAt, type ValleyHit } from './routeValley'
+import { inletSegment } from './sea'
 import { plungePoolCenter } from './stations'
 import { TERRAIN_CONFIG } from './terrainConfig'
 
@@ -31,6 +32,18 @@ const nearPool = (x: number, z: number) =>
   Math.hypot(x - pool.x, z - pool.z) < config.plungePool.outerRadius
 const nearLake = (x: number, z: number) =>
   Math.hypot(x - lake.x, z - lake.z) < river.lake.outerRadius
+// The inlet (#223) branches off the east reach to the sea, so its water crosses the east bank.
+const inlet = inletSegment(config)
+const inletReach = (config.sea?.inlet.halfWidth ?? 0) + (config.sea?.inlet.bankWidth ?? 0)
+const nearInlet = (x: number, z: number) => {
+  const bx = inlet.bx - inlet.ax
+  const bz = inlet.bz - inlet.az
+  const t = Math.max(
+    0,
+    Math.min(1, ((x - inlet.ax) * bx + (z - inlet.az) * bz) / (bx * bx + bz * bz)),
+  )
+  return Math.hypot(x - inlet.ax - bx * t, z - inlet.az - bz * t) < inletReach
+}
 
 // Every 25 m of route from the end of the cut's join to the lake, with the designed floor there.
 const stations = Array.from({ length: Math.floor((lake.s - fullStart) / 25) }, (_, i) => {
@@ -72,7 +85,7 @@ describe('route river in the terrain', () => {
       }
       for (const side of [-1, 1]) {
         const [x, z] = acrossCentre(s, side * reach)
-        if (nearPool(x, z) || nearLake(x, z)) continue
+        if (nearPool(x, z) || nearLake(x, z) || nearInlet(x, z)) continue
         expect(heightAt(x, z, config)).toBeGreaterThan(waterLevel)
       }
     }
@@ -92,7 +105,7 @@ describe('route river in the terrain', () => {
       const halfFloor = valleyProfileAt(s, config).halfWidth
       for (let lateral = -halfFloor; lateral <= halfFloor; lateral += 10) {
         const [x, z] = acrossCentre(s, lateral)
-        if (nearPool(x, z) || nearLake(x, z)) continue
+        if (nearPool(x, z) || nearLake(x, z) || nearInlet(x, z)) continue
         const wet = heightAt(x, z, config) < waterLevel
         if (Math.abs(lateral) >= reach) expect(wet).toBe(false)
         if (floor >= waterLevel + river.dryFloor) expect(wet).toBe(false)

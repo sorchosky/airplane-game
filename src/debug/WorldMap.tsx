@@ -55,6 +55,8 @@ function drawRouteOverlay(
 
 /** The inland sea's authored plan (#223): outline, islands, the town's pad and the inlet. */
 function drawSeaOverlay(context: CanvasRenderingContext2D, bounds: MapBounds): void {
+  const sea = TERRAIN_CONFIG.sea
+  if (!sea) return
   const outline = seaOutline(TERRAIN_CONFIG)
   context.save()
   context.strokeStyle = color.waterDeep
@@ -87,7 +89,7 @@ function drawSeaOverlay(context: CanvasRenderingContext2D, bounds: MapBounds): v
   context.stroke()
   const town = townSite(TERRAIN_CONFIG)
   const [tx, ty] = worldToMapPixel(town.x, town.z, bounds)
-  const half = Math.max(4, TERRAIN_CONFIG.sea.town.radius * pixelsPerMeter)
+  const half = Math.max(4, sea.town.radius * pixelsPerMeter)
   context.fillStyle = color.outline
   context.fillRect(tx - half, ty - half, half * 2, half * 2)
   context.font = `600 18px ${type.fontBody}`

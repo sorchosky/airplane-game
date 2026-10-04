@@ -283,6 +283,23 @@ export interface SeaConfig {
   capHold: number
   capFade: number
   islands: readonly SeaIsland[]
+  /**
+   * The screen ridge: a broad ridge `lateral` m off the route (negative, toward the sea) from route
+   * arc length `from` to `to`, crest `height` m wandering by `variation` m over `wavelength` m of
+   * route, `halfWidth` m from crest to foot, tapering over `taper` m of route at each end.
+   */
+  screen: {
+    from: number
+    to: number
+    lateral: number
+    height: number
+    variation: number
+    wavelength: number
+    halfWidth: number
+    taper: number
+    /** m rise per m from the waterline, the steepest the ridge falls into the sea */
+    cliffSlope: number
+  }
   /** The town's flat pad (#224) at the `town` station: radius, height, and blend back to land */
   town: { radius: number; height: number; blend: number }
   /**
@@ -470,8 +487,8 @@ export interface TerrainConfig {
   basin: BasinConfig
   /** Mountain massifs flanking the loop. */
   massifs: MassifConfig
-  /** The inland sea east of the loop. */
-  sea: SeaConfig
+  /** The inland sea east of the loop. Null for none, so the land alone can be checked. */
+  sea: SeaConfig | null
   /** The valley along the authored route, between the basin's two notches. */
   valley: RouteValleyConfig
   plungePool: PlungePoolConfig
@@ -582,16 +599,16 @@ export const TERRAIN_CONFIG: TerrainConfig = {
     radiusX: 2500,
     radiusZ: 3900,
     features: [
-      { name: 'Reed Bay', kind: 'bay', bearing: 252, width: 6, depth: 0.04 },
-      { name: 'Gull Point', kind: 'headland', bearing: 300, width: 7, depth: -0.1 },
-      { name: 'North Sound', kind: 'bay', bearing: 335, width: 11, depth: 0.08 },
-      { name: 'East Cape', kind: 'headland', bearing: 70, width: 9, depth: -0.12 },
-      { name: 'Haze Bay', kind: 'bay', bearing: 120, width: 13, depth: 0.08 },
-      { name: 'South Reach', kind: 'bay', bearing: 200, width: 10, depth: 0.06 },
+      { name: 'Reed Bay', kind: 'bay', bearing: 252, width: 6, depth: 0.05 },
+      { name: 'Gull Point', kind: 'headland', bearing: 302, width: 6, depth: -0.16 },
+      { name: 'North Sound', kind: 'bay', bearing: 338, width: 9, depth: 0.14 },
+      { name: 'East Cape', kind: 'headland', bearing: 68, width: 8, depth: -0.18 },
+      { name: 'Haze Bay', kind: 'bay', bearing: 118, width: 10, depth: 0.14 },
+      { name: 'South Reach', kind: 'bay', bearing: 202, width: 8, depth: 0.12 },
     ],
     noiseOctaves: 5,
-    noiseFrequency: 1.4,
-    noiseAmplitude: 0.07,
+    noiseFrequency: 1.8,
+    noiseAmplitude: 0.1,
     westBearing: 270,
     westHalfArc: 22,
     westFade: 15,
@@ -611,7 +628,7 @@ export const TERRAIN_CONFIG: TerrainConfig = {
       // The resort island (#235), over 1.2 km across with a broad low top.
       {
         name: 'Long Isle',
-        x: 8600,
+        x: 8850,
         z: 300,
         radius: 680,
         noise: 0.1,
@@ -643,6 +660,20 @@ export const TERRAIN_CONFIG: TerrainConfig = {
         shallows: 160,
       },
     ],
+    // The east wall's seaward ridge north of the break: the reach curves away from the sea, so any
+    // opening on its east side shows down the floor from about 2 km upstream. Ending it at the
+    // town keeps the sea out of sight off the high east bend.
+    screen: {
+      from: 4500,
+      to: 5450,
+      lateral: -380,
+      height: 150,
+      variation: 20,
+      wavelength: 600,
+      halfWidth: 190,
+      taper: 150,
+      cliffSlope: 1.2,
+    },
     // 120 m across, 5 m over the water. Its blend ends at the waterline, 100 m from its centre.
     town: { radius: 60, height: 37, blend: 40 },
     inlet: { s: 6000, halfWidth: 18, bankWidth: 40, depth: 4, overshoot: 120 },
