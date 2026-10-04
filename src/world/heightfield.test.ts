@@ -7,6 +7,7 @@ import {
   normalAt,
   surfaceHeightAt,
 } from './heightfield'
+import { withoutSea } from './sea'
 import { TERRAIN_CONFIG } from './terrainConfig'
 
 const config = TERRAIN_CONFIG
@@ -25,10 +26,12 @@ describe('heightAt', () => {
   })
 
   it('gives a different world for a different seed', () => {
-    const other = { ...config, seed: 'another-world' }
+    // The sea's bed is authored, not seeded (#223), so compare the land alone.
+    const land = withoutSea(config)
+    const other = { ...land, seed: 'another-world' }
     let differences = 0
     for (let i = 0; i < 20; i++) {
-      if (Math.abs(heightAt(i * 700, i * 300, config) - heightAt(i * 700, i * 300, other)) > 1) {
+      if (Math.abs(heightAt(i * 700, i * 300, land) - heightAt(i * 700, i * 300, other)) > 1) {
         differences++
       }
     }

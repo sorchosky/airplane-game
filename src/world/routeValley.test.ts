@@ -19,11 +19,13 @@ import {
   type ValleyHit,
   type ValleyProfile,
 } from './routeValley'
+import { withoutSea } from './sea'
 import { plungePoolCenter } from './stations'
 import { TERRAIN_CONFIG } from './terrainConfig'
 
 // The valley on its own: the route river (#174) cuts its floor on purpose, and has its own tests.
-const config = withoutRouteRiver(TERRAIN_CONFIG)
+// The valley on its own: no river cut into its floor, no sea opening its east wall (#223).
+const config = withoutSea(withoutRouteRiver(TERRAIN_CONFIG))
 const pool = plungePoolCenter(config.plungePool)
 const valley = config.valley
 const [cut, returnNotch] = config.basin.notches

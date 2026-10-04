@@ -128,6 +128,26 @@ export const SHOT_BOOKMARKS: readonly ShotBookmark[] = [
     purpose:
       'The route river (#174) rising out of the floor at the east river head, down the reach.',
   },
+  // The inland sea (#223): the town station on the east river reach, and the open water from the
+  // town's pad on the west shore. `sea.test.ts` holds the station to its chase view.
+  {
+    name: 'lake-town',
+    position: [5148, 85, 1419],
+    heading: -3.127,
+    bank: 0,
+    pitchAngle: 0,
+    purpose:
+      'The inland sea (#223) through the break in the east wall at the town station, the town pad on the left.',
+  },
+  {
+    name: 'sea-horizon',
+    position: [5343, 150, 1416],
+    heading: -Math.PI / 2,
+    bank: 0,
+    pitchAngle: deg(-4),
+    purpose:
+      'The inland sea (#223) east from the town at 150 m: islands, open water and the far shore lost in haze.',
+  },
   {
     name: 'river-lake',
     position: [151, 120, 2640],

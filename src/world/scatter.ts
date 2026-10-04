@@ -1,6 +1,7 @@
 import { createNoise4D, type NoiseFunction4D } from 'simplex-noise'
 import { chunkCoord, chunkKey } from './chunks'
 import { hashString, heightAt, mulberry32 } from './heightfield'
+import { seaKeepsClear } from './sea'
 import { smoothstep, terrainBandWeights } from './terrainColor'
 import type { TerrainConfig } from './terrainConfig'
 import {
@@ -287,6 +288,8 @@ export function scatterChunk(
       const x = minX + (i + margin + jx * f.jitter) * pitch
       const z = minZ + (j + margin + jz * f.jitter) * pitch
       if (isExcluded(x, z, exclusions, config.worldPeriod)) continue
+      // The inland sea's water, beaches and islands (#223); the islands are #235's to dress.
+      if (seaKeepsClear(x, z, config)) continue
 
       const grove = groveAt(x, z, config)
       const treeChance = f.treeDensity * smoothstep(f.groveLow, f.groveHigh, grove)

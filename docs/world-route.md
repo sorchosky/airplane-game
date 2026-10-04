@@ -87,7 +87,23 @@ crags on the peaks' upper slopes. Bearings are clockwise from north, seen from s
 station sightline runs down the valley floor, which they never touch. See
 `docs/decisions/2026-10-04-222-massifs.md`.
 
-Each reveal is exactly 1.50 km before its station. The tower is technically visible from the open
+**As built (#223).** An inland sea opens east of the east river reach: about 5 × 7.8 km round
+`(7950, 1600)`, carved under the one water plane, with its bed 6 m down beyond 40 to 120 m of
+shelving shallows. Its outline is a polar radius (an ellipse, three bays, two headlands and five
+noise octaves, calm on the west shore), and its shore rises to a 36 to 42 m beach, then on the west a
+meadow before the hills; the east and far shores rise straight into hills and mostly sit in haze.
+Three low islands stand in it: Long Isle (~1.36 km across, the resort site for #235), Tern Isle and
+Seal Rock, each over 2 km from the west shore and 1 km from the others. `seaIslands` in
+`src/world/sea.ts` returns their centres and radii. A new `town` station at 5.50 km sets the town's
+flat 120 m pad on the west shore, 195 m east of the route and 100 m back from the water, and the
+route river branches into the sea at 6.00 km, south of the town. The west shore runs 290 to 400 m
+east of the route from the town down the reach: the valley's east wall breaks open there. North of
+the town a screen ridge (150 m) holds the wall up so the sea stays hidden off the high east bend.
+The reach curves away from the sea, so the break shows down the floor about 2 km back: the town's
+reveal is 2.30 km (s 3.20 km), not 1.50 km, and is the one station with its own `reveal`. The
+waterfall's station is unchanged. See `docs/decisions/2026-10-04-223-inland-sea.md`.
+
+Each reveal is exactly 1.50 km before its station, but the town's (#223), 2.30 km. The tower is technically visible from the open
 basin in today's terrain. The basin ridge and cut in the proposed terrain sketch provide the new
 occlusion boundary that makes its authored first reveal happen at `s = 0.50 km`. The same rule
 applies to the other four landmarks, with gaps in the future ridge walls only along their listed
