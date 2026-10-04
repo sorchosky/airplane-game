@@ -5,6 +5,8 @@ import { createLatencySummary, type LatencySummary } from './latencyProbe'
 // Per-frame render stats. Written by `PerfProbe` inside the canvas about once a second, read by
 // `PerfHud` with `getState()` from its own animation frame loop, never as React state.
 interface PerfStore {
+  /** Increments on each frame-stat publication, even when the measured values are unchanged. */
+  sampleId: number
   /** Mean fps over the last second. */
   fps: number
   /** Mean frame time over the last second, ms. */
@@ -28,6 +30,7 @@ interface PerfStore {
 }
 
 export const usePerfStore = create<PerfStore>(() => ({
+  sampleId: 0,
   fps: 0,
   frameMs: 0,
   p95Ms: 0,

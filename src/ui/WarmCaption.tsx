@@ -34,10 +34,19 @@ export function WarmCaption() {
     const mountedMs = performance.now()
     useThermalStore.setState({ overForMs: 0, fired: null })
     const unsubscribe = usePerfStore.subscribe((perf, previous) => {
-      // The probe publishes a new summary about once a second; skip unrelated store writes.
-      if (perf.p95Ms === previous.p95Ms && perf.tier === previous.tier) return
+      // The probe publishes about once a second. Process every publication because a perfectly
+      // steady p95 still needs to accumulate sustained time.
+      if (perf.sampleId === previous.sampleId) return
       const nowMs = performance.now()
-      const result = stepThermalWatch(watch, { p95Ms: perf.p95Ms, tier: perf.tier, nowMs })
+      const quality = useQualityStore.getState()
+      const result = stepThermalWatch(watch, {
+        p95Ms: perf.p95Ms,
+        capFps: quality.capFps,
+        rung: quality.rung,
+        rungCount: quality.rungCount,
+        flightElapsedMs: nowMs - mountedMs,
+        nowMs,
+      })
       watch = result.state
       const sample: ThermalTraceSample = {
         atMs: nowMs - mountedMs,
@@ -45,7 +54,7 @@ export function WarmCaption() {
         p95Ms: perf.p95Ms,
         p99Ms: perf.p99Ms,
         tier: perf.tier,
-        rung: useQualityStore.getState().rung + 1,
+        rung: quality.rung + 1,
         dpr: perf.dpr,
       }
       trace = pushTraceSample(trace, sample)

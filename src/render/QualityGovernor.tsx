@@ -26,12 +26,12 @@ const WINDOW_FRAMES = 180
 /** s between governor samples. */
 const SAMPLE_INTERVAL = 0.5
 /** s after mount (and after each change) before sampling: terrain streaming and shader compiles. */
-const SETTLE_TIME = 3
+export const SETTLE_TIME = 3
 /**
  * A frame this long is a one-off stall (tab switch, shader compile), not a steady cost, and isn't
  * counted. Kept well above any real frame time: a device stuck at 3 fps must still step down.
  */
-const STALL_MS = 1000
+export const STALL_MS = 1000
 
 function apply(ladder: readonly QualitySettings[], rung: number, setDpr: (dpr: number) => void) {
   const settings = ladder[rung]
