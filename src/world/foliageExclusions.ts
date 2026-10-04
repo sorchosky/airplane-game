@@ -1,6 +1,7 @@
 import { getLandmarks } from './landmarks'
 import type { FoliageExclusion } from './scatter'
 import { townSite } from './sea'
+import { getTown } from './town'
 import { TERRAIN_CONFIG } from './terrainConfig'
 
 // Where foliage must not grow. Landmark footprints (#76) are always excluded; anything else placed
@@ -45,12 +46,16 @@ const LANDMARK_MARGIN = 6
 
 let landmarkZones: readonly FoliageExclusion[] | null = null
 
-/** The town's flat pad on the sea's west shore (#223), kept clear for its buildings (#224). */
+/** The town's flat pad on the sea's west shore (#223) and its buildings (#224), kept clear. */
 function townPadZone(): FoliageExclusion[] {
   const sea = TERRAIN_CONFIG.sea
   if (!sea) return []
   const { x, z } = townSite(TERRAIN_CONFIG)
-  return [{ x, z, radius: sea.town.radius + LANDMARK_MARGIN }]
+  return [
+    { x, z, radius: sea.town.radius + LANDMARK_MARGIN },
+    // The houses, lanes, rack and lighthouse that stand beyond the pad (#224).
+    ...getTown().footprints.map((f) => ({ x: f.x, z: f.z, radius: f.radius + LANDMARK_MARGIN })),
+  ]
 }
 
 /**

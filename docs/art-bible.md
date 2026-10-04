@@ -106,6 +106,12 @@ Two changes to the token model, then the values.
 | `foliage` | `#3f7d46` | `#5f6b41` | Tree canopy |
 | `foliage-light` | `#6da356` | new | Canopy lit cap, bush tops |
 | `bark` | `#6b5442` | new | Trunks and branches |
+| `wall-lime` | `#e4e8cc` | new | Town whitewash, L* 91, under the plane body and the cloud tops (#224) |
+| `timber` | `#5c4030` | new | Town framing, pilings, doors (#224) |
+| `roof-terracotta` | `#c0623d` | new | Town roofs and lighthouse bands; #235 reuses it (#224) |
+| `roof-slate` | `#456c74` | new | Town roofs, lighthouse cap (#224) |
+| `pier-grey` | `#8d8a83` | new | Weathered pier decking (#224) |
+| `window-glass` / `window-glow` | `#3c4d56` / `#ffb459` | new | Window panes by day, their emissive warmth from dusk (#224) |
 | `outline` | `#1f2a33` | `#2a2219` | Cool near-black, matches the blue shadows |
 | `plane-body` | `#f4efe3` | `#f1e7d4` | Cream |
 | `plane-stripe` | `#d8562b` | `#c2572f` | Saturated terracotta, pops on green and blue |

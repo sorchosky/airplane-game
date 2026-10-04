@@ -149,6 +149,17 @@ export const SHOT_BOOKMARKS: readonly ShotBookmark[] = [
       'The inland sea (#223) east from the town at 150 m: islands, open water and the far shore lost in haze.',
   },
   {
+    // The town's close pass (#224): 150 m off the pier head over the sea, west up the pier to the
+    // houses, with the lighthouse on its point to the left.
+    name: 'town-close',
+    position: [5560, 62, 1424],
+    heading: Math.PI / 2,
+    bank: 0,
+    pitchAngle: deg(-3),
+    purpose:
+      'The fishing town (#224) at 150 m from the sea: pier, houses, boathouses and the lighthouse.',
+  },
+  {
     name: 'river-lake',
     position: [151, 120, 2640],
     heading: -0.711,

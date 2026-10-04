@@ -42,14 +42,56 @@ function withHazeCap<T extends Material>(material: T): T {
 /** Shared clock for the waterfall ribbon and mist. `Landmarks` advances it. */
 export const landmarkTimeUniform = { value: 0 }
 
-/** Toon material for every landmark's stone, bark and leaves: the colour rides on the vertices. */
+/**
+ * 0..1, how far the windows' night glow is on at a night amount (`atmoNight`: 0.35 at the dusk
+ * key, 1 at night). Fully on by the dusk key, fully off by morning. The shader repeats it.
+ */
+export function windowGlowAmount(night: number): number {
+  const t = Math.min(1, Math.max(0, (night - 0.05) / 0.3))
+  return t * t * (3 - 2 * t)
+}
+
+/**
+ * Night glow for windows and lanterns (#224, reused by #235). Vertices carry a `glow` mask (the
+ * kit's `PartOptions.glow`); the fragment adds the warm window colour to the emissive by that mask
+ * and the day cycle's `atmoNight`. No lights and no extra draws: it rides the landmarks' one toon
+ * material.
+ */
+function withWindowGlow(material: MeshToonMaterial): MeshToonMaterial {
+  material.onBeforeCompile = (shader) => {
+    // `atmoNight` is declared and bound by the haze chunk (`ATMO_FAR_CAP`), the same shared array.
+    shader.uniforms.atmoNight = atmosphereUniforms.atmoNight
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        '#include <common>\nattribute float glow;\nvarying float vGlow;',
+      )
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGlow = glow;')
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+varying float vGlow;
+const vec3 WINDOW_GLOW = ${vec3(linearRgb(color.windowGlow))};`,
+      )
+      .replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+totalEmissiveRadiance += WINDOW_GLOW * vGlow * smoothstep(0.05, 0.35, atmoNight);`,
+      )
+  }
+  material.customProgramCacheKey = () => 'landmark-window-glow'
+  return material
+}
+
+/** Toon material for every landmark's stone, bark, leaves and the town: colour rides on the vertices. */
 export function createLandmarkMaterial(): MeshToonMaterial {
   const material = new MeshToonMaterial({
     color: '#ffffff',
     vertexColors: true,
     gradientMap: getToonGradientMap(),
   })
-  return withHazeCap(material)
+  return withWindowGlow(withHazeCap(material))
 }
 
 /**
