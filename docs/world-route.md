@@ -67,6 +67,14 @@ waterfall swapped stations so the waterfall's plunge pool sits on a floor just a
 the arch and ruins moved to floor that passes the dry-ground rule. See
 `docs/decisions/2026-10-01-173-landmark-stations.md`.
 
+**As built (#221).** The valley no longer sweeps one cross-section round the loop. The floor
+breathes ±25 % in width (150 to 300 m half width), its centre meanders up to 40 m off the route
+line, one wall is a cliff while the other is a grass slope (swapping every 1 to 3 km), the
+shoulders carry ±40 m of ridged noise, and six side gullies cut back through the walls. Within
+300 m of each station the width and line are the route's own, and where the route skirts the
+basin its basin-facing wall keeps the #172 profile. The table values above (floor heights, widths)
+are still the route's design values. See `docs/decisions/2026-10-04-221-rough-valley.md`.
+
 Each reveal is exactly 1.50 km before its station. The tower is technically visible from the open
 basin in today's terrain. The basin ridge and cut in the proposed terrain sketch provide the new
 occlusion boundary that makes its authored first reveal happen at `s = 0.50 km`. The same rule

@@ -1,5 +1,5 @@
 import { ROUTE, type NearestRoutePoint, type Route } from './route'
-import type { ValleyHit } from './routeValley'
+import { corridorShare, type ValleyHit, type ValleyProfile } from './routeValley'
 import type { RouteValleyConfig, TerrainConfig } from './terrainConfig'
 
 // Pure route river (#174). A channel runs down the route's centreline wherever the designed floor
@@ -65,17 +65,19 @@ export function channelWeight(
 function cutChannel(
   height: number,
   point: NearestRoutePoint,
+  profile: ValleyProfile,
   config: TerrainConfig,
   lakeS: number,
 ): number {
   const river = config.river
-  const distance = Math.abs(point.lateral)
+  // The channel runs down the floor's meandering centre (#221), not the route line.
+  const distance = Math.abs(point.lateral - profile.offset)
   if (distance >= river.halfWidth + river.bankWidth) return height
   const weight = channelWeight(point, config, lakeS)
   if (weight <= 0) return height
   const bed = config.waterLevel - river.depth
-  const profile = 1 - smoothstep(river.halfWidth, river.halfWidth + river.bankWidth, distance)
-  return height + (Math.min(height, bed) - height) * profile * weight
+  const bank = 1 - smoothstep(river.halfWidth, river.halfWidth + river.bankWidth, distance)
+  return height + (Math.min(height, bed) - height) * bank * weight
 }
 
 /**
@@ -89,8 +91,8 @@ export function applyRouteRiver(
   route: Route = ROUTE,
 ): number {
   const lakeS = lakeSpot(config, route).s
-  const carved = cutChannel(height, hit.nearest, config, lakeS)
-  return hit.rival ? cutChannel(carved, hit.rival, config, lakeS) : carved
+  const carved = cutChannel(height, hit.nearest, hit.profile, config, lakeS)
+  return hit.rival ? cutChannel(carved, hit.rival, hit.rivalProfile, config, lakeS) : carved
 }
 
 /**
@@ -115,18 +117,6 @@ export function applyRiverLake(
   return height + (Math.min(height, bed) - height) * blend
 }
 
-/** 0..1, how much of one stretch's corridor covers the point: 1 out to the wall shoulder. */
-function corridorShare(
-  point: NearestRoutePoint,
-  weight: number,
-  valley: RouteValleyConfig,
-): number {
-  if (weight <= 0) return 0
-  const halfFloor = point.valleyWidth / 2
-  const shoulder = halfFloor + valley.flankWidth * valley.wallShare
-  return weight * (1 - smoothstep(shoulder, halfFloor + valley.flankWidth, Math.abs(point.lateral)))
-}
-
 /**
  * 0..1, how much of a noise river to keep at a valley hit (or 1 where there is none). None across
  * the floor and up the walls, fading back in over the flank's outer fade, so a noise river reaching
@@ -134,8 +124,8 @@ function corridorShare(
  */
 export function noiseRiverKeep(hit: ValleyHit | null, valley: RouteValleyConfig): number {
   if (!hit) return 1
-  const own = corridorShare(hit.nearest, hit.weight, valley)
-  const rival = hit.rival ? corridorShare(hit.rival, hit.rivalWeight, valley) : 0
+  const own = hit.weight * corridorShare(hit.nearest, hit.profile, valley)
+  const rival = hit.rival ? hit.rivalWeight * corridorShare(hit.rival, hit.rivalProfile, valley) : 0
   return 1 - Math.max(own, rival)
 }
 

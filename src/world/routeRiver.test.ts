@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { carveRivers, heightAt } from './heightfield'
 import { ROUTE } from './route'
 import { channelPresence, lakeSpot, noiseRiverKeep, withoutRouteRiver } from './routeRiver'
-import type { ValleyHit } from './routeValley'
+import { valleyProfileAt, type ValleyHit } from './routeValley'
 import { plungePoolCenter } from './stations'
 import { TERRAIN_CONFIG } from './terrainConfig'
 
@@ -20,6 +20,11 @@ function across(s: number, lateral: number): [number, number] {
   const p = ROUTE.pointAt(s)
   const t = ROUTE.tangentAt(s)
   return [p.x - t.z * lateral, p.z + t.x * lateral]
+}
+
+/** World position `lateral` m off the floor's carved centre (#221), which the river follows. */
+function acrossCentre(s: number, lateral: number): [number, number] {
+  return across(s, valleyProfileAt(s, config).offset + lateral)
 }
 
 const nearPool = (x: number, z: number) =>
@@ -61,11 +66,12 @@ describe('route river in the terrain', () => {
   it('cuts a bed below the water along the low stretches, with banks above it', () => {
     for (const { s } of low) {
       for (const lateral of [-river.halfWidth, 0, river.halfWidth]) {
-        const h = heightAt(...across(s, lateral), config)
-        expect(h).toBeLessThanOrEqual(waterLevel - river.depth + 1e-6)
+        const h = heightAt(...acrossCentre(s, lateral), config)
+        // The offset is read at `s`, the carve at the nearest point's `s`: a hair apart.
+        expect(h).toBeLessThanOrEqual(waterLevel - river.depth + 1e-3)
       }
       for (const side of [-1, 1]) {
-        const [x, z] = across(s, side * reach)
+        const [x, z] = acrossCentre(s, side * reach)
         if (nearPool(x, z) || nearLake(x, z)) continue
         expect(heightAt(x, z, config)).toBeGreaterThan(waterLevel)
       }
@@ -75,7 +81,7 @@ describe('route river in the terrain', () => {
   it('leaves the floor alone where it is high', () => {
     for (const { s } of high) {
       for (const lateral of [-reach / 2, 0, reach / 2]) {
-        const [x, z] = across(s, lateral)
+        const [x, z] = acrossCentre(s, lateral)
         expect(heightAt(x, z, config)).toBe(heightAt(x, z, dry))
       }
     }
@@ -83,9 +89,9 @@ describe('route river in the terrain', () => {
 
   it('keeps water off the flanks: none past the banks, none on a high floor', () => {
     for (const { s, floor } of stations) {
-      const halfFloor = ROUTE.pointAt(s).valleyWidth / 2
+      const halfFloor = valleyProfileAt(s, config).halfWidth
       for (let lateral = -halfFloor; lateral <= halfFloor; lateral += 10) {
-        const [x, z] = across(s, lateral)
+        const [x, z] = acrossCentre(s, lateral)
         if (nearPool(x, z) || nearLake(x, z)) continue
         const wet = heightAt(x, z, config) < waterLevel
         if (Math.abs(lateral) >= reach) expect(wet).toBe(false)
@@ -100,7 +106,7 @@ describe('route river in the terrain', () => {
     const width = (s: number) => {
       let wet = 0
       for (let lateral = -reach; lateral <= reach; lateral += 2) {
-        if (heightAt(...across(s, lateral), config) < waterLevel) wet += 2
+        if (heightAt(...acrossCentre(s, lateral), config) < waterLevel) wet += 2
       }
       return wet
     }
@@ -112,7 +118,7 @@ describe('route river in the terrain', () => {
       let previousWidth = Infinity
       let previousBed = -Infinity
       for (let s = from; step > 0 ? s <= to : s >= to; s += step) {
-        const [x, z] = across(s, 0)
+        const [x, z] = acrossCentre(s, 0)
         if (nearPool(x, z)) continue
         const w = width(s)
         expect(w).toBeLessThanOrEqual(previousWidth + 2)
@@ -129,7 +135,7 @@ describe('route river in the terrain', () => {
     // The centre line stays under water from the west reach into the lake's centre.
     const westStart = low.find(({ s }) => s > 11500)!.s
     for (let s = westStart; s <= lake.s; s += 5) {
-      expect(heightAt(...across(s, 0), config)).toBeLessThan(waterLevel)
+      expect(heightAt(...acrossCentre(s, 0), config)).toBeLessThan(waterLevel)
     }
     expect(heightAt(lake.x, lake.z, config)).toBeCloseTo(waterLevel - river.lake.depth, 6)
     for (let i = 0; i < 24; i++) {
@@ -145,7 +151,7 @@ describe('route river in the terrain', () => {
 
   it('is gone past the lake, inside the basin', () => {
     for (let s = lake.s + river.lake.outerRadius; s < ROUTE.length; s += 50) {
-      const [x, z] = across(s, 0)
+      const [x, z] = acrossCentre(s, 0)
       if (nearLake(x, z)) continue
       expect(heightAt(x, z, config)).toBe(heightAt(x, z, dry))
     }
@@ -153,25 +159,38 @@ describe('route river in the terrain', () => {
 })
 
 describe('noise rivers in the valley corridor', () => {
+  // A symmetric profile: 200 m half floor, both walls rising over 180 m.
+  const profile = {
+    halfWidth: 200,
+    offset: 0,
+    riseNeg: 180,
+    risePos: 180,
+    liftNeg: 100,
+    liftPos: 100,
+  }
   const hitAt = (lateral: number, weight = 1): ValleyHit => ({
     nearest: { s: 0, lateral, floorHeight: 50, valleyWidth: 400 },
+    profile,
     weight,
     rival: null,
+    rivalProfile: profile,
     rivalWeight: 0,
     rivalPull: 0,
+    gullies: [],
   })
-  const shoulder = 200 + valley.flankWidth * valley.wallShare
+  const shoulder = 200 + 180
+  const edge = shoulder + valley.fadeWidth
 
   it('are kept out of the floor and walls, and back in full at the corridor edge', () => {
     expect(noiseRiverKeep(null, valley)).toBe(1)
     expect(noiseRiverKeep(hitAt(0), valley)).toBe(0)
     expect(noiseRiverKeep(hitAt(-shoulder), valley)).toBe(0)
-    expect(noiseRiverKeep(hitAt(200 + valley.flankWidth), valley)).toBe(1)
+    expect(noiseRiverKeep(hitAt(edge), valley)).toBe(1)
     expect(noiseRiverKeep(hitAt(0, 0.25), valley)).toBeCloseTo(0.75, 6)
   })
 
   it('takes the stronger of two stretches inside a bend', () => {
-    const hit = { ...hitAt(200 + valley.flankWidth), rival: hitAt(0).nearest, rivalWeight: 1 }
+    const hit = { ...hitAt(edge), rival: hitAt(0).nearest, rivalWeight: 1 }
     expect(noiseRiverKeep(hit, valley)).toBe(0)
   })
 

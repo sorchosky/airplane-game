@@ -56,7 +56,7 @@ interface Sample extends RoutePoint {
   readonly s: number
 }
 
-const LOOKUP_STEPS_PER_POINT = 64
+const LOOKUP_STEPS_PER_POINT = 1024
 const NEAREST_SPACING = 2
 const GRID_SIZE = 32
 /**
@@ -539,34 +539,53 @@ export function createRoute(
     let bestZ = sampleZ[index]!
     let bestFloor = sampleFloor[index]!
     let bestWidth = sampleWidth[index]!
-    let bestDx = 1
-    let bestDz = 0
-    // Refine against the two adjacent polyline segments.
-    for (let offset = -1; offset <= 0; offset++) {
+    let bestDx = tangentX[index]!
+    let bestDz = tangentZ[index]!
+    // Refine against the two adjacent segments, along normals interpolated between the samples'
+    // own (#221). Squaring off each segment instead leaves `s` jumping by metres on the inside of
+    // a bend, wherever the nearer segment changes, and anything that varies quickly along the
+    // route (a gully wall) would step there. Here both segments meet on one shared normal, so `s`
+    // is continuous. The foot is where the point lies on the normal: a quadratic in `t`, whose
+    // root near the straight-segment answer is the one wanted.
+    let found = false
+    for (let offset = 0; offset >= -1 && !found; offset--) {
       const a = wrap(index + offset)
       const b = wrap(index + offset + 1)
       const ax = sampleX[a]!
       const az = sampleZ[a]!
       const dx = sampleX[b]! - ax
       const dz = sampleZ[b]! - az
-      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)))
+      const t0x = tangentX[a]!
+      const t0z = tangentZ[a]!
+      const dtx = tangentX[b]! - t0x
+      const dtz = tangentZ[b]! - t0z
+      const qx = x - ax
+      const qz = z - az
+      // (q - t d) · (T0 + t dT) = 0, as A t² + B t + C = 0.
+      const A = -(dx * dtx + dz * dtz)
+      const B = qx * dtx + qz * dtz - (dx * t0x + dz * t0z)
+      const C = qx * t0x + qz * t0z
+      const disc = B * B - 4 * A * C
+      if (disc < 0) continue
+      const half = -0.5 * (B + (B < 0 ? -1 : 1) * Math.sqrt(disc))
+      if (half === 0) continue
+      const t = C / half
+      if (t < 0 || t > 1) continue
+      found = true
       const projectedX = ax + dx * t
       const projectedZ = az + dz * t
       const deltaX = x - projectedX
       const deltaZ = z - projectedZ
-      const segmentDistance2 = deltaX * deltaX + deltaZ * deltaZ
-      if (segmentDistance2 <= bestDistance2) {
-        bestDistance2 = segmentDistance2
-        const segmentLength = b === 0 ? length - sampleS[a]! : sampleS[b]! - sampleS[a]!
-        bestS = sampleS[a]! + segmentLength * t
-        if (bestS >= length) bestS -= length
-        bestX = projectedX
-        bestZ = projectedZ
-        bestFloor = mix(sampleFloor[a]!, sampleFloor[b]!, t)
-        bestWidth = mix(sampleWidth[a]!, sampleWidth[b]!, t)
-        bestDx = dx
-        bestDz = dz
-      }
+      bestDistance2 = deltaX * deltaX + deltaZ * deltaZ
+      const segmentLength = b === 0 ? length - sampleS[a]! : sampleS[b]! - sampleS[a]!
+      bestS = sampleS[a]! + segmentLength * t
+      if (bestS >= length) bestS -= length
+      bestX = projectedX
+      bestZ = projectedZ
+      bestFloor = mix(sampleFloor[a]!, sampleFloor[b]!, t)
+      bestWidth = mix(sampleWidth[a]!, sampleWidth[b]!, t)
+      bestDx = t0x + dtx * t
+      bestDz = t0z + dtz * t
     }
     if (bestDistance2 > maxDistance * maxDistance) return null
     const inverseMagnitude = 1 / Math.sqrt(bestDx * bestDx + bestDz * bestDz)

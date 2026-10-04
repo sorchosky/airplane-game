@@ -166,12 +166,6 @@ export interface BasinConfig {
 export interface RouteValleyConfig {
   /** m, the most the terrain noise lifts the valley floor above the route's `floorHeight` */
   floorNoise: number
-  /** m, how far beyond the floor's edge the valley takes to blend back into the terrain */
-  flankWidth: number
-  /** 0..1, share of `flankWidth` the walls rise over. The rest fades the shoulder into the terrain. */
-  wallShare: number
-  /** m, the least height of the wall shoulders above the floor, whatever the terrain there */
-  wallLift: number
   /** m, how softly a wall shoulder meets terrain that already stands taller. Keeps it C1. */
   wallSoftness: number
   /**
@@ -185,6 +179,66 @@ export interface RouteValleyConfig {
    * `RIVAL_BAND` in `route.ts`.
    */
   bendBlend: number
+  /** ± share of the route's half width the floor breathes by along the route (#221) */
+  widthVariation: number
+  /** m, feature length of the breathing along the route */
+  widthWavelength: number
+  /** m, the floor's half width never goes under or over these, whatever the noise */
+  minHalfWidth: number
+  maxHalfWidth: number
+  /** m, the most the floor centre wanders off the route line */
+  meander: number
+  /** m, feature length of the meander along the route */
+  meanderWavelength: number
+  /** m of route round each landmark station where width and meander hold the route's own */
+  stationClearance: number
+  /** m of route past a station's clearance or a join over which width and meander ease in */
+  calmLength: number
+  /** m of route, the mean stretch before the cliff swaps sides (each swap ±40 %) */
+  swapLength: number
+  /** m, run and shoulder lift of a wall at its steepest (a cliff) and its gentlest (a grass slope) */
+  cliffRise: number
+  cliffLift: number
+  grassRise: number
+  grassLift: number
+  /**
+   * m, the #172 wall's run and lift. Where the route skirts the home basin the wall facing it
+   * keeps these, so the basin's designed ridge holds.
+   */
+  neutralRise: number
+  neutralLift: number
+  /** m past the basin's ridge radius within which the route counts as skirting the basin */
+  basinClearance: number
+  /** ± share each wall's run wanders by on its own, and the feature length of that wander */
+  riseJitter: number
+  jitterWavelength: number
+  /** ± m of ridged noise on each shoulder's lift, and its feature length along the route */
+  shoulderNoise: number
+  shoulderWavelength: number
+  /** m past a shoulder over which the wall blends back into the terrain */
+  fadeWidth: number
+  gullies: GullyConfig
+}
+
+/** Side valleys cut back through the route valley's walls (#221). */
+export interface GullyConfig {
+  count: number
+  /** m, mouth width */
+  minWidth: number
+  maxWidth: number
+  /** m back from the floor's edge. Cut short where the head would leave the route grid. */
+  minLength: number
+  maxLength: number
+  /** m of route, the least distance between two mouths */
+  spacing: number
+  /** m of route per m outward, the most a gully's line slants off square to the route */
+  skew: number
+  /** m of climb per m of length, the gully bed's rise from the floor to its head */
+  climb: number
+  /** 0..1, share of the half width that is flat bed. The rest is its side walls. */
+  bedShare: number
+  /** m, how softly the bed meets the ground it cuts */
+  softness: number
 }
 
 /**
@@ -352,12 +406,46 @@ export const TERRAIN_CONFIG: TerrainConfig = {
   },
   valley: {
     floorNoise: 3,
-    flankWidth: 360,
-    wallShare: 0.5,
-    wallLift: 100,
     wallSoftness: 30,
     joinLength: 150,
     bendBlend: 60,
+    widthVariation: 0.25,
+    widthWavelength: 900,
+    minHalfWidth: 150,
+    maxHalfWidth: 300,
+    meander: 40,
+    meanderWavelength: 1100,
+    stationClearance: 300,
+    calmLength: 400,
+    swapLength: 2000,
+    // A cliff: steepest pitch ~66°, well into the rock band. A grass slope: ~16° on average and
+    // ~24° at its steepest, before the shoulder noise.
+    cliffRise: 80,
+    cliffLift: 120,
+    grassRise: 210,
+    grassLift: 62,
+    neutralRise: 180,
+    neutralLift: 100,
+    basinClearance: 600,
+    riseJitter: 0.1,
+    jitterWavelength: 700,
+    shoulderNoise: 40,
+    shoulderWavelength: 500,
+    // Widest floor (300) + meander (40) + grass run with jitter (231) + fade stays under the
+    // route grid's 720 m reach.
+    fadeWidth: 140,
+    gullies: {
+      count: 6,
+      minWidth: 60,
+      maxWidth: 120,
+      minLength: 300,
+      maxLength: 600,
+      spacing: 900,
+      skew: 0.4,
+      climb: 0.2,
+      bedShare: 0.35,
+      softness: 10,
+    },
   },
   plungePool: {
     // The bank starts 30 m clear of the cliff, past the edge of its 25 m footprint.

@@ -75,6 +75,36 @@ describe('route', () => {
     }
   })
 
+  it('moves the nearest point smoothly as a query slides across a bend, far out', () => {
+    // Walking a line square to the route 300 to 650 m out, the nearest `s` never jumps: the
+    // valley's gullies and ridged shoulders (#221) vary fast enough along `s` that a jump of a
+    // metre or two would show as a step in the ground.
+    for (let s = 1500; s < 11000; s += 500) {
+      const p = ROUTE.pointAt(s)
+      const t = ROUTE.tangentAt(s)
+      for (const side of [-1, 1]) {
+        for (const lateral of [300, 450, 650]) {
+          const ox = p.x - t.z * side * lateral
+          const oz = p.z + t.x * side * lateral
+          const sAt = (along: number) => ROUTE.nearest(ox + t.x * along, oz + t.z * along).s
+          // Inside a bend `s` runs faster than the query, smoothly. A jump is a change that
+          // doesn't spread out when the step is cut: one tenth of the step still holds most of it.
+          for (let along = -40; along < 40; along += 0.5) {
+            const change = sAt(along + 0.5) - sAt(along)
+            let most = 0
+            for (let k = 0; k < 10; k++) {
+              const a = along + k * 0.05
+              most = Math.max(most, Math.abs(sAt(a + 0.05) - sAt(a)))
+            }
+            expect(most, `s ${s} lateral ${side * lateral}`).toBeLessThan(
+              Math.abs(change) * 0.2 + 0.01,
+            )
+          }
+        }
+      }
+    }
+  })
+
   it('uses a consistent signed side', () => {
     const square = createRoute([
       { x: 0, z: 0, floorHeight: 10, valleyWidth: 100 },
