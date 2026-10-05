@@ -11,6 +11,7 @@ import {
 import { getOutlineMaterial, getToonGradientMap } from '../render/toon'
 import { color } from '../styles/tokens'
 import { atmosphereUniforms } from './atmosphereUniforms'
+import { BOAT_CONFIG } from './boatPlan'
 import { LANDMARK_CONFIG } from './landmarks'
 import { linearRgb, type Rgb } from './terrainColor'
 
@@ -203,4 +204,124 @@ export function createMistMaterial(): MeshBasicMaterial {
     depthWrite: false,
   })
   return withHazeCap(material)
+}
+
+/**
+ * Clock for the boats (#225), seconds. `Boats` advances it, and not under reduced motion or
+ * `?shot=`, so a still boat is a parked one.
+ */
+export const boatTimeUniform = { value: 0 }
+
+const TAU = (Math.PI * 2).toFixed(7)
+
+/**
+ * The boats' motion (#225), all in the vertex shader. A boat's vertices are in its own frame and
+ * carry its loop, phase and yaw as constant attributes (see `models/boats.ts`), so a frame costs
+ * one time uniform. A sailboat runs round its ellipse at a steady rate, heading along the loop; a
+ * moored boat stays at its berth. Both bob and roll, and the sails sway out from the mast.
+ * Phases are taken as `fract` of a count of cycles, so a long session keeps its precision.
+ */
+const BOAT_GLSL = /* glsl */ `
+uniform float boatTime;
+attribute vec4 boatLoop;
+attribute vec4 boatRun;
+attribute float boatSail;
+
+const float BOAT_BOB = ${BOAT_CONFIG.bob.toFixed(4)};
+const float BOAT_ROLL = ${BOAT_CONFIG.roll.toFixed(5)};
+const float BOAT_SWAY = ${BOAT_CONFIG.sailSway.toFixed(4)};
+
+float boatCycle(float rate) {
+  return fract(boatRun.x + boatTime * rate);
+}
+
+// Roll about the bow-stern axis, then yaw about Y; shared by positions and normals.
+vec3 boatTurn(vec3 p, out float yaw) {
+  float lap = boatRun.z + boatRun.y * boatTime;
+  float angle = fract(lap) * ${TAU};
+  float sailing = step(0.5, boatLoop.z);
+  vec2 along = vec2(-sin(angle) * boatLoop.z, cos(angle) * boatLoop.w) * sign(boatRun.y);
+  yaw = mix(boatRun.w, atan(-along.x, -along.y), sailing);
+  float period = ${BOAT_CONFIG.bobPeriod[0].toFixed(2)} + fract(boatRun.x * 7.13) * ${(BOAT_CONFIG.bobPeriod[1] - BOAT_CONFIG.bobPeriod[0]).toFixed(2)};
+  float roll = BOAT_ROLL * sin(${TAU} * (boatTime / (period * 1.17) + boatRun.x * 3.0));
+  float cr = cos(roll);
+  float sr = sin(roll);
+  vec3 q = vec3(p.x * cr - p.y * sr, p.x * sr + p.y * cr, p.z);
+  float cy = cos(yaw);
+  float sy = sin(yaw);
+  return vec3(q.x * cy + q.z * sy, q.y, -q.x * sy + q.z * cy);
+}
+
+vec3 boatMoved(vec3 p) {
+  float lap = boatRun.z + boatRun.y * boatTime;
+  float angle = fract(lap) * ${TAU};
+  float sailing = step(0.5, boatLoop.z);
+  float period = ${BOAT_CONFIG.bobPeriod[0].toFixed(2)} + fract(boatRun.x * 7.13) * ${(BOAT_CONFIG.bobPeriod[1] - BOAT_CONFIG.bobPeriod[0]).toFixed(2)};
+  float bob = BOAT_BOB * sin(${TAU} * (boatTime / period + boatRun.x));
+  // The sails belly out and back on a slow swell of their own.
+  p.x += boatSail * BOAT_SWAY * sin(${TAU} * (boatTime / ${BOAT_CONFIG.sailPeriod.toFixed(2)} + boatRun.x * 2.0));
+  float yaw;
+  vec3 turned = boatTurn(p, yaw);
+  vec2 at = boatLoop.xy + sailing * vec2(cos(angle) * boatLoop.z, sin(angle) * boatLoop.w);
+  return vec3(turned.x + at.x, turned.y + bob, turned.z + at.y);
+}
+
+vec3 boatNormal(vec3 n) {
+  float yaw;
+  return boatTurn(n, yaw);
+}
+`
+
+/** Wraps a toon material's compile hook so its vertices move as boats. */
+function withBoatMotion(material: MeshToonMaterial): MeshToonMaterial {
+  const previous = material.onBeforeCompile
+  material.onBeforeCompile = (shader, renderer) => {
+    previous.call(material, shader, renderer)
+    shader.uniforms.boatTime = boatTimeUniform
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>\n${BOAT_GLSL}`)
+      .replace(
+        '#include <beginnormal_vertex>',
+        '#include <beginnormal_vertex>\nobjectNormal = boatNormal(objectNormal);',
+      )
+      .replace(
+        '#include <begin_vertex>',
+        '#include <begin_vertex>\ntransformed = boatMoved(transformed);',
+      )
+  }
+  material.customProgramCacheKey = () => 'landmark-boats'
+  return material
+}
+
+/**
+ * Toon material for the boats (#225): the landmarks' vertex colours, haze cap and window glow,
+ * with their motion. Needs its own draw, since the landmark mesh's vertices stand still.
+ */
+export function createBoatMaterial(): MeshToonMaterial {
+  const material = new MeshToonMaterial({
+    color: '#ffffff',
+    vertexColors: true,
+    gradientMap: getToonGradientMap(),
+  })
+  return withBoatMotion(withWindowGlow(withHazeCap(material)))
+}
+
+/** The boats' outline hull: the landmark outline, moved by the same shader as the boats. */
+export function createBoatOutlineMaterial(): ShaderMaterial {
+  const base = getOutlineMaterial(LANDMARK_OUTLINE)
+  const vertexShader = base.vertexShader
+    .replace('#include <common>', `#include <common>\n${BOAT_GLSL}`)
+    .replace(
+      'vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );',
+      'vec4 mvPosition = modelViewMatrix * vec4( boatMoved( position ), 1.0 );',
+    )
+    .replace('normalMatrix * normal', 'normalMatrix * boatNormal( normal )')
+  return new ShaderMaterial({
+    uniforms: { ...base.uniforms, boatTime: boatTimeUniform },
+    vertexShader,
+    fragmentShader: base.fragmentShader,
+    side: base.side,
+    fog: true,
+    defines: { ...LANDMARK_HAZE_DEFINES },
+  })
 }
