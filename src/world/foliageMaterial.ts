@@ -3,6 +3,7 @@ import {
   Color,
   MeshToonMaterial,
   ShaderMaterial,
+  Vector2,
   type WebGLProgramParametersWithUniforms,
 } from 'three'
 import { color } from '../styles/tokens'
@@ -33,6 +34,14 @@ uniform vec2 foliageFocus;
 uniform float foliageReach;
 uniform float foliageFadeStart;
 uniform float foliageFadeEnd;
+uniform vec2 foliageBlobIn;
+
+// Canopy blobs (#232) grow in as the trees thin out: the extra share is 0 inside foliageBlobIn.x
+// and 1 from foliageBlobIn.y on, the same ramp as canopyShare in scatter.ts.
+float foliageBlobRise(vec3 origin) {
+  float d = distance(origin.xz, foliageFocus);
+  return smoothstep(foliageBlobIn.x * foliageReach, foliageBlobIn.y * foliageReach, d);
+}
 
 float foliageGrowth(vec3 origin, float keep, float extraShare) {
   float d = distance(origin.xz, foliageFocus);
@@ -67,8 +76,21 @@ vec3 foliageSwayed(vec3 p, vec3 origin) {
 }
 `
 
-function fadeUniforms(fadeStart: number, fadeEnd: number) {
+/** Canopy-blob settings (#232): the ramp the blobs grow in over, and their hull. */
+export interface CanopyMaterialOptions {
+  /** m, from the plane, where blobs start to grow in and where they are full */
+  fadeIn: number
+  full: number
+  /** m, past this the blob hull has thinned to nothing */
+  outlineDistance: number
+}
+
+/** World thickness is only a cap: a blob is hundreds of metres off, so pixels set the line. */
+const CANOPY_OUTLINE = { thickness: 60, maxPixels: 1.5 } as const
+
+function fadeUniforms(fadeStart: number, fadeEnd: number, canopy?: CanopyMaterialOptions) {
   return {
+    foliageBlobIn: { value: new Vector2(canopy?.fadeIn ?? 0, canopy?.full ?? 0) },
     foliageFocus: foliageUniforms.foliageFocus,
     foliageReach: foliageUniforms.foliageReach,
     foliageTime: foliageUniforms.foliageTime,
@@ -86,13 +108,14 @@ export function createFoliageBodyMaterial(
   fadeStart: number,
   fadeEnd: number,
   sway = false,
+  canopy?: CanopyMaterialOptions,
 ): MeshToonMaterial {
   const material = new MeshToonMaterial({
     color: new Color(1, 1, 1),
     vertexColors: true,
     gradientMap: getToonGradientMap(),
   })
-  const uniforms = fadeUniforms(fadeStart, fadeEnd)
+  const uniforms = fadeUniforms(fadeStart, fadeEnd, canopy)
   material.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
     Object.assign(shader.uniforms, uniforms)
     shader.vertexShader = shader.vertexShader
@@ -108,14 +131,17 @@ export function createFoliageBodyMaterial(
         '#include <begin_vertex>',
         `#include <begin_vertex>\n${
           sway ? '  transformed = foliageSwayed(transformed, foliageOrigin);\n' : ''
-        }  transformed *= foliageGrowth(foliageOrigin, foliageKeep, 1.0);`,
+        }  transformed *= foliageGrowth(foliageOrigin, foliageKeep, ${
+          canopy ? 'foliageBlobRise(foliageOrigin)' : '1.0'
+        });`,
       )
   }
-  material.customProgramCacheKey = () => (sway ? 'foliage-body-sway' : 'foliage-body-no-rim')
+  material.customProgramCacheKey = () =>
+    canopy ? 'foliage-body-canopy' : sway ? 'foliage-body-sway' : 'foliage-body-no-rim'
   return material
 }
 
-function hullVertex(sway: boolean): string {
+function hullVertex(sway: boolean, canopy: boolean): string {
   return /* glsl */ `
   #include <common>
   #include <fog_pars_vertex>
@@ -129,7 +155,7 @@ function hullVertex(sway: boolean): string {
   ${sway ? SWAY_GLSL : ''}
   void main() {
     vec3 origin = instanceMatrix[3].xyz;
-    float grow = foliageGrowth(origin, foliageKeep, 1.0);
+    float grow = foliageGrowth(origin, foliageKeep, ${canopy ? 'foliageBlobRise(origin)' : '1.0'});
     vec3 local = ${sway ? 'foliageSwayed( position, origin )' : 'position'};
     vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4( local * grow, 1.0 );
     // Transform the normal with the inverse transpose of the complete instance transform.
@@ -157,22 +183,24 @@ export function createFoliageHullMaterial(
   fadeEnd: number,
   config: FoliageConfig,
   sway = false,
+  canopy?: CanopyMaterialOptions,
 ): ShaderMaterial {
+  const outline = canopy ? CANOPY_OUTLINE : FOLIAGE_OUTLINE
   return new ShaderMaterial({
     uniforms: {
-      ...fadeUniforms(fadeStart, fadeEnd),
+      ...fadeUniforms(fadeStart, fadeEnd, canopy),
       color: { value: new Color(color.foliageOutline) },
-      thickness: { value: FOLIAGE_OUTLINE.thickness },
-      maxPixels: { value: FOLIAGE_OUTLINE.maxPixels },
+      thickness: { value: outline.thickness },
+      maxPixels: { value: outline.maxPixels },
       viewportHeight: outlineViewportHeight,
-      outlineDistance: { value: config.outlineDistance },
+      outlineDistance: { value: canopy?.outlineDistance ?? config.outlineDistance },
       ...atmosphereUniforms,
       fogColor: { value: new Color() },
       fogNear: { value: 1 },
       fogFar: { value: 2000 },
       fogDensity: { value: 0.00025 },
     },
-    vertexShader: hullVertex(sway),
+    vertexShader: hullVertex(sway, Boolean(canopy)),
     fragmentShader: OUTLINE_FRAGMENT,
     side: BackSide,
     fog: true,

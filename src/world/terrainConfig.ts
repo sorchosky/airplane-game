@@ -108,7 +108,9 @@ export interface FoliageConfig {
   groveHigh: number
   /** chance a cell in a full grove holds a tree */
   treeDensity: number
-  /** chance a cell holds a bush, highest on grove edges */
+  /** chance a lone tree stands in open meadow, well under 5 % of `treeDensity` (#232) */
+  meadowTreeChance: number
+  /** chance a cell holds a bush on a grove's edge. Deep meadow gets a twentieth of it (#232). */
   bushDensity: number
   /** chance a cell on the rock band holds a boulder */
   boulderDensity: number
@@ -117,6 +119,26 @@ export interface FoliageConfig {
   coniferHigh: number
   /** m, no foliage within this height above `waterLevel` (keeps it off wet shores) */
   shoreMargin: number
+  /** m, edge of a canopy-blob cell: each cell holds at most one blob for the grove inside it (#232) */
+  blobCell: number
+  /** m, canopy blobs begin to grow in here as the trees thin out, and are full at `foliageDistance` */
+  blobFadeIn: number
+  /** m, canopy blobs thin out from here to `blobDistance`, where they are gone */
+  blobFadeStart: number
+  blobDistance: number
+  /** m, blobs past this have no outline hull */
+  blobOutlineDistance: number
+  /** blobs are sited from an n × n grid of grove samples per cell */
+  blobSamples: number
+  /** grove samples (of n × n) that must be in a wood and on grass for the cell to get a blob */
+  blobMinSamples: number
+  /** m, a blob only covers grove samples this close to the cell's median ground height, so it sits on the ground */
+  blobHeightBand: number
+  /** m, most the ground may vary under a blob: it shrinks, or is left out, past this */
+  blobRelief: number
+  /** m, a blob's horizontal radius is clamped to this range */
+  blobRadiusMin: number
+  blobRadiusMax: number
 }
 
 /**
@@ -798,17 +820,29 @@ export const TERRAIN_CONFIG: TerrainConfig = {
     foliageFadeStart: 250,
     foliageChunk: 128,
     smallDistance: 700,
-    outlineDistance: 600,
+    outlineDistance: 400,
     treeCell: 16,
     jitter: 0.8,
     groveScale: 700,
-    groveLow: 0.5,
+    groveLow: 0.64,
     groveHigh: 0.7,
-    treeDensity: 0.24,
+    treeDensity: 0.42,
+    meadowTreeChance: 0.004,
     bushDensity: 0.04,
     boulderDensity: 0.06,
     coniferLow: 150,
     coniferHigh: 230,
     shoreMargin: 1.5,
+    blobCell: 500,
+    blobFadeIn: 900,
+    blobFadeStart: 3500,
+    blobDistance: 4500,
+    blobOutlineDistance: 2800,
+    blobSamples: 4,
+    blobMinSamples: 2,
+    blobHeightBand: 12,
+    blobRelief: 30,
+    blobRadiusMin: 80,
+    blobRadiusMax: 300,
   },
 }

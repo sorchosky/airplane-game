@@ -295,10 +295,13 @@ export function scatterChunk(
       // The inland sea's water, beaches and islands (#223); the islands are #235's to dress.
       if (seaKeepsClear(x, z, config)) continue
 
+      // Trees come in groves with a few lone ones in the meadow between; bushes hug grove edges.
       const grove = groveAt(x, z, config)
-      const treeChance = f.treeDensity * smoothstep(f.groveLow, f.groveHigh, grove)
+      const treeChance =
+        f.meadowTreeChance +
+        (f.treeDensity - f.meadowTreeChance) * smoothstep(f.groveLow, f.groveHigh, grove)
       const edge = Math.max(0, 1 - Math.abs(grove - f.groveLow) / 0.12)
-      const bushChance = f.bushDensity * (1 + 3 * edge)
+      const bushChance = f.bushDensity * (0.05 + 3 * edge)
       if (roll >= treeChance + bushChance && roll >= f.boulderDensity) continue
 
       const { height, slope } = ground.surface(x, z)
@@ -355,6 +358,175 @@ function plantPalms(
       keep: palm.keep,
       lean: palm.lean,
     })
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Canopy blobs (#232)
+
+/**
+ * A far grove drawn as one lumpy canopy mass instead of its trees. The unit model is a mound of
+ * radius 1 and height 1, so the instance is scaled (`radius`, `height`, `radius`).
+ */
+export interface CanopyBlob {
+  x: number
+  /** Lowest ground under the blob, less a few metres, so the mound's foot is buried */
+  y: number
+  z: number
+  /** Radians around +Y */
+  yaw: number
+  /** m, horizontal radius */
+  radius: number
+  /** m, height of the mound above `y` */
+  height: number
+  /** 0..1, compared against the distance share, as for trees */
+  keep: number
+}
+
+/**
+ * The grove (if any) in canopy-blob cell (`cx`, `cz`), `blobCell` m square: one blob at the
+ * centroid of the cell's grove samples that sit in a wood on dry grass, sized to cover them.
+ * Deterministic, and on the same wrapped grove and height fields as the trees, so a blob stands
+ * where the trees it replaces would. Cell indices wrap, so a cell one period over matches.
+ */
+export function scatterBlobCell(
+  cx: number,
+  cz: number,
+  config: TerrainConfig,
+  exclusions: readonly FoliageExclusion[] = [],
+  sample: HeightSampler = heightAt,
+): CanopyBlob[] {
+  const f = config.foliage
+  const size = f.blobCell
+  const minX = cx * size
+  const minZ = cz * size
+  const n = f.blobSamples
+  const step = size / n
+  const woodsAt = (f.groveLow + f.groveHigh) / 2
+  // A coarse ground lattice is enough: blobs are hundreds of metres across.
+  const ground = new GroundPatch(minX, minZ, size, config, sample, 32)
+  const spots: { x: number; z: number; height: number }[] = []
+  for (let j = 0; j < n; j++) {
+    for (let i = 0; i < n; i++) {
+      const x = minX + (i + 0.5) * step
+      const z = minZ + (j + 0.5) * step
+      if (groveAt(x, z, config) < woodsAt) continue
+      if (isExcluded(x, z, exclusions, config.worldPeriod) || seaKeepsClear(x, z, config)) continue
+      const { height, slope } = ground.surface(x, z)
+      if (classifyGround(height, slope, config) !== 'grass') continue
+      spots.push({ x, z, height })
+    }
+  }
+  if (spots.length < f.blobMinSamples) return []
+  // A mound is rigid, so it covers only the spots near one ground height: on a hillside that is
+  // a smaller blob, not one buried at its uphill end and floating at the other.
+  const heights = spots.map((spot) => spot.height).sort((a, b) => a - b)
+  const median = heights[Math.floor(heights.length / 2)] ?? 0
+  const kept = spots.filter((spot) => Math.abs(spot.height - median) <= f.blobHeightBand)
+  const count = kept.length
+  if (count < f.blobMinSamples) return []
+  const sumX = kept.reduce((sum, spot) => sum + spot.x, 0)
+  const sumZ = kept.reduce((sum, spot) => sum + spot.z, 0)
+  const periodCells = Math.round(config.worldPeriod / size)
+  const random = mulberry32(
+    cellSeed(
+      hashString(`${config.seed}:blobs`),
+      wrapIndex(cx, periodCells),
+      wrapIndex(cz, periodCells),
+    ),
+  )
+  let radius = Math.min(
+    f.blobRadiusMax,
+    Math.max(f.blobRadiusMin, Math.sqrt((count * step * step) / Math.PI) * (0.95 + 0.2 * random())),
+  )
+  const x = sumX / count
+  const z = sumZ / count
+  // The mound's foot is the lowest ground in reach (the centre and a ring at 70 % of its radius)
+  // and its crown clears the highest by a canopy's depth, so no ground pokes through it. On rolling
+  // ground the blob shrinks until the ground under it is near flat, and a grove on a slope that
+  // never gets there stays trees only.
+  let low = Infinity
+  let high = -Infinity
+  for (;;) {
+    low = high = ground.surface(x, z).height
+    for (let k = 0; k < 8; k++) {
+      const a = (k * Math.PI) / 4
+      const at = sample(x + Math.cos(a) * radius * 0.7, z + Math.sin(a) * radius * 0.7, config)
+      low = Math.min(low, at)
+      high = Math.max(high, at)
+    }
+    if (high - low <= f.blobRelief) break
+    if (radius * 0.8 < f.blobRadiusMin) return []
+    radius *= 0.8
+  }
+  const y = low - 3
+  const height = high - y + 12 + radius * 0.12
+  return [
+    {
+      x,
+      y,
+      z,
+      yaw: random() * Math.PI * 2,
+      radius,
+      height,
+      keep: random(),
+    },
+  ]
+}
+
+/** Share (0..1) of canopy blobs drawn at `distance` m: in as the trees thin out, out far away. */
+export function canopyShare(distance: number, config: TerrainConfig, reach = 1): number {
+  const f = config.foliage
+  const rise = smoothstep(f.blobFadeIn * reach, f.foliageDistance * reach, distance)
+  return rise * distanceFalloff(distance, f.blobFadeStart, f.blobDistance, reach)
+}
+
+/**
+ * Whether a blob can grow at all while the plane stays in its current foliage chunk. Unlike a
+ * tree's, a blob's share rises then falls with distance, so the nearest the plane can get is not
+ * where the share peaks: look across the whole range the plane can be at.
+ */
+export function blobMayGrow(
+  nearestDistance: number,
+  keep: number,
+  config: TerrainConfig,
+  reach: number,
+): boolean {
+  const span = config.foliage.foliageChunk * Math.SQRT2
+  for (let k = 0; k <= 8; k++) {
+    if (growth(canopyShare(nearestDistance + (span * k) / 8, config, reach), keep) > 0) return true
+  }
+  return false
+}
+
+export interface BlobSelection {
+  /** Nearest the plane first. */
+  blobs: CanopyBlob[]
+  /** How many of the first blobs get an outline hull (within `blobOutlineDistance`). */
+  outlined: number
+}
+
+/** Canopy blobs to upload for a plane at (px, pz) and a governor density. */
+export function selectBlobs(
+  cells: readonly CanopyBlob[][],
+  px: number,
+  pz: number,
+  density: number,
+  config: TerrainConfig,
+): BlobSelection {
+  const f = config.foliage
+  const reach = densityReach(density)
+  const picked: { blob: CanopyBlob; d: number }[] = []
+  for (const cell of cells) {
+    for (const blob of cell) {
+      const d = distanceToCell(blob.x, blob.z, px, pz, f.foliageChunk)
+      if (blobMayGrow(d, blob.keep, config, reach)) picked.push({ blob, d })
+    }
+  }
+  picked.sort((a, b) => a.d - b.d)
+  return {
+    blobs: picked.map((p) => p.blob),
+    outlined: picked.filter((p) => p.d < f.blobOutlineDistance * reach).length,
   }
 }
 

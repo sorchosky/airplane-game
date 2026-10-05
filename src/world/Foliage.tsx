@@ -20,15 +20,19 @@ import {
   createFoliageBodyMaterial,
   createFoliageHullMaterial,
   foliageUniforms,
+  type CanopyMaterialOptions,
 } from './foliageMaterial'
-import { FOLIAGE_MODEL_BUILDERS } from './models/foliage'
+import { buildCanopyBlob, FOLIAGE_MODEL_BUILDERS, type FoliageModel } from './models/foliage'
 import {
   cellsInRange,
   densityReach,
   FOLIAGE_KINDS,
   foliageReach,
+  scatterBlobCell,
   scatterChunk,
+  selectBlobs,
   selectFoliage,
+  type CanopyBlob,
   type ChunkFoliage,
   type FoliageKind,
 } from './scatter'
@@ -45,11 +49,17 @@ const CAPACITY: Record<FoliageKind, number> = {
   palm: 1500,
 }
 
+/** Canopy blobs (#232) the far-grove buffer holds, well above a full-density selection. */
+const BLOB_CAPACITY = 600
+
 /** ms per frame spent scattering new chunks. */
 const SCATTER_BUDGET_MS = 3
 
 /** Foliage chunks kept cached. About twice what is in range, so turning back is free. */
 const CACHE_LIMIT = 1200
+
+/** Blob cells kept cached: the 5 km range is about 320 cells. */
+const BLOB_CACHE_LIMIT = 800
 
 /** s, time constant of the density fade after a governor step: settled in about 3 s. */
 const DENSITY_EASE_TIME = 0.8
@@ -63,12 +73,36 @@ interface Variant {
 
 function createVariant(kind: FoliageKind): Variant {
   const f = TERRAIN_CONFIG.foliage
-  const fadeEnd = foliageReach(kind, TERRAIN_CONFIG)
-  const model = FOLIAGE_MODEL_BUILDERS[kind]()
-  const capacity = CAPACITY[kind]
-  const sway = kind === 'palm'
-  const bodyMaterial = createFoliageBodyMaterial(f.foliageFadeStart, fadeEnd, sway)
-  const hullMaterial = createFoliageHullMaterial(f.foliageFadeStart, fadeEnd, f, sway)
+  return buildVariant(
+    FOLIAGE_MODEL_BUILDERS[kind](),
+    CAPACITY[kind],
+    f.foliageFadeStart,
+    foliageReach(kind, TERRAIN_CONFIG),
+    kind === 'palm',
+  )
+}
+
+/** The far canopy blobs: the same variant, grown in over the trees' handoff and out far away. */
+function createBlobVariant(): Variant {
+  const f = TERRAIN_CONFIG.foliage
+  return buildVariant(buildCanopyBlob(), BLOB_CAPACITY, f.blobFadeStart, f.blobDistance, false, {
+    fadeIn: f.blobFadeIn,
+    full: f.foliageDistance,
+    outlineDistance: f.blobOutlineDistance,
+  })
+}
+
+function buildVariant(
+  model: FoliageModel,
+  capacity: number,
+  fadeStart: number,
+  fadeEnd: number,
+  sway: boolean,
+  canopy?: CanopyMaterialOptions,
+): Variant {
+  const f = TERRAIN_CONFIG.foliage
+  const bodyMaterial = createFoliageBodyMaterial(fadeStart, fadeEnd, sway, canopy)
+  const hullMaterial = createFoliageHullMaterial(fadeStart, fadeEnd, f, sway, canopy)
   const body = new InstancedMesh(model.body, bodyMaterial, capacity)
   const hull = new InstancedMesh(model.hull, hullMaterial, capacity)
   // The hull draws the nearest instances of the same buffers: one upload feeds both meshes.
@@ -142,11 +176,49 @@ function upload(variant: Variant, instances: ChunkFoliage[FoliageKind], outlined
   variant.hull.visible = variant.hull.count > 0
 }
 
+/** Moves a cached blob cell by `move` and returns its new key. */
+function moveBlobCell(key: string, cell: CanopyBlob[], move: WrapShift): string {
+  for (const blob of cell) {
+    blob.x += move.x
+    blob.z += move.z
+  }
+  const [cx = 0, cz = 0] = key.split(',').map(Number)
+  const size = TERRAIN_CONFIG.foliage.blobCell
+  return chunkKey(cx + Math.round(move.x / size), cz + Math.round(move.z / size))
+}
+
+/** Writes the selected canopy blobs into their variant's buffers. Runs on rebuilds only. */
+function uploadBlobs(variant: Variant, blobs: CanopyBlob[], outlined: number): void {
+  const count = Math.min(blobs.length, variant.keep.count)
+  const keep = variant.keep.array as Float32Array
+  for (let i = 0; i < count; i++) {
+    const blob = blobs[i]
+    if (!blob) break
+    position.set(blob.x, blob.y, blob.z)
+    rotation.setFromAxisAngle(up, blob.yaw)
+    scale.set(blob.radius, blob.height, blob.radius)
+    variant.body.setMatrixAt(i, matrix.compose(position, rotation, scale))
+    keep[i] = blob.keep
+  }
+  variant.body.instanceMatrix.clearUpdateRanges()
+  variant.body.instanceMatrix.addUpdateRange(0, count * 16)
+  variant.body.instanceMatrix.needsUpdate = true
+  variant.keep.clearUpdateRanges()
+  variant.keep.addUpdateRange(0, count)
+  variant.keep.needsUpdate = true
+  variant.body.count = count
+  variant.hull.count = Math.min(outlined, count)
+  variant.body.visible = count > 0
+  variant.hull.visible = variant.hull.count > 0
+}
+
 /**
  * Trees, bushes and boulders around the plane (#75): one instanced mesh per variant and one per
  * outline hull, so at most eight draw calls. Chunks are scattered a few per frame into a cache
  * (`scatter.ts`); the GPU buffers are rebuilt when the plane crosses into a new foliage chunk, the
- * governor's density changes, or an exclusion is added. Per frame, only uniforms change.
+ * governor's density changes, or an exclusion is added. Per frame, only uniforms change. Past the
+ * trees' reach, each grove is one or a few canopy blobs (#232): two more draws (body and hull),
+ * from their own 500 m cell cache.
  *
  * The world wraps (#177): chunks are scattered in a `WrapFrame` that runs on across the seam, and
  * the group is drawn moved by the frame's offset, so a wrap moves the group and rebuilds nothing.
@@ -168,6 +240,15 @@ export function Foliage() {
       ),
     [],
   )
+  const blobCache = useMemo(
+    () =>
+      new CellCache<CanopyBlob[]>(
+        (cell) => scatterBlobCell(cell.x, cell.z, TERRAIN_CONFIG, allFoliageExclusions()),
+        BLOB_CACHE_LIMIT,
+      ),
+    [],
+  )
+  const blobs = useMemo(() => createBlobVariant(), [])
   const frame = useMemo(() => new WrapFrame(), [])
   // Palm sway (#235) stands still under reduced motion and at `?shot=`, so a capture repeats.
   const swayStill = useMemo(
@@ -189,16 +270,17 @@ export function Foliage() {
   })
 
   useEffect(() => {
-    for (const variant of variants.values()) group.add(variant.body, variant.hull)
+    const all = [...variants.values(), blobs]
+    for (const variant of all) group.add(variant.body, variant.hull)
     return () => {
-      for (const variant of variants.values()) {
+      for (const variant of all) {
         group.remove(variant.body, variant.hull)
         variant.body.geometry.dispose()
         variant.hull.geometry.dispose()
         for (const material of variant.materials) material.dispose()
       }
     }
-  }, [group, variants])
+  }, [group, variants, blobs])
 
   useEffect(() => {
     const move: WrapShift = { x: 0, z: 0 }
@@ -210,12 +292,13 @@ export function Foliage() {
       group.position.set(s.drawX, 0, s.drawZ)
       if (frame.rebase(FRAME_ANCHOR, move)) {
         cache.rekey((key, chunk) => moveChunk(key, chunk, move))
+        blobCache.rekey((key, cell) => moveBlobCell(key, cell, move))
         // Re-want the moved keys; they're all cached, so the upload follows this frame.
         s.cellX = Number.NaN
         s.dirty = true
       }
     })
-  }, [cache, frame, group])
+  }, [cache, blobCache, frame, group])
 
   useFrame((_state, delta) => {
     const f = TERRAIN_CONFIG.foliage
@@ -242,12 +325,14 @@ export function Foliage() {
     if (exclusions !== s.exclusions) {
       s.exclusions = exclusions
       cache.clear()
+      blobCache.clear()
       s.cellX = Number.NaN
     }
     if (cellX !== s.cellX || cellZ !== s.cellZ) {
       s.cellX = cellX
       s.cellZ = cellZ
       cache.want(cellsInRange(x, z, f.foliageDistance, f.foliageChunk))
+      blobCache.want(cellsInRange(x, z, f.blobDistance, f.blobCell))
       s.dirty = true
     }
     if (density !== s.density) {
@@ -255,7 +340,7 @@ export function Foliage() {
       s.dirty = true
     }
 
-    const ready = cache.work(SCATTER_BUDGET_MS)
+    const ready = cache.work(SCATTER_BUDGET_MS) && blobCache.work(SCATTER_BUDGET_MS)
     if (ready && s.dirty) {
       // While the density is still easing down, keep what's still shrinking in the buffers.
       const uploadDensity = Math.max(density, reach.value * reach.value)
@@ -264,6 +349,8 @@ export function Foliage() {
         const variant = variants.get(kind)
         if (variant) upload(variant, selection.instances[kind], selection.outlined[kind])
       }
+      const far = selectBlobs(blobCache.wantedData(), x, z, uploadDensity, TERRAIN_CONFIG)
+      uploadBlobs(blobs, far.blobs, far.outlined)
       s.dirty = false
       s.drawX = frame.offsetX
       s.drawZ = frame.offsetZ

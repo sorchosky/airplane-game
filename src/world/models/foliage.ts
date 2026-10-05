@@ -53,7 +53,15 @@ function paint(geometry: BufferGeometry, bottom: Color, top: Color = bottom): Bu
 }
 
 /** A canopy lump: an icosahedron with normals radiating from its centre. */
-function lump(radius: number, x: number, y: number, z: number, squash = 1): BufferGeometry {
+function lump(
+  radius: number,
+  x: number,
+  y: number,
+  z: number,
+  squash = 1,
+  bottom: Color = linear(color.foliage),
+  top: Color = linear(color.foliageLight),
+): BufferGeometry {
   const geometry = prepare(new IcosahedronGeometry(radius, 0))
   const position = geometry.getAttribute('position')
   const normal = geometry.getAttribute('normal')
@@ -65,7 +73,7 @@ function lump(radius: number, x: number, y: number, z: number, squash = 1): Buff
     normal.setXYZ(i, px / length, py / length, pz / length)
     position.setXYZ(i, px + x, py * squash + y, pz + z)
   }
-  return paint(geometry, linear(color.foliage), linear(color.foliageLight))
+  return paint(geometry, bottom, top)
 }
 
 /** An open-ended trunk from `bottom` to `top`. Never seen from below, so no caps. */
@@ -114,6 +122,34 @@ export function buildConifer(): FoliageModel {
 /** Bush, about 2.2 m: two squat lumps. */
 export function buildBush(): FoliageModel {
   return model([lump(1.3, 0, 0.9, 0, 0.85), lump(1, 0.95, 0.65, 0.45, 0.85)])
+}
+
+/**
+ * Far canopy mass (#232): six merged lumps, a unit mound (radius 1, height 1, base at y = 0 with
+ * a little under it) that the instance scales to a grove. A tall crown lump in the middle and five
+ * lower ones round it, so the stretched silhouette is bumpy like a canopy, not a smooth dome.
+ * Dark green with a lit cap, so the toon ramp reads it as the shadowed body of a wood with sun
+ * on top.
+ */
+export function buildCanopyBlob(): FoliageModel {
+  const dark = linear(color.foliage).lerp(linear(color.foliageOutline), 0.5)
+  const lit = linear(color.foliage).lerp(linear(color.foliageLight), 0.7)
+  const parts = [lump(0.6, 0, 0.3, 0, 1.2, dark, lit)]
+  for (let k = 0; k < 5; k++) {
+    const angle = 0.2 + (k * Math.PI * 2) / 5
+    parts.push(
+      lump(
+        0.4 + 0.05 * (k % 3),
+        Math.cos(angle) * 0.62,
+        0.16 + 0.06 * (k % 2),
+        Math.sin(angle) * 0.62,
+        1.1,
+        dark,
+        lit,
+      ),
+    )
+  }
+  return model(parts)
 }
 
 /** Boulder, about 1.7 m tall above ground: a flattened, knocked-about icosahedron. Faceted. */
