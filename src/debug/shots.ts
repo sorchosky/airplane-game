@@ -140,6 +140,15 @@ export const SHOT_BOOKMARKS: readonly ShotBookmark[] = [
       'The inland sea (#223) through the break in the east wall at the town station, the town pad on the left.',
   },
   {
+    // The finger piers from the pad (#225): the moored fishing boats beside them, sailboats beyond.
+    name: 'harbour-boats',
+    position: [5420, 52, 1440],
+    heading: -1.35,
+    bank: 0,
+    pitchAngle: deg(-9),
+    purpose: 'The moored fishing boats at the finger piers (#225), sailboats beyond on the sea.',
+  },
+  {
     name: 'sea-horizon',
     position: [5343, 150, 1416],
     heading: -Math.PI / 2,

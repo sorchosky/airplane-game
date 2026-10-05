@@ -20,6 +20,7 @@ import {
   landmarkTimeUniform,
 } from './landmarkMaterials'
 import { getLandmarks, LANDMARK_CONFIG, type Landmark } from './landmarks'
+import { Boats } from './Boats'
 import { buildArch } from './models/arch'
 import { mergeParts, seededRandom, type LocalGround } from './models/kit'
 import { buildRuins } from './models/ruins'
@@ -232,6 +233,7 @@ export function Landmarks() {
           </mesh>
         </group>
       ))}
+      <Boats />
       <group ref={waterfallRef}>
         {meshes.ribbon && <mesh geometry={meshes.ribbon} material={ribbonMaterial} />}
         {mist && <primitive object={mist} />}
