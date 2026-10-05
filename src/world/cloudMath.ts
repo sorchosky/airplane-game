@@ -287,6 +287,108 @@ export function cloudGateLayout(
 }
 
 /**
+ * A cumulus tower (#234): one tall heap with two shoulders, standing at fixed world coordinates
+ * near the loop or out over the inland sea. Towers give the mid-ground its parallax: at 45 m/s a
+ * 600 m-wide, 300 m-tall heap sweeps across the view where the ambient field's 100 m puffs don't.
+ */
+export interface CumulusTower {
+  /** m, world position of the core's base centre */
+  x: number
+  z: number
+  /** m, base altitude; the flat underside of all three heaps sits within a few metres of it */
+  base: number
+  /** m, core base radius; shoulders are smaller */
+  radius: number
+}
+
+/**
+ * Ten towers, 2 to 3× the ambient field's largest heap (radius 115). Six ring the loop outside
+ * its valley (north, west and south) and four stand over the inland sea (x 5450 to 10450,
+ * z -2400 to 5600), 2.4 to 4.1 km from the town at (5343, 1416), stepping back into the haze.
+ * Placed by search so 2 or 3 are in the chase view at every route `s` while every landmark
+ * sightline (`docs/world-route.md`) and the cloud gate stay clear. Coordinates are in the 24 km
+ * world; `Clouds.tsx` draws each at its copy nearest the plane.
+ */
+export const CUMULUS_TOWERS: readonly CumulusTower[] = [
+  { x: 6000, z: 3500, base: 420, radius: 300 },
+  { x: 6150, z: 5050, base: 540, radius: 300 },
+  { x: 6950, z: -350, base: 360, radius: 300 },
+  { x: 9450, z: 1200, base: 580, radius: 300 },
+  { x: 1950, z: 4950, base: 380, radius: 300 },
+  { x: 3450, z: -2200, base: 500, radius: 300 },
+  { x: 2300, z: 4250, base: 320, radius: 300 },
+  { x: -400, z: 1850, base: 450, radius: 300 },
+  { x: -350, z: 2300, base: 560, radius: 300 },
+  { x: 3900, z: -1350, base: 400, radius: 300 },
+]
+
+/** Heaps per tower: the core and two shoulders. */
+export const TOWER_HEAPS = 3
+
+/** Deterministic heaps for `towers`, drawn by the same shared mesh and material as the field. */
+export function cumulusTowerLayout(
+  towers: readonly CumulusTower[] = CUMULUS_TOWERS,
+): CumulusPuff[] {
+  const random = mulberry32(234)
+  const heaps: CumulusPuff[] = []
+  for (const tower of towers) {
+    const yaw = random() * Math.PI * 2
+    for (let i = 0; i < TOWER_HEAPS; i++) {
+      const core = i === 0
+      const radius = tower.radius * (core ? 1 : 0.55 + random() * 0.15)
+      // Shoulders sit on opposite sides of the core, half a radius out and a little lower.
+      const side = i === 1 ? 1 : -1
+      const angle = yaw + (core ? 0 : side * (0.9 + random() * 0.4))
+      const reach = core ? 0 : tower.radius * (0.55 + random() * 0.15)
+      heaps.push({
+        clusterX: tower.x,
+        clusterZ: tower.z,
+        offsetX: Math.cos(angle) * reach,
+        y: tower.base + (core ? 0 : random() * 6),
+        offsetZ: Math.sin(angle) * reach,
+        radius,
+        stretch: 0.85 + random() * 0.3,
+        height: radius * (core ? 1.05 : 0.8 + random() * 0.15),
+        yaw: random() * Math.PI * 2,
+        fixed: true,
+      })
+    }
+  }
+  return heaps
+}
+
+/** The chase camera's horizontal field of view, radians (60°), and how far a tower reads. */
+export const CHASE_VIEW = { halfAngle: Math.PI / 6, near: 300, far: 8000 }
+
+/**
+ * How many `towers` are in the chase view from (x, z) heading along (headingX, headingZ): the
+ * tower's body (centre plus its radius) inside the view cone and between `near` and `far` metres away, measured to its
+ * copy nearest the plane in a world of `period` m.
+ */
+export function towersInView(
+  x: number,
+  z: number,
+  headingX: number,
+  headingZ: number,
+  towers: readonly CumulusTower[],
+  period: number,
+): number {
+  const length = Math.hypot(headingX, headingZ) || 1
+  let count = 0
+  for (const tower of towers) {
+    const dx = tower.x - x - period * Math.round((tower.x - x) / period)
+    const dz = tower.z - z - period * Math.round((tower.z - z) / period)
+    const distance = Math.hypot(dx, dz)
+    if (distance < CHASE_VIEW.near || distance > CHASE_VIEW.far) continue
+    const cos = (dx * headingX + dz * headingZ) / (distance * length)
+    // The tower shows once any of its width is inside the cone, so widen the cone by its half-angle.
+    const reach = CHASE_VIEW.halfAngle + Math.asin(Math.min(1, tower.radius / distance))
+    if (Math.acos(Math.max(-1, Math.min(1, cos))) <= reach) count++
+  }
+  return count
+}
+
+/**
  * How deep a point sits inside a heap: 0 at its core, 1 at its surface, above 1 outside (and
  * `Infinity` below its flat base). `dx, dy, dz` are the point minus the heap's base centre, in m.
  * The heap is treated as a half-ellipsoid a little inside the mesh, so "inside" means visibly in.

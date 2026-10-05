@@ -11,15 +11,22 @@ import {
   cloudBand,
   cloudGateLayout,
   CUMULUS_CONFIG,
+  CUMULUS_TOWERS,
   cumulusLayout,
+  cumulusTowerLayout,
   heapDepth,
   HEAP_TRIANGLES,
   insertNearest,
   pushAmount,
   STRATUS_CONFIG,
   stratusLayout,
+  TOWER_HEAPS,
+  towersInView,
   veilOpacity,
 } from './cloudMath'
+import { getLandmarks, LANDMARK_CONFIG } from './landmarks'
+import { ROUTE } from './route'
+import { townSite } from './sea'
 import { TERRAIN_CONFIG } from './terrainConfig'
 
 type Vec3 = [number, number, number]
@@ -306,3 +313,89 @@ describe('insertNearest', () => {
     expect(Array.from(indices.slice(0, 2))).toEqual([2, 4])
   })
 })
+
+describe('cumulus towers (#234)', () => {
+  const period = TERRAIN_CONFIG.worldPeriod
+  const town = townSite(TERRAIN_CONFIG)
+  const sea = TERRAIN_CONFIG.massifs.sea
+
+  it('has 6 to 10 towers, 2 to 3 times the field’s largest heap, based 300 to 600 m up', () => {
+    expect(CUMULUS_TOWERS.length).toBeGreaterThanOrEqual(6)
+    expect(CUMULUS_TOWERS.length).toBeLessThanOrEqual(10)
+    for (const tower of CUMULUS_TOWERS) {
+      expect(tower.radius / CUMULUS_CONFIG.puffRadiusMax).toBeGreaterThanOrEqual(2)
+      expect(tower.radius / CUMULUS_CONFIG.puffRadiusMax).toBeLessThanOrEqual(3)
+      expect(tower.base).toBeGreaterThanOrEqual(300)
+      expect(tower.base).toBeLessThanOrEqual(600)
+    }
+  })
+
+  it('stands at least 3 towers over the sea, 2 to 6 km from the town', () => {
+    const over = CUMULUS_TOWERS.filter(
+      (t) =>
+        t.x >= sea.minX &&
+        t.x <= sea.maxX &&
+        t.z >= sea.minZ &&
+        t.z <= sea.maxZ &&
+        Math.hypot(t.x - town.x, t.z - town.z) >= 2000 &&
+        Math.hypot(t.x - town.x, t.z - town.z) <= 6000,
+    )
+    expect(over.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('lays out fixed heaps on the shared mesh, deterministically', () => {
+    const heaps = cumulusTowerLayout()
+    expect(heaps).toHaveLength(CUMULUS_TOWERS.length * TOWER_HEAPS)
+    expect(heaps).toEqual(cumulusTowerLayout())
+    for (const heap of heaps) expect(heap.fixed).toBe(true)
+  })
+
+  it('keeps 2 or 3 towers in the chase view at every route s', () => {
+    for (let s = 0; s < ROUTE.length; s += 25) {
+      const p = ROUTE.pointAt(s)
+      const t = ROUTE.tangentAt(s)
+      const count = towersInView(p.x, p.z, t.x, t.z, CUMULUS_TOWERS, period)
+      expect(count, `s ${s}`).toBeGreaterThanOrEqual(2)
+      expect(count, `s ${s}`).toBeLessThanOrEqual(3)
+    }
+  })
+
+  it('blocks no landmark sightline, the cloud gate or the route', () => {
+    const margin = 100
+    const sightlines = [
+      ...getLandmarks().map((l) => ({
+        from: ROUTE.pointAt(l.station - LANDMARK_CONFIG.revealDistance),
+        to: { x: l.x, z: l.z },
+      })),
+      { from: ROUTE.pointAt(5500 - 2300), to: town },
+    ]
+    const gate = ROUTE.pointAt(4900)
+    for (const tower of CUMULUS_TOWERS) {
+      const clear = tower.radius * 1.6 + margin
+      for (const { from, to } of sightlines) {
+        expect(segmentDistance(tower, from, to)).toBeGreaterThan(clear)
+      }
+      expect(Math.hypot(tower.x - gate.x, tower.z - gate.z)).toBeGreaterThan(clear)
+      // Off the route by the core's radius and a margin: the base is 300 m up, so a shoulder
+      // overhanging the valley edge is fine.
+      expect(Math.abs(ROUTE.nearest(tower.x, tower.z).lateral)).toBeGreaterThan(
+        tower.radius + margin,
+      )
+    }
+  })
+})
+
+/** m, distance from `p` to the segment a-b in the ground plane. */
+function segmentDistance(
+  p: { x: number; z: number },
+  a: { x: number; z: number },
+  b: { x: number; z: number },
+): number {
+  const dx = b.x - a.x
+  const dz = b.z - a.z
+  const u = Math.max(
+    0,
+    Math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / (dx * dx + dz * dz || 1)),
+  )
+  return Math.hypot(p.x - (a.x + u * dx), p.z - (a.z + u * dz))
+}
