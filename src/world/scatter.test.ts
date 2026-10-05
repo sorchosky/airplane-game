@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { heightAt } from './heightfield'
-import { FOLIAGE_MODEL_BUILDERS, triangleCount } from './models/foliage'
+import { buildCanopyBlob, FOLIAGE_MODEL_BUILDERS, triangleCount } from './models/foliage'
 import {
   cellsInRange,
   classifyGround,
@@ -11,7 +11,11 @@ import {
   groveAt,
   growth,
   isExcluded,
+  blobMayGrow,
+  canopyShare,
+  scatterBlobCell,
   scatterChunk,
+  selectBlobs,
   selectFoliage,
   type ChunkFoliage,
   type HeightSampler,
@@ -30,8 +34,13 @@ function allInstances(chunk: ChunkFoliage) {
 
 describe('scatterChunk', () => {
   it('is deterministic per chunk key', () => {
-    const a = scatterChunk(13, 15, config)
-    const b = scatterChunk(13, 15, config)
+    // The first chunk near the spawn that holds anything: the rest of them are meadow.
+    const cell = cellsInRange(1750, 2000, 600, f.foliageChunk).find(
+      (c) => allInstances(scatterChunk(c.x, c.z, config)).length > 0,
+    )
+    expect(cell).toBeDefined()
+    const a = scatterChunk(cell!.x, cell!.z, config)
+    const b = scatterChunk(cell!.x, cell!.z, config)
     expect(b).toEqual(a)
     expect(allInstances(a).length).toBeGreaterThan(0)
   })
@@ -99,6 +108,172 @@ describe('scatterChunk', () => {
     for (const instance of allInstances(chunk)) {
       expect(Math.hypot(instance.x - zone.x, instance.z - zone.z)).toBeGreaterThanOrEqual(50)
     }
+  })
+})
+
+describe('groves (#232)', () => {
+  // A 20 × 20 block of foliage chunks of flat grass, about 6.5 km².
+  const chunks: { cx: number; cz: number; foliage: ChunkFoliage }[] = []
+  for (let cz = 0; cz < 20; cz++) {
+    for (let cx = 0; cx < 20; cx++) {
+      chunks.push({ cx, cz, foliage: scatterChunk(cx, cz, config, [], meadow) })
+    }
+  }
+  const trees = chunks.flatMap(({ foliage }) => [...foliage.round, ...foliage.conifer])
+
+  it('puts at least 70% of the trees inside groves', () => {
+    const inGrove = trees.filter((t) => groveAt(t.x, t.z, config) >= f.groveLow)
+    expect(trees.length).toBeGreaterThan(500)
+    expect(inGrove.length / trees.length).toBeGreaterThanOrEqual(0.7)
+  })
+
+  it('leaves the meadows between groves under 5% of the old tree density', () => {
+    const pitch = f.foliageChunk / Math.round(f.foliageChunk / f.treeCell)
+    let meadowCells = 0
+    for (let j = 0; j < 20 * 8; j++) {
+      for (let i = 0; i < 20 * 8; i++) {
+        if (groveAt((i + 0.5) * pitch, (j + 0.5) * pitch, config) < f.groveLow) meadowCells++
+      }
+    }
+    const meadowTrees = trees.filter((t) => groveAt(t.x, t.z, config) < f.groveLow)
+    expect(meadowCells).toBeGreaterThan(5000)
+    // 0.24 is `treeDensity` before groves were clumped.
+    expect(meadowTrees.length / meadowCells).toBeLessThan(0.05 * 0.24)
+  })
+
+  it('keeps bushes out of deep meadow too', () => {
+    const deep = chunks
+      .flatMap(({ foliage }) => foliage.bush)
+      .filter((b) => groveAt(b.x, b.z, config) < f.groveLow - 0.12)
+    const cells = chunks.length * 64
+    expect(deep.length / cells).toBeLessThan(0.05 * 0.24)
+  })
+
+  it('has conifers dominate above the conifer line', () => {
+    const share = (height: number) => {
+      const set = cellsInRange(0, 0, 600, f.foliageChunk).map((c) =>
+        scatterChunk(c.x, c.z, config, [], () => height),
+      )
+      const conifer = set.reduce((n, c) => n + c.conifer.length, 0)
+      const round = set.reduce((n, c) => n + c.round.length, 0)
+      return conifer / Math.max(1, conifer + round)
+    }
+    expect(share((f.coniferLow + f.coniferHigh) / 2)).toBeGreaterThan(0.5)
+    expect(share(f.coniferHigh)).toBeGreaterThan(0.9)
+  })
+})
+
+describe('canopy blobs (#232)', () => {
+  const blobCells = (x: number, z: number, distance: number, exclusions: never[] = []) =>
+    cellsInRange(x, z, distance, f.blobCell).map((cell) =>
+      scatterBlobCell(cell.x, cell.z, config, exclusions),
+    )
+
+  it('switches from trees to blobs with no gap: trees are gone where blobs are full', () => {
+    expect(canopyShare(f.blobFadeIn, config)).toBe(0)
+    expect(canopyShare(f.foliageDistance, config)).toBe(1)
+    expect(distanceFalloff(f.foliageDistance, f.foliageFadeStart, f.foliageDistance)).toBe(0)
+    // Blobs are full from the trees' reach out to where they thin, then gone at `blobDistance`.
+    expect(canopyShare(f.blobFadeStart, config)).toBe(1)
+    expect(canopyShare(f.blobDistance, config)).toBe(0)
+    let last = 0
+    for (let d = f.blobFadeIn; d <= f.foliageDistance; d += 25) {
+      const share = canopyShare(d, config)
+      expect(share).toBeGreaterThanOrEqual(last)
+      last = share
+    }
+  })
+
+  it('pulls the switch in with the governor density, trees and blobs together', () => {
+    const reach = densityReach(0.5)
+    expect(canopyShare(f.blobFadeIn * reach, config, reach)).toBe(0)
+    expect(canopyShare(f.foliageDistance * reach, config, reach)).toBe(1)
+    expect(
+      distanceFalloff(f.foliageDistance * reach, f.foliageFadeStart, f.foliageDistance, reach),
+    ).toBe(0)
+  })
+
+  it('finds a blob in a grove, sized inside its limits, and none in the meadow', () => {
+    const found = blobCells(1750, 2000, f.blobDistance).flat()
+    expect(found.length).toBeGreaterThan(20)
+    for (const blob of found) {
+      expect(blob.radius).toBeGreaterThanOrEqual(f.blobRadiusMin)
+      expect(blob.radius).toBeLessThanOrEqual(f.blobRadiusMax)
+      expect(blob.keep).toBeGreaterThanOrEqual(0)
+      expect(blob.keep).toBeLessThan(1)
+    }
+    // At most one blob per cell, so a grove a few cells across is a few blobs.
+    for (const cell of blobCells(1750, 2000, f.blobDistance))
+      expect(cell.length).toBeLessThanOrEqual(1)
+    expect(scatterBlobCell(0, 0, config, [], () => config.waterLevel - 5)).toHaveLength(0)
+    const cliff: HeightSampler = (x) => config.waterLevel + 60 + x
+    expect(scatterBlobCell(0, 0, config, [], cliff)).toHaveLength(0)
+  })
+
+  it('is deterministic, repeats every world period and respects exclusions', () => {
+    const cell = cellsInRange(1750, 2000, f.blobDistance, f.blobCell).find(
+      (c) => scatterBlobCell(c.x, c.z, config).length > 0,
+    )!
+    const here = scatterBlobCell(cell.x, cell.z, config, [], meadow)
+    expect(scatterBlobCell(cell.x, cell.z, config, [], meadow)).toEqual(here)
+    const cells = config.worldPeriod / f.blobCell
+    const copy = scatterBlobCell(cell.x + cells, cell.z, config, [], meadow)
+    expect(copy).toHaveLength(here.length)
+    if (here[0] && copy[0]) {
+      expect(copy[0].x - here[0].x).toBeCloseTo(config.worldPeriod, 4)
+      expect(copy[0].keep).toBe(here[0].keep)
+      expect(copy[0].radius).toBeCloseTo(here[0].radius, 6)
+    }
+    const zone = {
+      x: cell.x * f.blobCell + f.blobCell / 2,
+      z: cell.z * f.blobCell + f.blobCell / 2,
+      radius: 2 * f.blobCell,
+    }
+    expect(scatterBlobCell(cell.x, cell.z, config, [zone], meadow)).toHaveLength(0)
+  })
+
+  it("draws no blobs inside the trees' reach and thins them at lower density", () => {
+    const x = 1750
+    const z = 2000
+    const cells = blobCells(x, z, f.blobDistance)
+    const full = selectBlobs(cells, x, z, 1, config)
+    expect(full.blobs.length).toBeGreaterThan(20)
+    const nearest = Math.min(...full.blobs.map((b) => Math.hypot(b.x - x, b.z - z)))
+    expect(nearest).toBeGreaterThan(f.blobFadeIn - f.foliageChunk * 1.5)
+    expect(full.outlined).toBeLessThanOrEqual(full.blobs.length)
+    expect(selectBlobs(cells, x, z, 0.3, config).blobs.length).toBeLessThan(full.blobs.length)
+  })
+
+  it('keeps a blob that can only grow once the plane has moved off its nearest point', () => {
+    // The share rises then falls, so a blob whose nearest distance is inside the fade-in can
+    // still be wanted when the plane sits farther out in its cell.
+    const keep = 0.2
+    expect(growth(canopyShare(f.blobFadeIn - 20, config), keep)).toBe(0)
+    expect(blobMayGrow(f.blobFadeIn - 20, keep, config, 1)).toBe(true)
+    expect(blobMayGrow(f.blobDistance + 50, keep, config, 1)).toBe(false)
+  })
+
+  it('stands on the ground: no ground under it pokes through the crown or hangs from the foot', () => {
+    const found = blobCells(1750, 2000, f.blobDistance).flat()
+    expect(found.length).toBeGreaterThan(20)
+    for (const blob of found) {
+      for (let k = 0; k < 8; k++) {
+        const a = (k * Math.PI) / 4
+        const ground = heightAt(
+          blob.x + Math.cos(a) * blob.radius * 0.7,
+          blob.z + Math.sin(a) * blob.radius * 0.7,
+          config,
+        )
+        expect(ground).toBeGreaterThanOrEqual(blob.y)
+        expect(ground).toBeLessThan(blob.y + blob.height)
+      }
+      // 3 m of foot under the lowest ground, 30 m of relief at most, a canopy's depth over it.
+      expect(blob.height).toBeLessThan(3 + f.blobRelief + 12 + f.blobRadiusMax * 0.12 + 0.01)
+    }
+  })
+
+  it('costs few triangles', () => {
+    expect(triangleCount(buildCanopyBlob().body)).toBeLessThanOrEqual(120)
   })
 })
 
