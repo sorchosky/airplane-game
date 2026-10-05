@@ -42,6 +42,7 @@ const CAPACITY: Record<FoliageKind, number> = {
   conifer: 3000,
   bush: 1000,
   boulder: 1000,
+  palm: 1500,
 }
 
 /** ms per frame spent scattering new chunks. */
@@ -65,8 +66,9 @@ function createVariant(kind: FoliageKind): Variant {
   const fadeEnd = foliageReach(kind, TERRAIN_CONFIG)
   const model = FOLIAGE_MODEL_BUILDERS[kind]()
   const capacity = CAPACITY[kind]
-  const bodyMaterial = createFoliageBodyMaterial(f.foliageFadeStart, fadeEnd)
-  const hullMaterial = createFoliageHullMaterial(f.foliageFadeStart, fadeEnd, f)
+  const sway = kind === 'palm'
+  const bodyMaterial = createFoliageBodyMaterial(f.foliageFadeStart, fadeEnd, sway)
+  const hullMaterial = createFoliageHullMaterial(f.foliageFadeStart, fadeEnd, f, sway)
   const body = new InstancedMesh(model.body, bodyMaterial, capacity)
   const hull = new InstancedMesh(model.hull, hullMaterial, capacity)
   // The hull draws the nearest instances of the same buffers: one upload feeds both meshes.
@@ -110,6 +112,8 @@ const position = new Vector3()
 const rotation = new Quaternion()
 const scale = new Vector3()
 const up = new Vector3(0, 1, 0)
+const forward = new Vector3(0, 0, 1)
+const tilt = new Quaternion()
 
 /** Writes a selection into a variant's buffers. Runs on rebuilds only, never per frame. */
 function upload(variant: Variant, instances: ChunkFoliage[FoliageKind], outlined: number): void {
@@ -120,6 +124,8 @@ function upload(variant: Variant, instances: ChunkFoliage[FoliageKind], outlined
     if (!instance) break
     position.set(instance.x, instance.y, instance.z)
     rotation.setFromAxisAngle(up, instance.yaw)
+    // A leaning palm: tilt about its own Z first, so its +X side goes down, then turn to face.
+    if (instance.lean) rotation.multiply(tilt.setFromAxisAngle(forward, -instance.lean))
     scale.setScalar(instance.scale)
     variant.body.setMatrixAt(i, matrix.compose(position, rotation, scale))
     keep[i] = instance.keep
@@ -163,6 +169,13 @@ export function Foliage() {
     [],
   )
   const frame = useMemo(() => new WrapFrame(), [])
+  // Palm sway (#235) stands still under reduced motion and at `?shot=`, so a capture repeats.
+  const swayStill = useMemo(
+    () =>
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    [],
+  )
   const state = useRef({
     /** Frame offset the uploaded buffers were written in: where the group is drawn. */
     drawX: 0,
@@ -212,6 +225,7 @@ export function Foliage() {
     const x = frame.localX(position.x)
     const z = frame.localZ(position.z)
     const density = useQualityStore.getState().foliageDensity
+    if (!swayStill && !activeShot()) foliageUniforms.foliageTime.value += delta
 
     // Uniforms: the plane, and the density eased toward the governor's (snapped for shots).
     foliageUniforms.foliageFocus.value[0] = x

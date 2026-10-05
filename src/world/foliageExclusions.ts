@@ -1,6 +1,7 @@
 import { getLandmarks } from './landmarks'
 import type { FoliageExclusion } from './scatter'
 import { townSite } from './sea'
+import { getResort } from './resort'
 import { getTown } from './town'
 import { TERRAIN_CONFIG } from './terrainConfig'
 
@@ -68,6 +69,8 @@ export function allFoliageExclusions(): readonly FoliageExclusion[] {
       landmark.footprints.map((f) => ({ x: f.x, z: f.z, radius: f.radius + LANDMARK_MARGIN })),
     ),
     ...townPadZone(),
+    // The island resort's lodge, boardwalk, bungalows and beach furniture (#235).
+    ...getResort().footprints.map((f) => ({ x: f.x, z: f.z, radius: f.radius + LANDMARK_MARGIN })),
   ]
   return snapshot.length === 0 ? landmarkZones : [...landmarkZones, ...snapshot]
 }

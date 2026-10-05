@@ -1,6 +1,7 @@
 import { createNoise4D, type NoiseFunction4D } from 'simplex-noise'
 import { chunkCoord, chunkKey } from './chunks'
 import { hashString, heightAt, mulberry32 } from './heightfield'
+import { islandPalmSites } from './islandPalms'
 import { seaKeepsClear } from './sea'
 import { smoothstep, terrainBandWeights } from './terrainColor'
 import type { TerrainConfig } from './terrainConfig'
@@ -40,7 +41,7 @@ export interface FoliageExclusion {
 
 export type Ground = 'water' | 'sand' | 'grass' | 'rock' | 'snow'
 
-export const FOLIAGE_KINDS = ['round', 'conifer', 'bush', 'boulder'] as const
+export const FOLIAGE_KINDS = ['round', 'conifer', 'bush', 'boulder', 'palm'] as const
 export type FoliageKind = (typeof FOLIAGE_KINDS)[number]
 
 /** One tree, bush or boulder. `y` is the ground height under it. */
@@ -54,6 +55,8 @@ export interface FoliageInstance {
   scale: number
   /** 0..1, compared against the distance share. Lower = survives thinning longer. */
   keep: number
+  /** Radians of tilt about the instance's own Z, leaning its +X side down (palms, #235) */
+  lean?: number
 }
 
 export type ChunkFoliage = Record<FoliageKind, FoliageInstance[]>
@@ -239,7 +242,7 @@ export function cellSeed(base: number, i: number, j: number): number {
 }
 
 function emptyChunk(): ChunkFoliage {
-  return { round: [], conifer: [], bush: [], boulder: [] }
+  return { round: [], conifer: [], bush: [], boulder: [], palm: [] }
 }
 
 /**
@@ -265,6 +268,7 @@ export function scatterChunk(
   const ground = new GroundPatch(minX, minZ, size, config, sample)
   const out = emptyChunk()
   const maxChance = Math.max(f.treeDensity + f.bushDensity * 4, f.boulderDensity)
+  plantPalms(out, minX, minZ, size, config, exclusions, sample)
 
   for (let j = 0; j < cells; j++) {
     for (let i = 0; i < cells; i++) {
@@ -314,6 +318,44 @@ export function scatterChunk(
     }
   }
   return out
+}
+
+/** Moves `value` by whole periods to the copy at or after `min`. */
+function periodAfter(value: number, min: number, period: number): number {
+  return min + ((((value - min) % period) + period) % period)
+}
+
+/**
+ * The island palms (#235) that stand in this chunk, at the copy of the world the chunk is in. The
+ * palms are a fixed list (`islandPalms.ts`), not a grid of candidates, so a chunk only asks
+ * which of them fall inside it.
+ */
+function plantPalms(
+  out: ChunkFoliage,
+  minX: number,
+  minZ: number,
+  size: number,
+  config: TerrainConfig,
+  exclusions: readonly FoliageExclusion[],
+  sample: HeightSampler,
+): void {
+  const period = config.worldPeriod
+  for (const palm of islandPalmSites(config, sample)) {
+    const x = periodAfter(palm.x, minX, period)
+    if (x >= minX + size) continue
+    const z = periodAfter(palm.z, minZ, period)
+    if (z >= minZ + size) continue
+    if (isExcluded(x, z, exclusions, period)) continue
+    out.palm.push({
+      x,
+      y: palm.y,
+      z,
+      yaw: palm.yaw,
+      scale: palm.scale,
+      keep: palm.keep,
+      lean: palm.lean,
+    })
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -405,7 +447,13 @@ export function selectFoliage(
   const f = config.foliage
   const reach = densityReach(density)
   const instances = emptyChunk()
-  const outlined: Record<FoliageKind, number> = { round: 0, conifer: 0, bush: 0, boulder: 0 }
+  const outlined: Record<FoliageKind, number> = {
+    round: 0,
+    conifer: 0,
+    bush: 0,
+    boulder: 0,
+    palm: 0,
+  }
   for (const kind of FOLIAGE_KINDS) {
     const end = foliageReach(kind, config)
     const share = (d: number) => distanceFalloff(d, f.foliageFadeStart, end, reach)

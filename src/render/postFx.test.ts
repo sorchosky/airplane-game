@@ -76,6 +76,7 @@ function frameColors(): Rgb[] {
     color.grassLight,
     color.grassShadow,
     color.sand,
+    color.sandTropical,
     color.rock,
     color.rockShadow,
     color.snow,

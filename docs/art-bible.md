@@ -112,6 +112,9 @@ Two changes to the token model, then the values.
 | `roof-slate` | `#456c74` | new | Town roofs, lighthouse cap (#224) |
 | `pier-grey` | `#8d8a83` | new | Weathered pier decking (#224) |
 | `window-glass` / `window-glow` | `#3c4d56` / `#ffb459` | new | Window panes by day, their emissive warmth from dusk (#224) |
+| `sand-tropical` | `#f2deaa` | new | Island beaches only, paler and warmer than `sand` (L* 90 against 81, under the cloud tops' 94) (#235) |
+| `thatch` / `thatch-dark` | `#c9a45e` / `#9a7440` | new | The resort's roofs and ridge caps (#235) |
+| `deck-plank` | `#a88a62` | new | Resort boardwalk, jetty, walls and loungers; its accent is the town's `roof-terracotta` (#235) |
 | `outline` | `#1f2a33` | `#2a2219` | Cool near-black, matches the blue shadows |
 | `plane-body` | `#f4efe3` | `#f1e7d4` | Cream |
 | `plane-stripe` | `#d8562b` | `#c2572f` | Saturated terracotta, pops on green and blue |

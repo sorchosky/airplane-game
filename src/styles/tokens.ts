@@ -19,6 +19,13 @@ export const color = {
   grassLight: '#93b352',
   grassShadow: '#567c3b',
   sand: '#d9c89c',
+  // Tropical islands (#235): paler and warmer than `sand` (L* 90 against 81), used only within the
+  // island radii; thatch for the resort's roofs, a warm weathered deck. The resort's accent is the
+  // town's `roofTerracotta`, so the two read as one world.
+  sandTropical: '#f2deaa',
+  thatch: '#c9a45e',
+  thatchDark: '#9a7440',
+  deckPlank: '#a88a62',
   rock: '#9b9486',
   rockShadow: '#6e685e',
   snow: '#f5f6f8',

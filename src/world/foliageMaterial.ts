@@ -22,6 +22,8 @@ export const foliageUniforms = {
   foliageFocus: { value: new Float32Array(2) },
   /** `densityReach` of the governor's foliage density, eased so a step never pops. */
   foliageReach: { value: 1 },
+  /** s, the palms' sway clock (#235). `Foliage` advances it, and not under reduced motion or `?shot=`. */
+  foliageTime: { value: 0 },
 }
 
 const glslFloat = (value: number) => value.toFixed(6)
@@ -44,10 +46,32 @@ float foliageHash(vec2 p) {
 }
 `
 
+// Palm sway (#235), in the vertex shader so there is no per-frame work in JS. A `foliageSway`
+// attribute (0 at the foot, 1 at the frond tips) scales a slow two-axis sway, with a quicker
+// flutter at the tips and a phase from the instance's place. Body and hull share it, so the
+// outline moves with the leaves.
+const SWAY_GLSL = /* glsl */ `
+attribute float foliageSway;
+uniform float foliageTime;
+
+vec3 foliageSwayed(vec3 p, vec3 origin) {
+  float phase = foliageHash(origin.xz) * 6.2831;
+  float t = foliageTime;
+  float slow = sin(t * 1.1 + phase);
+  float slowZ = cos(t * 0.8 + phase * 1.7);
+  float flutter = sin(t * 2.6 + phase * 3.0 + p.y * 0.7);
+  float w = foliageSway;
+  p.x += (slow * 0.45 + flutter * 0.1) * w;
+  p.z += (slowZ * 0.45 + flutter * 0.08) * w;
+  return p;
+}
+`
+
 function fadeUniforms(fadeStart: number, fadeEnd: number) {
   return {
     foliageFocus: foliageUniforms.foliageFocus,
     foliageReach: foliageUniforms.foliageReach,
+    foliageTime: foliageUniforms.foliageTime,
     foliageFadeStart: { value: fadeStart },
     foliageFadeEnd: { value: fadeEnd },
   }
@@ -58,7 +82,11 @@ function fadeUniforms(fadeStart: number, fadeEnd: number) {
  * a small per-instance value shift, and the grow/shrink fade. Needs a `foliageKeep` instanced
  * attribute beside `instanceMatrix`.
  */
-export function createFoliageBodyMaterial(fadeStart: number, fadeEnd: number): MeshToonMaterial {
+export function createFoliageBodyMaterial(
+  fadeStart: number,
+  fadeEnd: number,
+  sway = false,
+): MeshToonMaterial {
   const material = new MeshToonMaterial({
     color: new Color(1, 1, 1),
     vertexColors: true,
@@ -70,7 +98,7 @@ export function createFoliageBodyMaterial(fadeStart: number, fadeEnd: number): M
     shader.vertexShader = shader.vertexShader
       .replace(
         'void main() {',
-        `attribute float foliageKeep;\n${GROWTH_GLSL}\nvoid main() {\n  vec3 foliageOrigin = instanceMatrix[3].xyz;`,
+        `attribute float foliageKeep;\n${GROWTH_GLSL}\n${sway ? SWAY_GLSL : ''}\nvoid main() {\n  vec3 foliageOrigin = instanceMatrix[3].xyz;`,
       )
       .replace(
         '#include <color_vertex>',
@@ -78,14 +106,17 @@ export function createFoliageBodyMaterial(fadeStart: number, fadeEnd: number): M
       )
       .replace(
         '#include <begin_vertex>',
-        '#include <begin_vertex>\n  transformed *= foliageGrowth(foliageOrigin, foliageKeep, 1.0);',
+        `#include <begin_vertex>\n${
+          sway ? '  transformed = foliageSwayed(transformed, foliageOrigin);\n' : ''
+        }  transformed *= foliageGrowth(foliageOrigin, foliageKeep, 1.0);`,
       )
   }
-  material.customProgramCacheKey = () => 'foliage-body-no-rim'
+  material.customProgramCacheKey = () => (sway ? 'foliage-body-sway' : 'foliage-body-no-rim')
   return material
 }
 
-const HULL_VERTEX = /* glsl */ `
+function hullVertex(sway: boolean): string {
+  return /* glsl */ `
   #include <common>
   #include <fog_pars_vertex>
   #include <logdepthbuf_pars_vertex>
@@ -95,10 +126,12 @@ const HULL_VERTEX = /* glsl */ `
   uniform float viewportHeight;
   uniform float outlineDistance;
   ${GROWTH_GLSL}
+  ${sway ? SWAY_GLSL : ''}
   void main() {
     vec3 origin = instanceMatrix[3].xyz;
     float grow = foliageGrowth(origin, foliageKeep, 1.0);
-    vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4( position * grow, 1.0 );
+    vec3 local = ${sway ? 'foliageSwayed( position, origin )' : 'position'};
+    vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4( local * grow, 1.0 );
     // Transform the normal with the inverse transpose of the complete instance transform.
     // Using mat3(instanceMatrix) directly only works for uniform scales and can detach the
     // hull from a nonuniformly scaled body.
@@ -113,6 +146,7 @@ const HULL_VERTEX = /* glsl */ `
     #include <logdepthbuf_vertex>
     #include <fog_vertex>
   }`
+}
 
 /**
  * Inverted-hull outline for instanced foliage: the shared outline shader's look (`toon.ts`), plus
@@ -122,6 +156,7 @@ export function createFoliageHullMaterial(
   fadeStart: number,
   fadeEnd: number,
   config: FoliageConfig,
+  sway = false,
 ): ShaderMaterial {
   return new ShaderMaterial({
     uniforms: {
@@ -137,7 +172,7 @@ export function createFoliageHullMaterial(
       fogFar: { value: 2000 },
       fogDensity: { value: 0.00025 },
     },
-    vertexShader: HULL_VERTEX,
+    vertexShader: hullVertex(sway),
     fragmentShader: OUTLINE_FRAGMENT,
     side: BackSide,
     fog: true,

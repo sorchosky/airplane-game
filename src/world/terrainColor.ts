@@ -1,5 +1,7 @@
 import { color } from '../styles/tokens'
+import { seaIslands } from './sea'
 import { TERRAIN_CONFIG, type TerrainConfig } from './terrainConfig'
+import { wrapNear } from './torusNoise'
 
 // Pure mirror of the terrain shader's coloring (`terrainMaterial.ts`), so the band logic can be
 // unit tested. Keep the two in step: any change here needs the same change in the GLSL there.
@@ -32,6 +34,7 @@ export const TERRAIN_PALETTE = {
   grassLight: linearRgb(color.grassLight),
   grassShadow: linearRgb(color.grassShadow),
   sand: linearRgb(color.sand),
+  sandTropical: linearRgb(color.sandTropical),
   rock: linearRgb(color.rock),
   snow: linearRgb(color.snow),
   waterShallow: linearRgb(color.waterShallow),
@@ -47,11 +50,36 @@ function mix(a: Rgb, b: Rgb, t: number): Rgb {
   return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
 }
 
+/**
+ * 0..1, how far a point is on one of the sea's islands (#235): 1 inside an island's dry radius,
+ * easing to 0 over `bands.islandFade` m past it. Takes the island copy nearest the point, as the
+ * world wraps. The terrain shader's `terrainIsland` is the GLSL mirror.
+ */
+export function islandWeightAt(
+  x: number,
+  z: number,
+  config: TerrainConfig = TERRAIN_CONFIG,
+): number {
+  let weight = 0
+  for (const island of seaIslands(config)) {
+    const dx = wrapNear(x, island.x, config.worldPeriod) - island.x
+    const dz = wrapNear(z, island.z, config.worldPeriod) - island.z
+    const fade = config.bands.islandFade
+    weight = Math.max(
+      weight,
+      1 - smoothstep(island.maxRadius, island.maxRadius + fade, Math.hypot(dx, dz)),
+    )
+  }
+  return weight
+}
+
 /** How much of each band shows at a point, 0..1 each. Grass is whatever the others leave. */
 export interface TerrainBandWeights {
   /** 0 = `grass-light`, up to `grassVariation` toward `grass-shadow` */
   grassShade: number
   sand: number
+  /** 0..1, how far the point is on an island: the sand is `sandTropical` by this much */
+  island: number
   rock: number
   snow: number
   /** 0 above the water; up to `underwaterTint` below it */
@@ -63,21 +91,26 @@ export interface TerrainBandWeights {
 /**
  * Band weights at a point. `height` in m, `slope` = `1 - normal.y` (0 flat .. 1 vertical),
  * `noise` a smooth noise in -1..1 (the shader samples it at the pixel's world position).
+ * `island` (0..1, `islandWeightAt`) moves the sand line to the tropical beach.
  */
 export function terrainBandWeights(
   height: number,
   slope: number,
   noise: number,
   config: TerrainConfig = TERRAIN_CONFIG,
+  island = 0,
 ): TerrainBandWeights {
   const b = config.bands
-  const sandLine = config.waterLevel + b.sandHeight + noise * b.sandJitter
+  const sandHeight = b.sandHeight + (b.islandSandHeight - b.sandHeight) * island
+  const sandJitter = b.sandJitter + (b.islandSandJitter - b.sandJitter) * island
+  const sandLine = config.waterLevel + sandHeight + noise * sandJitter
   const snowLine = b.snowHeight + noise * b.snowJitter
   const jitteredSlope = slope + noise * b.slopeJitter
   const depth = config.waterLevel - height
   return {
     grassShade: b.grassVariation * (0.5 - 0.5 * noise),
     sand: 1 - smoothstep(sandLine - b.sandBlend, sandLine + b.sandBlend, height),
+    island,
     rock: smoothstep(b.rockSlope - b.rockBlend, b.rockSlope + b.rockBlend, jitteredSlope),
     snow:
       smoothstep(snowLine - b.snowBlend, snowLine + b.snowBlend, height) *
@@ -170,8 +203,9 @@ export function terrainColorAt(
   noise: number,
   config: TerrainConfig = TERRAIN_CONFIG,
   surface?: TerrainSurface,
+  island = 0,
 ): Rgb {
-  const w = terrainBandWeights(height, slope, noise, config)
+  const w = terrainBandWeights(height, slope, noise, config, island)
   const p = TERRAIN_PALETTE
   const b = config.bands
   let grass = mix(p.grassLight, p.grassShadow, w.grassShade)
@@ -184,7 +218,7 @@ export function terrainColorAt(
       1 + surface.macroValue * b.macroValue,
     )
   }
-  let c = mix(grass, p.sand, w.sand)
+  let c = mix(grass, mix(p.sand, p.sandTropical, w.island), w.sand)
   c = mix(c, p.rock, w.rock)
   c = mix(c, p.snow, w.snow)
   if (surface) {

@@ -1,5 +1,6 @@
 import { MeshToonMaterial } from 'three'
 import { getToonGradientMap } from '../render/toon'
+import { seaIslands } from './sea'
 import { SUN_TINT_AWAY, SUN_TINT_TOWARD, TERRAIN_PALETTE, type Rgb } from './terrainColor'
 import type { TerrainConfig } from './terrainConfig'
 import { waterTimeUniform } from './waterShader'
@@ -63,6 +64,19 @@ const NO_WRAP = 65536
 const FOAM_FADE_START = 400
 const FOAM_FADE_END = 1500
 
+/** GLSL for `terrainIsland`'s body: one wrapped distance per island, unrolled. */
+function islandGlsl(config: TerrainConfig): string {
+  const period = float(config.worldPeriod)
+  return seaIslands(config)
+    .map(
+      (island) =>
+        `  d = xz - vec2(${float(island.x)}, ${float(island.z)});
+  d -= ${period} * floor(d / ${period} + 0.5);
+  w = max(w, 1.0 - smoothstep(${float(island.maxRadius)}, ${float(island.maxRadius + config.bands.islandFade)}, length(d)));`,
+    )
+    .join('\n')
+}
+
 export function terrainColorGlsl(config: TerrainConfig): string {
   const b = config.bands
   const p = TERRAIN_PALETTE
@@ -75,12 +89,22 @@ export function terrainColorGlsl(config: TerrainConfig): string {
 const vec3 TERRAIN_GRASS_LIGHT = ${vec3(p.grassLight)};
 const vec3 TERRAIN_GRASS_SHADOW = ${vec3(p.grassShadow)};
 const vec3 TERRAIN_SAND = ${vec3(p.sand)};
+const vec3 TERRAIN_SAND_TROPICAL = ${vec3(p.sandTropical)};
 const vec3 TERRAIN_ROCK = ${vec3(p.rock)};
 const vec3 TERRAIN_SNOW = ${vec3(p.snow)};
 const vec3 TERRAIN_WATER_SHALLOW = ${vec3(p.waterShallow)};
 const vec3 TERRAIN_WATER_DEEP = ${vec3(p.waterDeep)};
 const float TERRAIN_WATER_LEVEL = ${float(config.waterLevel)};
 const vec3 TERRAIN_LUMA = vec3(0.2126, 0.7152, 0.0722);
+
+// 0..1, how far a point is on one of the sea's islands (#235); mirrors \`islandWeightAt\`. Each
+// island is taken at its copy nearest the point, as the world wraps.
+float terrainIsland(vec2 xz) {
+  float w = 0.0;
+  vec2 d;
+${islandGlsl(config)}
+  return w;
+}
 
 // Hash and value noise. Smooth, -1..1, cheap enough to run per pixel.
 float terrainHash(vec2 p) {
@@ -147,9 +171,10 @@ vec3 terrainRotateHue(vec3 c, float degrees) {
 vec3 terrainColor(
   float height, float slope, float noise,
   float macro, float macroValue, float brush, float detailCoverage, float distance,
-  float sunFacing, vec3 ambientSky
+  float sunFacing, vec3 ambientSky, float island
 ) {
-  float sandLine = TERRAIN_WATER_LEVEL + ${float(b.sandHeight)} + noise * ${float(b.sandJitter)};
+  float sandLine = TERRAIN_WATER_LEVEL + mix(${float(b.sandHeight)}, ${float(b.islandSandHeight)}, island)
+    + noise * mix(${float(b.sandJitter)}, ${float(b.islandSandJitter)}, island);
   float snowLine = ${float(b.snowHeight)} + noise * ${float(b.snowJitter)};
   float jitteredSlope = slope + noise * ${float(b.slopeJitter)};
   float depth = TERRAIN_WATER_LEVEL - height;
@@ -172,7 +197,7 @@ vec3 terrainColor(
   grass = mix(grass, mix(TERRAIN_GRASS_SHADOW, skyAtShadow, ${float(b.sunTintCool)}), away);
   grass = terrainRotateHue(grass, macro * ${float(b.macroHueDegrees)}) * (1.0 + macroValue * ${float(b.macroValue)});
 
-  vec3 c = mix(grass, TERRAIN_SAND, sand);
+  vec3 c = mix(grass, mix(TERRAIN_SAND, TERRAIN_SAND_TROPICAL, island), sand);
   c = mix(c, TERRAIN_ROCK, rock);
   c = mix(c, TERRAIN_SNOW, snow);
   float rockDetail = mix(brush, macro, ${float(b.rockMacroMix)});
@@ -241,7 +266,8 @@ function fragmentColor(config: TerrainConfig): string {
     terrainDetailCoverage,
     terrainDistance,
     dot(terrainNormal, atmoSunDir),
-    atmoAmbientSky
+    atmoAmbientSky,
+    terrainIsland(vTerrainWorld.xz)
   );
   float foam = terrainFoam(vTerrainWorld.y, terrainNoiseValue, uWaterTime, terrainDistance);
   diffuseColor.rgb = mix(diffuseColor.rgb, TERRAIN_SNOW, foam * 0.8);
