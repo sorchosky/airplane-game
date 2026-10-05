@@ -185,7 +185,10 @@ vec3 terrainColor(
   float snow = smoothstep(snowLine - ${float(b.snowBlend)}, snowLine + ${float(b.snowBlend)}, height)
     * (1.0 - smoothstep(${float(b.snowMaxSlope - b.rockBlend)}, ${float(b.snowMaxSlope + b.rockBlend)}, jitteredSlope));
   float water = ${float(b.underwaterTint)} * smoothstep(0.0, 1.0, depth);
-  float waterDepth = smoothstep(0.0, ${float(b.deepWaterDepth)}, depth);
+  // Two authored depth shelves: turquoise through the first 3 m, then deep blue. fwidth only
+  // softens the edge by about one pixel, so it stays stepped without aliasing in the distance.
+  float shelfEdge = max(fwidth(depth), 0.08);
+  float waterDepth = smoothstep(3.0 - shelfEdge, 3.0 + shelfEdge, depth);
 
   // Sun-facing grass leans to grass-light, grass turned away to a cool grass-shadow and sky mix.
   vec3 grass = mix(TERRAIN_GRASS_LIGHT, TERRAIN_GRASS_SHADOW, grassShade);
@@ -207,13 +210,14 @@ vec3 terrainColor(
   return mix(c, mix(TERRAIN_WATER_SHALLOW, TERRAIN_WATER_DEEP, waterDepth), water);
 }
 
-// Soft foam line hugging the shore just above the water. It breathes slowly with time, and the
-// noise staggers it so the whole coastline doesn't pulse in sync.
+// Soft foam line hugging the shore just above the water. Noise cuts small gaps through the band,
+// while a low floor preserves a continuous readable shoreline.
 float terrainFoam(float height, float noise, float time, float distance) {
   float above = height - TERRAIN_WATER_LEVEL;
   float reach = ${float(b.foamHeight)} * (0.75 + 0.25 * sin(time * 0.8 + noise * 6.0));
   float band = smoothstep(-0.15, 0.05, above) * (1.0 - smoothstep(reach * 0.6, reach, above));
-  return band * (1.0 - smoothstep(${float(FOAM_FADE_START)}, ${float(FOAM_FADE_END)}, distance));
+  float breakup = 0.28 + 0.72 * smoothstep(-0.35, 0.25, noise + 0.18 * sin(time * 0.55 + noise * 9.0));
+  return band * breakup * (1.0 - smoothstep(${float(FOAM_FADE_START)}, ${float(FOAM_FADE_END)}, distance));
 }
 `
 }

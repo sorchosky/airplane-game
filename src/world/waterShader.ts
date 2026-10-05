@@ -3,7 +3,8 @@ import { color } from '../styles/tokens'
 import { atmosphereUniforms } from './atmosphereUniforms'
 import { linearRgb, type Rgb } from './terrainColor'
 
-// Stylized water: one flat, slightly see-through surface with soft, slow color movement.
+// Stylized water: one flat, slightly see-through surface with slow color movement and hard toon
+// sparkles. Everything stays in this material, so the effect adds no passes or draws.
 //
 // How the animation works: a "ripple" value is built from two layers of smooth noise sampled at
 // the pixel's world position, each sliding in a different direction as `uWaterTime` grows. Where
@@ -75,10 +76,17 @@ float waterNoise(vec2 p) {
   ) * 2.0 - 1.0;
 }
 
-// Two drifting layers, -1..1.
+// Two drifting layers, -1..1. Their incommensurate scales keep open sea views from showing a
+// repeated tile, while their different directions prevent the flecks from moving as one sheet.
 float waterRipple(vec2 xz, float t) {
   return 0.6 * waterNoise(xz / 34.0 + t * vec2(0.05, 0.03))
     + 0.4 * waterNoise(xz / 13.0 + t * vec2(-0.04, 0.07));
+}
+
+float glintNoise(vec2 xz, float t) {
+  float broad = waterNoise(xz / 47.0 + t * vec2(0.075, -0.035));
+  float fine = waterNoise(xz / 6.5 + t * vec2(-0.11, 0.085));
+  return broad * 0.58 + fine * 0.42;
 }
 
 void main() {
@@ -99,9 +107,19 @@ void main() {
   vec3 water = mix(WATER_DEEP, WATER_SHALLOW, 0.35 + 0.45 * facing + 0.12 * r * detail);
   water *= mix(1.0, 0.46, atmoNight);
 
-  // Cel-style sun glint: a soft-edged band, not a sharp highlight.
-  float glint = smoothstep(0.93, 0.97, dot(reflect(-viewDir, normal), atmoSunDir));
-  water = mix(water, atmoSunLight, glint * (0.45 + 0.22 * atmoNight) * detail);
+  // Hard toon flecks inside the reflected-light path. Daylight has a broad sun trail. At night
+  // the higher reflection threshold leaves only a thin moon path and fewer, quieter flecks.
+  float reflection = dot(reflect(-viewDir, normal), atmoSunDir);
+  float path = mix(
+    smoothstep(0.86, 0.955, reflection),
+    smoothstep(0.975, 0.995, reflection),
+    atmoNight
+  );
+  float sparkle = step(mix(0.34, 0.52, atmoNight), glintNoise(vWaterWorld.xz, uWaterTime));
+  float glint = path * sparkle * detail * mix(0.88, 0.42, atmoNight);
+  // Above bloom threshold even on the uncomposed low tier, where these near-white flecks must read.
+  vec3 glintColor = mix(vec3(1.15), atmoSunLight * 1.35, 0.35);
+  water = mix(water, glintColor, glint);
 
   float alpha = mix(0.92, 0.6, facing);
   gl_FragColor = vec4(water, alpha);
