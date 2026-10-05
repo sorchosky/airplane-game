@@ -11,6 +11,7 @@ import {
   cloudGateLayout,
   CUMULUS_CONFIG,
   cumulusLayout,
+  cumulusTowerLayout,
   heapDepth,
   insertNearest,
   pushAmount,
@@ -45,7 +46,7 @@ const FIELD_ANCHOR = commonPeriod(CUMULUS_CONFIG.fieldSize, STRATUS_CONFIG.field
  */
 export function Clouds() {
   const puffs = useMemo(() => {
-    const field = cumulusLayout(CUMULUS_CONFIG)
+    const field = [...cumulusLayout(CUMULUS_CONFIG), ...cumulusTowerLayout()]
     const route = createGoldenPathRoute()
     const gate = route.gates[route.cloud]
     if (!gate) return field
