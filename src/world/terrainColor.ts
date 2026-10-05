@@ -83,7 +83,9 @@ export function terrainBandWeights(
       smoothstep(snowLine - b.snowBlend, snowLine + b.snowBlend, height) *
       (1 - smoothstep(b.snowMaxSlope - b.rockBlend, b.snowMaxSlope + b.rockBlend, jitteredSlope)),
     water: b.underwaterTint * smoothstep(0, 1, depth),
-    waterDepth: smoothstep(0, b.deepWaterDepth, depth),
+    // A narrow derivative-softened edge in the shader turns this into two readable shelves.
+    // Keep the pure mirror hard-edged so the authored 3 m boundary is straightforward to test.
+    waterDepth: depth >= 3 ? 1 : 0,
   }
 }
 

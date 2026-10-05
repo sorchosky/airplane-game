@@ -7,6 +7,7 @@ import {
   rotateHue,
   sunTintWeights,
   TERRAIN_PALETTE,
+  terrainBandWeights,
   terrainColorAt,
   type Rgb,
   type TerrainSurface,
@@ -87,7 +88,7 @@ describe('terrainColorAt', () => {
     expect(terrainColorAt(GRASS_HEIGHT, slope, -1, config)).not.toEqual(TERRAIN_PALETTE.rock)
   })
 
-  it('tints the lake bed from shallow to deep water color with depth', () => {
+  it('tints the lake bed in shallow and deep shelves split at 3 m', () => {
     const tint = b.underwaterTint
     const shallowBed = terrainColorAt(config.waterLevel - 1, FLAT, 0, config)
     const deepBed = terrainColorAt(config.waterLevel - b.deepWaterDepth, FLAT, 0, config)
@@ -95,6 +96,8 @@ describe('terrainColorAt', () => {
     expectColor(deepBed, deepExpected)
     // Shallow bed is lighter than deep bed.
     expect(shallowBed[1]).toBeGreaterThan(deepBed[1])
+    expect(terrainBandWeights(config.waterLevel - 2.99, FLAT, 0, config).waterDepth).toBe(0)
+    expect(terrainBandWeights(config.waterLevel - 3, FLAT, 0, config).waterDepth).toBe(1)
     // Above the water, no tint at all.
     expectColor(
       terrainColorAt(config.waterLevel + 0.01, FLAT, 0, config),

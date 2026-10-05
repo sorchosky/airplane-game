@@ -20,12 +20,16 @@ const WATER_SIZE = TERRAIN_CONFIG.viewDistance * 2.4
 export function Water() {
   const meshRef = useRef<Mesh>(null)
   const material = useMemo(() => createWaterMaterial(), [])
+  const freezeGlints = useMemo(
+    () => activeShot() !== null || window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    [],
+  )
 
   useEffect(() => () => material.dispose(), [material])
 
   useFrame((_state, delta) => {
-    // `?shot=` bookmarks freeze the ripples so a capture is repeatable.
-    if (!activeShot()) waterTimeUniform.value += delta
+    // Captures and reduced motion hold both ripples and sparkle noise still.
+    if (!freezeGlints) waterTimeUniform.value += delta
     const mesh = meshRef.current
     if (!mesh) return
     const { position } = useFlightStore.getState().state
